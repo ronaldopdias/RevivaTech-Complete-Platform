@@ -1,0 +1,653 @@
+/* 
+ * RevivaTech Mobile Optimizations v2.0
+ * Phase 6: Mobile-First PWA Enhancement
+ * Touch-optimized interfaces and mobile-first responsive design
+ */
+
+/* === MOBILE-FIRST FOUNDATION === */
+
+/* Touch target sizes (minimum 44px for accessibility) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Mobile breakpoints using container queries for better performance */
+@container (max-width: 768px) {
+  /* === ADMIN DASHBOARD MOBILE OPTIMIZATION === */
+  
+  .admin-dashboard {
+    /* Mobile-first layout adjustments */
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .admin-tabs {
+    /* Convert horizontal tabs to vertical mobile navigation */
+    flex-direction: column;
+    gap: 0.5rem;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid var(--color-surface-border);
+    padding: 0.75rem 1rem;
+    z-index: 50;
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  .admin-tabs-horizontal {
+    /* Horizontal scroll for secondary navigation */
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 4rem; /* Space for bottom navigation */
+  }
+  
+  .admin-tabs-horizontal::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .admin-tab {
+    /* Touch-optimized tab buttons */
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .admin-tab:active {
+    /* Touch feedback */
+    transform: scale(0.95);
+    background-color: var(--color-interactive-active);
+  }
+  
+  .admin-content {
+    /* Adjust for bottom navigation */
+    padding-bottom: 5rem;
+    min-height: calc(100vh - 5rem);
+  }
+}
+
+/* === COMPONENT SHOWCASE MOBILE OPTIMIZATION === */
+
+@media (max-width: 768px) {
+  .component-showcase {
+    /* Mobile-first grid layout */
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .component-card {
+    /* Touch-optimized component cards */
+    min-height: 120px;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-surface-border);
+    background: var(--color-surface-card);
+    transition: all 0.2s ease;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .component-card:active {
+    /* Touch feedback */
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .component-card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+  }
+  
+  .component-card-description {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--color-surface-muted-foreground);
+  }
+  
+  .component-search {
+    /* Mobile-optimized search */
+    width: 100%;
+    min-height: 48px;
+    padding: 1rem;
+    font-size: 16px; /* Prevent zoom on iOS */
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-surface-border);
+    background: var(--color-surface-input);
+  }
+  
+  .component-filter-tags {
+    /* Horizontal scroll for filter tags */
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding: 1rem 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .component-filter-tags::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .component-filter-tag {
+    /* Touch-optimized filter tags */
+    min-height: 36px;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    background: var(--color-accent-100);
+    color: var(--color-accent-800);
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .component-filter-tag.active {
+    background: var(--color-primary-500);
+    color: white;
+  }
+  
+  .component-filter-tag:active {
+    transform: scale(0.95);
+  }
+}
+
+/* === DESIGN SYSTEM DOCS MOBILE OPTIMIZATION === */
+
+@media (max-width: 768px) {
+  .design-system-docs {
+    /* Mobile-optimized documentation layout */
+    padding: 1rem;
+    font-size: 16px; /* Minimum readable size on mobile */
+    line-height: 1.6;
+  }
+  
+  .design-system-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    background: var(--color-surface-card);
+    border: 1px solid var(--color-surface-border);
+  }
+  
+  .design-system-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+  }
+  
+  .color-palette {
+    /* Mobile-optimized color palette */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+  
+  .color-swatch {
+    /* Touch-optimized color swatches */
+    min-height: 80px;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-surface-border);
+    position: relative;
+    overflow: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .color-swatch:active {
+    transform: scale(0.95);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .color-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+  
+  .typography-sample {
+    /* Mobile-optimized typography samples */
+    padding: 1rem;
+    margin: 0.75rem 0;
+    border-radius: 0.5rem;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-surface-border);
+  }
+  
+  .copy-to-clipboard {
+    /* Touch-optimized copy button */
+    min-height: 44px;
+    padding: 0.75rem 1rem;
+    background: var(--color-primary-500);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .copy-to-clipboard:active {
+    transform: scale(0.95);
+    background: var(--color-primary-600);
+  }
+}
+
+/* === MOBILE DASHBOARD STATS === */
+
+@media (max-width: 768px) {
+  .dashboard-stats {
+    /* Mobile-first stats grid */
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  
+  .stat-card {
+    /* Touch-optimized stat cards */
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    background: var(--color-surface-card);
+    border: 1px solid var(--color-surface-border);
+    text-align: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .stat-card:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  
+  .stat-label {
+    font-size: 0.875rem;
+    color: var(--color-surface-muted-foreground);
+    line-height: 1.3;
+  }
+}
+
+/* === MOBILE REPAIR QUEUE === */
+
+@media (max-width: 768px) {
+  .repair-queue {
+    /* Mobile-optimized queue layout */
+    padding: 1rem;
+  }
+  
+  .queue-item {
+    /* Touch-optimized queue items */
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0.75rem;
+    background: var(--color-surface-card);
+    border: 1px solid var(--color-surface-border);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .queue-item:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .queue-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  
+  .queue-item-title {
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+  
+  .queue-item-status {
+    /* Touch-optimized status badges */
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+  }
+  
+  .queue-item-details {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--color-surface-muted-foreground);
+  }
+}
+
+/* === MOBILE QUICK ACTIONS === */
+
+@media (max-width: 768px) {
+  .quick-actions {
+    /* Mobile-optimized action grid */
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  
+  .quick-action {
+    /* Touch-optimized action buttons */
+    min-height: 80px;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    background: var(--color-surface-card);
+    border: 1px solid var(--color-surface-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .quick-action:active {
+    transform: scale(0.95);
+    background: var(--color-interactive-active);
+  }
+  
+  .quick-action-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .quick-action-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+}
+
+/* === MOBILE RESPONSIVE UTILITIES === */
+
+@media (max-width: 768px) {
+  /* Hide on mobile */
+  .hidden-mobile {
+    display: none !important;
+  }
+  
+  /* Show only on mobile */
+  .mobile-only {
+    display: block !important;
+  }
+  
+  /* Mobile text sizes */
+  .text-mobile-xs { font-size: 0.75rem; }
+  .text-mobile-sm { font-size: 0.875rem; }
+  .text-mobile-base { font-size: 1rem; }
+  .text-mobile-lg { font-size: 1.125rem; }
+  .text-mobile-xl { font-size: 1.25rem; }
+  .text-mobile-2xl { font-size: 1.5rem; }
+  
+  /* Mobile spacing */
+  .p-mobile-1 { padding: 0.25rem; }
+  .p-mobile-2 { padding: 0.5rem; }
+  .p-mobile-3 { padding: 0.75rem; }
+  .p-mobile-4 { padding: 1rem; }
+  .p-mobile-6 { padding: 1.5rem; }
+  .p-mobile-8 { padding: 2rem; }
+  
+  .m-mobile-1 { margin: 0.25rem; }
+  .m-mobile-2 { margin: 0.5rem; }
+  .m-mobile-3 { margin: 0.75rem; }
+  .m-mobile-4 { margin: 1rem; }
+  .m-mobile-6 { margin: 1.5rem; }
+  .m-mobile-8 { margin: 2rem; }
+  
+  /* Mobile gaps */
+  .gap-mobile-1 { gap: 0.25rem; }
+  .gap-mobile-2 { gap: 0.5rem; }
+  .gap-mobile-3 { gap: 0.75rem; }
+  .gap-mobile-4 { gap: 1rem; }
+  .gap-mobile-6 { gap: 1.5rem; }
+  .gap-mobile-8 { gap: 2rem; }
+}
+
+/* === TOUCH GESTURES AND ANIMATIONS === */
+
+/* Smooth scrolling for mobile */
+@media (max-width: 768px) {
+  * {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Prevent overscroll bounce on iOS */
+  body {
+    overscroll-behavior: none;
+  }
+  
+  /* Optimize touch scrolling */
+  .touch-scroll {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Optimize for 60fps animations */
+  .smooth-animation {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  
+  /* Touch feedback for interactive elements */
+  .touch-feedback:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: all 0.1s ease;
+  }
+  
+  /* Swipe gesture indicators */
+  .swipe-indicator {
+    position: relative;
+  }
+  
+  .swipe-indicator::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--color-surface-border);
+    border-radius: 2px;
+  }
+}
+
+/* === MOBILE PWA OPTIMIZATIONS === */
+
+@media (max-width: 768px) {
+  /* PWA-specific mobile styles */
+  .pwa-app {
+    /* Full-screen mobile app experience */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  .mobile-header {
+    /* Mobile app header */
+    position: sticky;
+    top: 0;
+    background: var(--color-surface-background);
+    border-bottom: 1px solid var(--color-surface-border);
+    padding: 1rem;
+    z-index: 40;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  
+  .mobile-navigation {
+    /* Bottom navigation for mobile PWA */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--color-surface-background);
+    border-top: 1px solid var(--color-surface-border);
+    padding: env(safe-area-inset-bottom) 1rem 1rem;
+    z-index: 50;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  
+  .mobile-content {
+    /* Content area with proper spacing */
+    padding: 1rem;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    min-height: calc(100vh - 5rem);
+  }
+}
+
+/* === ACCESSIBILITY ENHANCEMENTS === */
+
+@media (max-width: 768px) {
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .component-card,
+    .stat-card,
+    .queue-item,
+    .quick-action {
+      border-width: 2px;
+      border-color: var(--color-neutral-900);
+    }
+  }
+  
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  
+  /* Focus indicators for keyboard navigation */
+  .focus-visible:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+  
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* === PERFORMANCE OPTIMIZATIONS === */
+
+@media (max-width: 768px) {
+  /* GPU acceleration for smooth animations */
+  .hardware-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  
+  /* Optimize repaints and reflows */
+  .optimize-rendering {
+    contain: layout style paint;
+  }
+  
+  /* Lazy loading placeholder styles */
+  .lazy-loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+  }
+  
+  @keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+/* === DARK MODE MOBILE OPTIMIZATIONS === */
+
+@media (max-width: 768px) and (prefers-color-scheme: dark) {
+  :root {
+    --color-surface-background: #0f0f10;
+    --color-surface-foreground: #ffffff;
+    --color-surface-card: #1f2937;
+    --color-surface-border: #374151;
+    --color-surface-muted: #1f2937;
+    --color-surface-muted-foreground: #9ca3af;
+  }
+  
+  .mobile-header,
+  .mobile-navigation {
+    background: var(--color-surface-background);
+    border-color: var(--color-surface-border);
+  }
+  
+  .component-card,
+  .stat-card,
+  .queue-item,
+  .quick-action {
+    background: var(--color-surface-card);
+    border-color: var(--color-surface-border);
+    color: var(--color-surface-foreground);
+  }
+}

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analytics WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .log { background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; max-height: 400px; overflow-y: auto; }
+        pre { margin: 0; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Analytics WebSocket Connection Test</h1>
+    <div id="status" class="status warning">Connecting...</div>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <button onclick="testSubscription()">Test Subscription</button>
+    <button onclick="clearLog()">Clear Log</button>
+    
+    <div id="log" class="log">
+        <pre id="logContent">Starting connection test...</pre>
+    </div>
+
+    <script>
+        let ws = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+        
+        function log(message) {
+            const logContent = document.getElementById('logContent');
+            const timestamp = new Date().toISOString().split('.')[0];
+            logContent.textContent += `\\n[${timestamp}] ${message}`;
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'warning') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('Already connected');
+                return;
+            }
+            
+            const wsUrl = 'ws://localhost:3011/api/analytics/ws';
+            log(`Connecting to: ${wsUrl}`);
+            updateStatus('Connecting...', 'warning');
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function(event) {
+                log('✅ WebSocket connected successfully');
+                updateStatus('Connected', 'success');
+                reconnectAttempts = 0;
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(`📥 Received: ${JSON.stringify(data, null, 2)}`);
+                    
+                    if (data.type === 'connection_established') {
+                        log('🔗 Connection established, sending subscription...');
+                        testSubscription();
+                    }
+                } catch (error) {
+                    log(`❌ Failed to parse message: ${error.message}`);
+                    log(`Raw message: ${event.data}`);
+                }
+            };
+            
+            ws.onclose = function(event) {
+                log(`🔌 WebSocket closed: ${event.code} - ${event.reason}`);
+                updateStatus('Disconnected', 'error');
+                
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    const delay = 1000 * reconnectAttempts;
+                    log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+                    setTimeout(connect, delay);
+                }
+            };
+            
+            ws.onerror = function(error) {
+                log(`❌ WebSocket error: ${error}`);
+                updateStatus('Connection Error', 'error');
+            };
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                updateStatus('Disconnected', 'warning');
+                log('🔌 Disconnected manually');
+            }
+        }
+        
+        function testSubscription() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket not connected');
+                return;
+            }
+            
+            const message = {
+                type: 'subscribe_realtime'
+            };
+            
+            log(`📤 Sending: ${JSON.stringify(message)}`);
+            ws.send(JSON.stringify(message));
+        }
+        
+        function clearLog() {
+            document.getElementById('logContent').textContent = 'Log cleared...';
+        }
+        
+        // Auto-connect on page load
+        window.onload = function() {
+            log('Page loaded, starting connection test...');
+            connect();
+        };
+        
+        // Send periodic ping
+        setInterval(function() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ping' }));
+                log('🏓 Sent ping');
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

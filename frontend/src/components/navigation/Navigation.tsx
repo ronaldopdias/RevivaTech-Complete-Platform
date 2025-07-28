@@ -1,0 +1,496 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
+import { Menu, X, Search, ChevronDown } from 'lucide-react';
+import { Slot, SlotProvider, WithSlotsProps } from '@/lib/components/slots';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import NavigationConfig from '../../../config/components/Navigation/config';
+
+// Navigation variants
+const navigationVariants = cva(
+  "w-full transition-all duration-200 ease-in-out z-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-background border-b border-border",
+        transparent: "bg-transparent",
+        solid: "bg-card shadow-sm",
+        bordered: "bg-background border border-border",
+        floating: "bg-background/80 backdrop-blur-md rounded-lg shadow-lg mx-4 mt-4",
+      },
+      position: {
+        static: "static",
+        sticky: "sticky top-0",
+        fixed: "fixed top-0 left-0 right-0",
+        absolute: "absolute top-0 left-0 right-0",
+      },
+      size: {
+        sm: "h-12",
+        md: "h-16",
+        lg: "h-20",
+      },
+      blurBackground: {
+        true: "backdrop-blur-sm bg-background/80",
+        false: "",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      position: "sticky",
+      size: "md",
+      blurBackground: false,
+    },
+  }
+);
+
+// Container variants
+const containerVariants = cva(
+  "h-full px-4 sm:px-6 lg:px-8",
+  {
+    variants: {
+      layout: {
+        horizontal: "flex items-center",
+        vertical: "flex flex-col justify-center",
+        mixed: "flex items-center lg:justify-between",
+      },
+      alignment: {
+        left: "justify-start",
+        center: "justify-center",
+        right: "justify-end",
+        between: "justify-between",
+        around: "justify-around",
+      },
+    },
+    defaultVariants: {
+      layout: "horizontal",
+      alignment: "between",
+    },
+  }
+);
+
+// Types
+export interface NavigationItem {
+  id: string;
+  label: string;
+  href?: string;
+  icon?: React.ComponentType<any>;
+  badge?: string | number;
+  children?: NavigationItem[];
+  external?: boolean;
+  disabled?: boolean;
+  active?: boolean;
+}
+
+export interface NavigationBrand {
+  logo?: {
+    src: string;
+    alt: string;
+    width?: number;
+    height?: number;
+  };
+  text?: string;
+  href?: string;
+}
+
+export interface NavigationAction {
+  id: string;
+  component: 'Button';
+  props: Record<string, any>;
+}
+
+export interface NavigationProps
+  extends Omit<React.HTMLAttributes<HTMLElement>, 'children'>,
+    VariantProps<typeof navigationVariants>,
+    WithSlotsProps {
+  layout?: 'horizontal' | 'vertical' | 'mixed';
+  alignment?: 'left' | 'center' | 'right' | 'between' | 'around';
+  brand?: NavigationBrand;
+  items?: NavigationItem[];
+  actions?: NavigationAction[];
+  mobileBreakpoint?: 'sm' | 'md' | 'lg' | 'xl';
+  showMobileMenu?: boolean;
+  stickyOnScroll?: boolean;
+  showSearch?: boolean;
+  searchPlaceholder?: string;
+  onItemClick?: (item: NavigationItem) => void;
+  onBrandClick?: () => void;
+  onSearch?: (query: string) => void;
+  composition?: 'slots' | 'props';
+}
+
+// Main Navigation component
+const NavigationComponent: React.FC<NavigationProps> = ({
+  variant,
+  position,
+  size,
+  blurBackground,
+  layout = 'horizontal',
+  alignment = 'between',
+  brand,
+  items = [],
+  actions = [],
+  mobileBreakpoint = 'lg',
+  showMobileMenu = true,
+  stickyOnScroll = false,
+  showSearch = false,
+  searchPlaceholder = 'Search...',
+  className,
+  onItemClick,
+  onBrandClick,
+  onSearch,
+  slots = {},
+  slotProps = {},
+  composition = 'props',
+  ...props
+}) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Handle scroll for sticky behavior
+  useEffect(() => {
+    if (!stickyOnScroll) return;
+
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [stickyOnScroll]);
+
+  // Handle search
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch?.(searchQuery);
+  };
+
+  // Toggle mobile menu
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Handle item click
+  const handleItemClick = (item: NavigationItem) => {
+    if (item.disabled) return;
+    onItemClick?.(item);
+    setIsMobileMenuOpen(false);
+  };
+
+  // Determine breakpoint classes
+  const breakpointClass = {
+    sm: 'sm:hidden',
+    md: 'md:hidden',
+    lg: 'lg:hidden',
+    xl: 'xl:hidden',
+  }[mobileBreakpoint];
+
+  if (composition === 'slots') {
+    return (
+      <SlotProvider initialSlots={slots}>
+        <nav
+          className={cn(
+            navigationVariants({
+              variant,
+              position,
+              size,
+              blurBackground: blurBackground || isScrolled,
+            }),
+            className
+          )}
+          {...props}
+        >
+          <div className={cn(containerVariants({ layout, alignment }))}>
+            {/* Brand slot */}
+            <Slot name="brand" className="flex-shrink-0" />
+
+            {/* Menu slot (desktop) */}
+            <Slot name="menu" className={cn("flex-1", breakpointClass ? `hidden ${breakpointClass.replace('hidden', 'flex')}` : '')} />
+
+            {/* Search slot */}
+            {showSearch && (
+              <Slot name="search" className="flex-shrink-0 mx-4" />
+            )}
+
+            {/* Actions slot */}
+            <Slot name="actions" className="flex-shrink-0" />
+
+            {/* Mobile menu button */}
+            {showMobileMenu && (
+              <button
+                type="button"
+                className={cn("p-2 rounded-md text-foreground hover:bg-accent", `${breakpointClass} flex`)}
+                onClick={toggleMobileMenu}
+                aria-label="Toggle mobile menu"
+              >
+                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            )}
+          </div>
+
+          {/* Mobile menu slot */}
+          {isMobileMenuOpen && (
+            <Slot name="mobileMenu" className={cn("border-t bg-background", breakpointClass)} />
+          )}
+
+          {/* Overlay slot */}
+          <Slot name="overlay" />
+        </nav>
+      </SlotProvider>
+    );
+  }
+
+  // Traditional props-based composition
+  return (
+    <nav
+      className={cn(
+        navigationVariants({
+          variant,
+          position,
+          size,
+          blurBackground: blurBackground || isScrolled,
+        }),
+        className
+      )}
+      {...props}
+    >
+      <div className={cn(containerVariants({ layout, alignment }))}>
+        {/* Brand */}
+        {brand && (
+          <div className="flex-shrink-0">
+            <Link
+              href={brand.href || '/'}
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+              onClick={onBrandClick}
+            >
+              {brand.logo && (
+                <img
+                  src={brand.logo.src}
+                  alt={brand.logo.alt}
+                  width={brand.logo.width || 32}
+                  height={brand.logo.height || 32}
+                  className="h-8 w-auto"
+                />
+              )}
+              {brand.text && (
+                <span className="font-bold text-lg text-foreground">
+                  {brand.text}
+                </span>
+              )}
+            </Link>
+          </div>
+        )}
+
+        {/* Desktop Menu */}
+        <div className={cn("flex-1 flex justify-center", `hidden ${mobileBreakpoint}:flex`)}>
+          <NavigationMenu items={items} onItemClick={handleItemClick} />
+        </div>
+
+        {/* Search */}
+        {showSearch && (
+          <div className="flex-shrink-0 mx-4">
+            <form onSubmit={handleSearch} className="relative">
+              <Input
+                type="search"
+                placeholder={searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-64"
+              />
+            </form>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex-shrink-0 flex items-center space-x-2">
+          {actions.map((action) => (
+            <Button key={action.id} {...action.props} />
+          ))}
+        </div>
+
+        {/* Mobile menu button */}
+        {showMobileMenu && (
+          <button
+            type="button"
+            className={cn("p-2 rounded-md text-foreground hover:bg-accent ml-2", `${mobileBreakpoint}:hidden`)}
+            onClick={toggleMobileMenu}
+            aria-label="Toggle mobile menu"
+          >
+            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        )}
+      </div>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className={cn("border-t bg-background", `${mobileBreakpoint}:hidden`)}>
+          <div className="px-4 py-6 space-y-1">
+            <NavigationMenu 
+              items={items} 
+              onItemClick={handleItemClick}
+              mobile
+            />
+            {/* Mobile actions */}
+            <div className="pt-4 space-y-2">
+              {actions.map((action) => (
+                <Button
+                  key={action.id}
+                  {...action.props}
+                  fullWidth
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+};
+
+// Navigation Menu component
+interface NavigationMenuProps {
+  items: NavigationItem[];
+  onItemClick?: (item: NavigationItem) => void;
+  mobile?: boolean;
+}
+
+const NavigationMenu: React.FC<NavigationMenuProps> = React.memo(({
+  items,
+  onItemClick,
+  mobile = false,
+}) => {
+  return (
+    <div className={cn(
+      mobile ? "space-y-1" : "flex items-center space-x-1"
+    )}>
+      {items.map((item) => (
+        <NavigationMenuItem
+          key={item.id}
+          item={item}
+          onItemClick={onItemClick}
+          mobile={mobile}
+        />
+      ))}
+    </div>
+  );
+});
+
+// Navigation Menu Item component
+interface NavigationMenuItemProps {
+  item: NavigationItem;
+  onItemClick?: (item: NavigationItem) => void;
+  mobile?: boolean;
+}
+
+const NavigationMenuItem: React.FC<NavigationMenuItemProps> = React.memo(({
+  item,
+  onItemClick,
+  mobile = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasChildren = item.children && item.children.length > 0;
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (hasChildren) {
+      e.preventDefault();
+      setIsOpen(!isOpen);
+    } else {
+      onItemClick?.(item);
+    }
+  };
+
+  const linkClasses = cn(
+    "relative px-3 py-2 rounded-md text-sm font-medium transition-colors",
+    "hover:bg-accent hover:text-accent-foreground",
+    "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+    item.active && "bg-accent text-accent-foreground",
+    item.disabled && "opacity-50 cursor-not-allowed pointer-events-none",
+    mobile && "block w-full text-left"
+  );
+
+  const content = (
+    <>
+      <span className="flex items-center space-x-2">
+        {item.icon && <item.icon className="h-4 w-4" />}
+        <span>{item.label}</span>
+        {item.badge && (
+          <span className="ml-2 px-2 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+            {item.badge}
+          </span>
+        )}
+        {hasChildren && <ChevronDown className="h-4 w-4 ml-1" />}
+      </span>
+    </>
+  );
+
+  if (item.href && !hasChildren) {
+    const LinkComponent = item.external ? 'a' : Link;
+    const linkProps = item.external
+      ? { href: item.href, target: '_blank', rel: 'noopener noreferrer' }
+      : { href: item.href };
+
+    return (
+      <LinkComponent
+        {...linkProps}
+        className={linkClasses}
+        onClick={handleClick}
+      >
+        {content}
+      </LinkComponent>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className={linkClasses}
+        onClick={handleClick}
+        aria-expanded={hasChildren ? isOpen : undefined}
+      >
+        {content}
+      </button>
+
+      {/* Dropdown menu */}
+      {hasChildren && isOpen && (
+        <div className={cn(
+          mobile
+            ? "ml-4 mt-2 space-y-1"
+            : "absolute top-full left-0 mt-1 w-48 bg-popover border border-border rounded-md shadow-lg z-50"
+        )}>
+          {!mobile && <div className="py-1">
+            {item.children!.map((child) => (
+              <NavigationMenuItem
+                key={child.id}
+                item={child}
+                onItemClick={onItemClick}
+                mobile={false}
+              />
+            ))}
+          </div>}
+          {mobile && item.children!.map((child) => (
+            <NavigationMenuItem
+              key={child.id}
+              item={child}
+              onItemClick={onItemClick}
+              mobile={true}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// Memoize Navigation component to prevent unnecessary re-renders
+export const Navigation = React.memo(NavigationComponent);
+
+Navigation.displayName = 'Navigation';
+
+export { navigationVariants, containerVariants };
+export const config = NavigationConfig;
+export default Navigation;

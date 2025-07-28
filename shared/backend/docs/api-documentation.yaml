@@ -1,0 +1,1612 @@
+openapi: 3.0.3
+info:
+  title: RevivaTech API
+  description: |
+    Comprehensive API for RevivaTech computer repair platform
+    
+    ## Authentication
+    Most endpoints require JWT authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Rate Limiting
+    - Authentication endpoints: 5 attempts per 15 minutes
+    - Registration endpoint: 3 attempts per hour
+    - General endpoints: 100 requests per 15 minutes per IP
+    
+    ## Error Handling
+    All errors follow standard HTTP status codes with descriptive messages:
+    - 400: Bad Request (validation errors)
+    - 401: Unauthorized (authentication required)
+    - 403: Forbidden (insufficient permissions)
+    - 404: Not Found
+    - 423: Locked (account temporarily locked)
+    - 429: Too Many Requests (rate limited)
+    - 500: Internal Server Error
+    
+  version: 2.0.0
+  contact:
+    name: RevivaTech API Support
+    url: https://revivatech.co.uk/api-support
+    email: api-support@revivatech.co.uk
+  license:
+    name: Proprietary
+    url: https://revivatech.co.uk/license
+    
+servers:
+  - url: http://localhost:3011
+    description: Development server
+  - url: https://api.revivatech.co.uk
+    description: Production server
+
+tags:
+  - name: System
+    description: System health and information endpoints
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Devices
+    description: Device catalog and management
+  - name: Pricing
+    description: Dynamic pricing and quotes
+  - name: Bookings
+    description: Repair booking management
+  - name: Data Recovery
+    description: Data recovery services
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+          description: User's email address
+        firstName:
+          type: string
+          description: User's first name
+        lastName:
+          type: string
+          description: User's last name
+        phone:
+          type: string
+          description: User's phone number
+        role:
+          type: string
+          enum: [CUSTOMER, TECHNICIAN, ADMIN, SUPER_ADMIN]
+          description: User's role in the system
+        isActive:
+          type: boolean
+          description: Whether the user account is active
+        isVerified:
+          type: boolean
+          description: Whether the user's email is verified
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+        lastLoginAt:
+          type: string
+          format: date-time
+          description: Last login timestamp
+          nullable: true
+          
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique device identifier
+        display_name:
+          type: string
+          description: Human-readable device name
+        model:
+          type: string
+          description: Device model number
+        year:
+          type: integer
+          minimum: 2016
+          maximum: 2025
+          description: Year of manufacture
+        slug:
+          type: string
+          description: URL-friendly identifier
+        image_url:
+          type: string
+          format: uri
+          description: Main product image URL
+        thumbnail_url:
+          type: string
+          format: uri
+          description: Thumbnail image URL
+        repairability_score:
+          type: number
+          minimum: 1
+          maximum: 10
+          description: Repairability score (1-10, higher is better)
+        popularity_score:
+          type: number
+          minimum: 0
+          description: Popularity score for ranking
+        average_repair_time:
+          type: integer
+          description: Average repair time in minutes
+        category_name:
+          type: string
+          description: Device category name
+        category_slug:
+          type: string
+          description: Category URL slug
+        brand_name:
+          type: string
+          description: Brand name
+        brand_slug:
+          type: string
+          description: Brand URL slug
+        common_issues_count:
+          type: integer
+          description: Number of documented common issues
+        avg_repair_cost:
+          type: number
+          description: Average repair cost in GBP
+          
+    DeviceIssue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Issue identifier
+        name:
+          type: string
+          description: Issue name
+        slug:
+          type: string
+          description: URL-friendly identifier
+        description:
+          type: string
+          description: Detailed issue description
+        category:
+          type: string
+          description: Issue category
+        symptoms:
+          type: array
+          items:
+            type: string
+          description: Common symptoms
+        difficulty_level:
+          type: string
+          enum: [easy, moderate, difficult, expert]
+          description: Repair difficulty level
+        icon:
+          type: string
+          description: Icon identifier
+        frequency:
+          type: string
+          enum: [very_common, common, uncommon, rare]
+          description: How common this issue is
+        estimated_cost_min:
+          type: number
+          description: Minimum estimated cost
+        estimated_cost_max:
+          type: number
+          description: Maximum estimated cost
+        repair_time_minutes:
+          type: integer
+          description: Estimated repair time in minutes
+        success_rate:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Repair success rate percentage
+          
+    Quote:
+      type: object
+      properties:
+        quote_id:
+          type: string
+          format: uuid
+          description: Unique quote identifier
+        device:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            brand:
+              type: string
+            category:
+              type: string
+            year:
+              type: integer
+            age_years:
+              type: integer
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              category:
+                type: string
+              difficulty:
+                type: string
+              base_cost:
+                type: number
+              time_minutes:
+                type: integer
+        pricing:
+          type: object
+          properties:
+            base_cost:
+              type: number
+              description: Base cost before adjustments
+            final_cost:
+              type: number
+              description: Final quoted price
+            currency:
+              type: string
+              default: GBP
+            adjustments:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  type:
+                    type: string
+                  adjustment:
+                    type: number
+                  method:
+                    type: string
+            savings:
+              type: number
+              description: Amount saved from discounts
+        timing:
+          type: object
+          properties:
+            estimated_hours:
+              type: integer
+            estimated_completion:
+              type: string
+              format: date-time
+            service_level:
+              type: string
+        validity:
+          type: object
+          properties:
+            valid_until:
+              type: string
+              format: date-time
+            generated_at:
+              type: string
+              format: date-time
+              
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: array
+          items:
+            type: object
+          description: Detailed validation errors
+          
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Validation failed"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              value:
+                type: string
+              msg:
+                type: string
+              path:
+                type: string
+              location:
+                type: string
+
+paths:
+  # System Endpoints
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check endpoint
+      description: Returns system health status including database and Redis connectivity
+      security: []
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: string
+                    example: connected
+                  redis:
+                    type: string
+                    example: connected
+                  version:
+                    type: string
+                    example: "2.0.0"
+        '500':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/info:
+    get:
+      tags:
+        - System
+      summary: API information
+      description: Returns basic API information and status
+      security: []
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: "RevivaTech New Platform API"
+                  version:
+                    type: string
+                    example: "2.0.0"
+                  environment:
+                    type: string
+                    example: "development"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  # Authentication Endpoints
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: |
+        Creates a new user account with email verification.
+        
+        **Rate Limited**: 3 attempts per hour per IP
+        
+        **Password Requirements**:
+        - Minimum 8 characters
+        - Must not be a commonly used password
+        - Must meet security strength requirements
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - firstName
+                - lastName
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "SecurePassword123!"
+                firstName:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  example: "John"
+                lastName:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  example: "Doe"
+                phone:
+                  type: string
+                  example: "+44 7123 456789"
+                role:
+                  type: string
+                  enum: [CUSTOMER, TECHNICIAN, ADMIN, SUPER_ADMIN]
+                  default: CUSTOMER
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Registration successful"
+                  user:
+                    $ref: '#/components/schemas/User'
+                  tokens:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        description: JWT access token (15 min expiry)
+                      refreshToken:
+                        type: string
+                        description: Refresh token (7 days expiry)
+                  emailVerificationRequired:
+                    type: boolean
+                    example: true
+        '400':
+          description: Validation error or weak password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      description: |
+        Authenticates a user and returns JWT tokens.
+        
+        **Rate Limited**: 5 attempts per 15 minutes per IP
+        
+        **Account Locking**: Account locks for 30 minutes after 5 failed attempts
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+                password:
+                  type: string
+                  example: "SecurePassword123!"
+                rememberMe:
+                  type: boolean
+                  default: false
+                  description: Extends refresh token to 30 days
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Login successful"
+                  user:
+                    $ref: '#/components/schemas/User'
+                  tokens:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+        '401':
+          description: Invalid credentials or account disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+                  attemptsRemaining:
+                    type: integer
+                    description: Remaining login attempts before lockout
+        '423':
+          description: Account temporarily locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Generate a new access token using a valid refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  description: Valid refresh token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Token refreshed successfully"
+                  tokens:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Invalidate user session and optionally all devices
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Specific token to invalidate (optional)
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logout successful"
+        '500':
+          description: Logout failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user profile
+      description: Returns the authenticated user's profile information
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: |
+        Sends a password reset link to the user's email.
+        
+        **Security**: Always returns success to prevent email enumeration
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+      responses:
+        '200':
+          description: Reset link sent (if account exists)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "If an account with this email exists, you will receive a password reset link shortly"
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+                
+  /api/auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password with token
+      description: Complete password reset using the token from email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - password
+              properties:
+                token:
+                  type: string
+                  description: Password reset token from email
+                password:
+                  type: string
+                  minLength: 8
+                  description: New password
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password reset successful. Please log in with your new password."
+        '400':
+          description: Invalid token or weak password
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationError'
+                  - type: object
+                    properties:
+                      error:
+                        type: string
+                        example: "Invalid or expired token"
+                      message:
+                        type: string
+
+  # Device Endpoints
+  /api/devices/search:
+    get:
+      tags:
+        - Devices
+      summary: Search devices
+      description: |
+        Search and filter devices with pagination and sorting options.
+        
+        **Sorting Options**:
+        - `popularity`: By popularity score (default)
+        - `year`: By year (newest first)
+        - `name`: Alphabetical by name
+        - `repairability`: By repairability score (highest first)
+      security: []
+      parameters:
+        - name: q
+          in: query
+          description: Search query (device name, model, brand, category)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: category
+          in: query
+          description: Filter by category slug
+          schema:
+            type: string
+        - name: brand
+          in: query
+          description: Filter by brand slug
+          schema:
+            type: string
+        - name: year_min
+          in: query
+          description: Minimum year filter
+          schema:
+            type: integer
+            minimum: 2016
+            maximum: 2025
+            default: 2016
+        - name: year_max
+          in: query
+          description: Maximum year filter
+          schema:
+            type: integer
+            minimum: 2016
+            maximum: 2025
+            default: 2025
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of results per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: sort
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [popularity, year, name, repairability]
+            default: popularity
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      pages:
+                        type: integer
+                  filters:
+                    type: object
+                    properties:
+                      query:
+                        type: string
+                      category:
+                        type: string
+                      brand:
+                        type: string
+                      year_range:
+                        type: array
+                        items:
+                          type: integer
+                      sort:
+                        type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/devices/{identifier}:
+    get:
+      tags:
+        - Devices
+      summary: Get device details
+      description: Get detailed information about a specific device by ID or slug
+      security: []
+      parameters:
+        - name: identifier
+          in: path
+          required: true
+          description: Device ID (UUID) or slug
+          schema:
+            type: string
+          example: "12345678-1234-1234-1234-123456789012"
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device:
+                    allOf:
+                      - $ref: '#/components/schemas/Device'
+                      - type: object
+                        properties:
+                          specifications:
+                            type: object
+                            description: Device technical specifications
+                          description:
+                            type: string
+                            description: Detailed device description
+                  common_issues:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceIssue'
+                  available_parts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        part_number:
+                          type: string
+                        category:
+                          type: string
+                        quality_grade:
+                          type: string
+                        warranty_months:
+                          type: integer
+                        unit_cost:
+                          type: number
+                        retail_price:
+                          type: number
+                        current_stock:
+                          type: integer
+                        is_stocked:
+                          type: boolean
+                  repair_info:
+                    type: object
+                    properties:
+                      average_time_minutes:
+                        type: integer
+                      repairability_score:
+                        type: number
+                      warranty_void_on_repair:
+                        type: boolean
+                      special_tools_required:
+                        type: array
+                        items:
+                          type: string
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/devices/meta/categories:
+    get:
+      tags:
+        - Devices
+      summary: Get device categories
+      description: Get all available device categories with device counts
+      security: []
+      responses:
+        '200':
+          description: Device categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                    slug:
+                      type: string
+                    description:
+                      type: string
+                    icon:
+                      type: string
+                    display_order:
+                      type: integer
+                    device_count:
+                      type: integer
+                      description: Number of devices in this category
+                      
+  /api/devices/meta/brands:
+    get:
+      tags:
+        - Devices
+      summary: Get device brands
+      description: Get all available device brands, optionally filtered by category
+      security: []
+      parameters:
+        - name: category
+          in: query
+          description: Filter brands by category slug
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device brands
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                    slug:
+                      type: string
+                    logo_url:
+                      type: string
+                      format: uri
+                    website:
+                      type: string
+                      format: uri
+                    device_count:
+                      type: integer
+                      
+  /api/devices/meta/popular:
+    get:
+      tags:
+        - Devices
+      summary: Get popular devices
+      description: Get most popular devices, optionally filtered by category
+      security: []
+      parameters:
+        - name: category
+          in: query
+          description: Filter by category slug
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of devices to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Popular devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    display_name:
+                      type: string
+                    slug:
+                      type: string
+                    year:
+                      type: integer
+                    thumbnail_url:
+                      type: string
+                      format: uri
+                    popularity_score:
+                      type: number
+                    repairability_score:
+                      type: number
+                    category_name:
+                      type: string
+                    brand_name:
+                      type: string
+                    avg_repair_cost:
+                      type: number
+                      
+  /api/devices/{deviceId}/quote:
+    post:
+      tags:
+        - Devices
+      summary: Calculate repair quote for device
+      description: |
+        Generate a detailed repair quote for specific device issues.
+        
+        **Service Types**:
+        - `standard`: Normal processing time (1.0x cost)
+        - `express`: Faster service (1.5x cost)
+        - `same_day`: Same day service (2.0x cost)
+      security: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          description: Device UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - issues
+              properties:
+                issues:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - id
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: Issue ID from device issues list
+                service_type:
+                  type: string
+                  enum: [standard, express, same_day]
+                  default: standard
+                priority:
+                  type: string
+                  enum: [low, medium, high, urgent]
+                  default: medium
+                customer_type:
+                  type: string
+                  enum: [individual, business, education]
+                  default: individual
+      responses:
+        '200':
+          description: Quote generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Pricing Endpoints
+  /api/pricing/simple:
+    post:
+      tags:
+        - Pricing
+      summary: Simple pricing calculation (legacy)
+      description: |
+        Legacy endpoint for simple pricing calculation.
+        
+        **Note**: Use `/api/pricing/calculate` for new implementations.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deviceModelId
+                - repairType
+              properties:
+                deviceModelId:
+                  type: string
+                  description: Device model identifier
+                repairType:
+                  type: string
+                  description: Type of repair needed
+                urgencyLevel:
+                  type: string
+                  enum: [LOW, STANDARD, HIGH, URGENT, EMERGENCY]
+                  default: STANDARD
+      responses:
+        '200':
+          description: Price calculated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  deviceInfo:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      year:
+                        type: integer
+                      category:
+                        type: string
+                  pricing:
+                    type: object
+                    properties:
+                      basePrice:
+                        type: number
+                      finalPrice:
+                        type: number
+                      breakdown:
+                        type: object
+                      currency:
+                        type: string
+                        default: GBP
+                  validity:
+                    type: object
+                    properties:
+                      validUntil:
+                        type: string
+                        format: date-time
+                      validityHours:
+                        type: integer
+                  repairDetails:
+                    type: object
+                  disclaimers:
+                    type: array
+                    items:
+                      type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                    
+  /api/pricing/calculate:
+    post:
+      tags:
+        - Pricing
+      summary: Enhanced quote calculation
+      description: Generate comprehensive repair quotes with advanced pricing rules
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - device_id
+                - issues
+              properties:
+                device_id:
+                  type: string
+                  format: uuid
+                  description: Device UUID
+                issues:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - id
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                service_type:
+                  type: string
+                  enum: [standard, express, same_day]
+                  default: standard
+                priority:
+                  type: string
+                  enum: [low, medium, high, urgent]
+                  default: medium
+                customer_type:
+                  type: string
+                  enum: [individual, business, education]
+                  default: individual
+      responses:
+        '200':
+          description: Quote calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /api/pricing/rules:
+    get:
+      tags:
+        - Pricing
+      summary: Get pricing rules
+      description: Get all active pricing rules (admin endpoint)
+      responses:
+        '200':
+          description: Pricing rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                    rule_type:
+                      type: string
+                    calculation_method:
+                      type: string
+                    percentage:
+                      type: number
+                    base_amount:
+                      type: number
+                    conditions:
+                      type: object
+                    priority:
+                      type: integer
+                    is_active:
+                      type: boolean
+                    notes:
+                      type: string
+                      
+  /api/pricing/compare:
+    post:
+      tags:
+        - Pricing
+      summary: Compare pricing across devices
+      description: Get price comparison for the same issue across multiple devices
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - device_ids
+                - issue_id
+              properties:
+                device_ids:
+                  type: array
+                  minItems: 2
+                  maxItems: 5
+                  items:
+                    type: string
+                    format: uuid
+                issue_id:
+                  type: string
+                  format: uuid
+                service_type:
+                  type: string
+                  enum: [standard, express, same_day]
+                  default: standard
+      responses:
+        '200':
+          description: Price comparison
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comparison:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        device_id:
+                          type: string
+                          format: uuid
+                        device_name:
+                          type: string
+                        brand:
+                          type: string
+                        final_cost:
+                          type: number
+                        estimated_hours:
+                          type: integer
+                        repairability_score:
+                          type: number
+                  best_value:
+                    type: object
+                    description: Device with lowest cost
+                  issue_id:
+                    type: string
+                    format: uuid
+                  service_type:
+                    type: string
+                  generated_at:
+                    type: string
+                    format: date-time
+
+  # Data Recovery Endpoints
+  /api/data-recovery/services:
+    get:
+      tags:
+        - Data Recovery
+      summary: Get data recovery services
+      description: Get available data recovery service types and pricing
+      security: []
+      responses:
+        '200':
+          description: Data recovery services
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        estimatedTime:
+                          type: string
+                        basePrice:
+                          type: number
+
+  # Booking Endpoints
+  /api/bookings:
+    post:
+      tags:
+        - Bookings
+      summary: Create new booking
+      description: Create a new repair or data recovery booking
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerInfo
+                - deviceAssessment
+                - serviceSelection
+              properties:
+                customerInfo:
+                  type: object
+                  required:
+                    - email
+                    - firstName
+                    - lastName
+                  properties:
+                    email:
+                      type: string
+                      format: email
+                    firstName:
+                      type: string
+                    lastName:
+                      type: string
+                    phone:
+                      type: string
+                deviceAssessment:
+                  type: object
+                  description: Device condition and issue assessment
+                serviceSelection:
+                  type: object
+                  description: Selected services and options
+                prioritization:
+                  type: object
+                  description: Service priority and urgency settings
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  bookingId:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create booking
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # WebSocket Events Documentation (informational)
+  /websocket-events:
+    get:
+      tags:
+        - System
+      summary: WebSocket Events Documentation
+      description: |
+        **WebSocket Endpoint**: `ws://localhost:3011` or `wss://api.revivatech.co.uk`
+        
+        **Authentication**: Required via JWT token in handshake
+        ```javascript
+        const socket = io('ws://localhost:3011', {
+          auth: {
+            token: 'your-jwt-token'
+          }
+        });
+        ```
+        
+        **Event Subscriptions**:
+        
+        ```javascript
+        // Subscribe to booking updates
+        socket.emit('subscribe:bookings');
+        
+        // Subscribe to pricing updates
+        socket.emit('subscribe:pricing');
+        
+        // Join chat room
+        socket.emit('join:chat', 'room-id');
+        ```
+        
+        **Received Events**:
+        
+        - `connected`: Welcome message with user info
+        - `booking:updated`: Real-time booking status updates
+        - `pricing:updated`: Live pricing changes
+        - `notification`: System notifications
+        
+        **User Rooms**:
+        
+        - `user:{userId}`: User-specific events
+        - `role:{role}`: Role-based events (ADMIN, TECHNICIAN, etc.)
+        - `admin`: Admin-only events
+        - `bookings:all`: All booking updates (staff only)
+        - `customer:{userId}:bookings`: Customer's booking updates
+        - `pricing:updates`: Pricing update notifications
+        
+        **Error Handling**:
+        
+        - Authentication failures result in connection rejection
+        - Room access is validated based on user role
+        - Customers can only access their own data rooms
+      security: []
+      responses:
+        '200':
+          description: WebSocket documentation (this endpoint is informational only)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "This endpoint is for documentation only. Use WebSocket connection for real-time features."

@@ -1,0 +1,314 @@
+locale: pt
+namespace: services
+
+content:
+  header:
+    title: "Nossos Serviços de Reparo"
+    subtitle: "Serviços de reparo profissionais para todos os seus dispositivos"
+    description: "Desde reparos de tela de MacBook até remoção de vírus de PC, cuidamos de todas as necessidades dos seus dispositivos com cuidado especializado, peças genuínas e garantias líderes da indústria."
+    
+  overview:
+    title: "Soluções Completas de Reparo de Dispositivos"
+    subtitle: "Reparos especializados para todas as principais marcas e tipos de dispositivos"
+    description: "Nossos técnicos certificados têm anos de experiência reparando dispositivos de todos os principais fabricantes. Usamos apenas peças genuínas ou de alta qualidade e garantimos cada reparo com nossa garantia de 90 dias."
+    
+  categories:
+    mac:
+      title: "Serviços de Reparo Mac"
+      description: "Serviços de reparo abrangentes para todos os dispositivos Apple Mac"
+      subtitle: "Reparos de MacBook, iMac, Mac Mini e Mac Pro"
+      
+    pc:
+      title: "Reparo de PC e Laptop"
+      description: "Serviços completos de reparo para PCs Windows e laptops"
+      subtitle: "Todas as marcas incluindo HP, Dell, Lenovo, ASUS e builds customizados"
+      
+    mobile:
+      title: "Reparo de Dispositivos Móveis"
+      description: "Serviços de reparo para iPhone, iPad e dispositivos Android"
+      subtitle: "Reparos de tela, substituição de bateria e mais"
+      
+    data:
+      title: "Recuperação de Dados"
+      description: "Recuperação profissional de dados de todos os dispositivos de armazenamento"
+      subtitle: "Discos rígidos, SSDs, cartões de memória e sistemas RAID"
+      
+  services:
+    # Mac Services
+    macbook_screen:
+      title: "Reparo de Tela MacBook"
+      description: "Substituição profissional de tela MacBook para todos os modelos de 2015 a 2024"
+      features:
+        - "Substituição de tela LCD e OLED"
+        - "Peças genuínas Apple e aftermarket de alta qualidade"
+        - "Calibração de cores e testes"
+        - "Serviço no mesmo dia disponível"
+      pricing:
+        from: 150
+        currency: "GBP"
+        
+    macbook_battery:
+      title: "Substituição de Bateria MacBook"
+      description: "Restaure a vida útil da bateria do seu MacBook com substituição de bateria genuína"
+      features:
+        - "Baterias genuínas Apple"
+        - "Diagnósticos de saúde da bateria"
+        - "Reset do contador de ciclos"
+        - "Garantia de 90 dias"
+      pricing:
+        from: 120
+        currency: "GBP"
+        
+    macbook_keyboard:
+      title: "Reparo de Teclado MacBook"
+      description: "Conserte teclas pegajosas, substitua teclados e repare o mecanismo butterfly"
+      features:
+        - "Substituição de teclas individuais"
+        - "Substituição completa do teclado"
+        - "Reparo do mecanismo butterfly"
+        - "Substituição de membrana"
+      pricing:
+        from: 80
+        currency: "GBP"
+        
+    macbook_logic_board:
+      title: "Reparo de Placa Lógica MacBook"
+      description: "Micro-solda e reparos em nível de componente para placas lógicas MacBook"
+      features:
+        - "Reparo de danos por líquidos"
+        - "Problemas de gerenciamento de energia"
+        - "Reparo de porta USB-C"
+        - "Substituição de componentes"
+      pricing:
+        from: 200
+        currency: "GBP"
+        
+    imac_screen:
+      title: "Reparo de Tela iMac"
+      description: "Substituição profissional de tela iMac para todos os tamanhos e modelos"
+      features:
+        - "Substituição de tela 21.5\" e 27\""
+        - "Reparo de display Retina"
+        - "Substituição de painel de vidro"
+        - "Reparo de backlight"
+      pricing:
+        from: 300
+        currency: "GBP"
+        
+    # PC Services
+    laptop_screen:
+      title: "Reparo de Tela Laptop"
+      description: "Substituição de tela para todas as marcas e modelos de laptop"
+      features:
+        - "Substituição de tela LCD e LED"
+        - "Reparo de tela touch"
+        - "Reparo de dobradiça"
+        - "Reparo de backlight"
+      pricing:
+        from: 100
+        currency: "GBP"
+        
+    laptop_keyboard:
+      title: "Reparo de Teclado Laptop"
+      description: "Substituição e reparo de teclado para todas as marcas de laptop"
+      features:
+        - "Substituição de teclas individuais"
+        - "Substituição completa do teclado"
+        - "Reparo de backlight"
+        - "Reparo de trackpad"
+      pricing:
+        from: 60
+        currency: "GBP"
+        
+    laptop_battery:
+      title: "Substituição de Bateria Laptop"
+      description: "Restaure a vida útil da bateria do seu laptop com baterias de substituição genuínas"
+      features:
+        - "Baterias genuínas do fabricante"
+        - "Calibração de bateria"
+        - "Teste de adaptador de energia"
+        - "Reparo de porta de carregamento"
+      pricing:
+        from: 80
+        currency: "GBP"
+        
+    pc_repair:
+      title: "Reparo de PC Desktop"
+      description: "Serviços completos de reparo e upgrade de PC desktop"
+      features:
+        - "Diagnósticos de hardware"
+        - "Substituição de componentes"
+        - "Upgrades de performance"
+        - "Serviços de build customizado"
+      pricing:
+        from: 50
+        currency: "GBP"
+        
+    virus_removal:
+      title: "Remoção de Vírus e Malware"
+      description: "Remoção completa de vírus e otimização do sistema"
+      features:
+        - "Detecção e remoção de malware"
+        - "Otimização do sistema"
+        - "Backup e recuperação de dados"
+        - "Instalação de software de segurança"
+      pricing:
+        from: 40
+        currency: "GBP"
+        
+    # Mobile Services
+    iphone_screen:
+      title: "Reparo de Tela iPhone"
+      description: "Substituição profissional de tela iPhone para todos os modelos"
+      features:
+        - "Telas de qualidade original"
+        - "Serviço no mesmo dia"
+        - "Avaliação de danos por água"
+        - "Restauração Touch ID/Face ID"
+      pricing:
+        from: 80
+        currency: "GBP"
+        
+    iphone_battery:
+      title: "Substituição de Bateria iPhone"
+      description: "Restaure a performance da bateria do seu iPhone"
+      features:
+        - "Baterias genuínas Apple"
+        - "Diagnósticos de saúde da bateria"
+        - "Serviço no mesmo dia"
+        - "Cobertura de garantia"
+      pricing:
+        from: 50
+        currency: "GBP"
+        
+    ipad_screen:
+      title: "Reparo de Tela iPad"
+      description: "Substituição e reparo profissional de tela iPad"
+      features:
+        - "Todos os modelos de iPad suportados"
+        - "Substituição de digitalizador"
+        - "Reparo do botão home"
+        - "Reparo de câmera"
+      pricing:
+        from: 120
+        currency: "GBP"
+        
+    android_repair:
+      title: "Reparo de Dispositivo Android"
+      description: "Serviços de reparo para Samsung, Google e outros dispositivos Android"
+      features:
+        - "Substituição de tela"
+        - "Substituição de bateria"
+        - "Reparo de porta de carregamento"
+        - "Reparo de câmera"
+      pricing:
+        from: 60
+        currency: "GBP"
+        
+    # Data Recovery Services
+    hdd_recovery:
+      title: "Recuperação de Dados de Disco Rígido"
+      description: "Recuperação profissional de dados de discos rígidos com falha"
+      features:
+        - "Recuperação de falha mecânica"
+        - "Reparo de erro lógico"
+        - "Recuperação em sala limpa"
+        - "Política sem dados, sem taxa"
+      pricing:
+        from: 150
+        currency: "GBP"
+        
+    ssd_recovery:
+      title: "Recuperação de Dados SSD"
+      description: "Recuperação avançada de dados de drives de estado sólido"
+      features:
+        - "Recuperação NAND flash"
+        - "Reparo de controlador"
+        - "Recuperação de criptografia"
+        - "Recuperação TRIM"
+      pricing:
+        from: 200
+        currency: "GBP"
+        
+    raid_recovery:
+      title: "Recuperação de Dados RAID"
+      description: "Serviços profissionais de recuperação de sistema RAID"
+      features:
+        - "Recuperação RAID 0, 1, 5, 6, 10"
+        - "Recuperação NAS"
+        - "Recuperação de servidor"
+        - "Continuidade de negócios"
+      pricing:
+        from: 300
+        currency: "GBP"
+        
+    memory_card_recovery:
+      title: "Recuperação de Cartão de Memória"
+      description: "Recuperação de dados de cartões SD, microSD e outros cartões de memória"
+      features:
+        - "Recuperação de fotos e vídeos"
+        - "Reparo de cartão corrompido"
+        - "Recuperação de cartão formatado"
+        - "Reparo de danos físicos"
+      pricing:
+        from: 80
+        currency: "GBP"
+        
+  process:
+    title: "Nosso Processo de Serviço"
+    subtitle: "Serviço profissional, transparente e confiável"
+    step1:
+      title: "Diagnóstico Gratuito"
+      description: "Avaliação abrangente do dispositivo e orçamento detalhado"
+      icon: "search"
+    step2:
+      title: "Reparo Especializado"
+      description: "Reparo profissional usando peças genuínas e técnicas da indústria"
+      icon: "wrench"
+    step3:
+      title: "Teste de Qualidade"
+      description: "Testes completos para garantir performance ótima"
+      icon: "check-circle"
+    step4:
+      title: "Cobertura de Garantia"
+      description: "Garantia de 90 dias em todos os reparos e peças"
+      icon: "shield"
+      
+  features:
+    title: "Por Que Escolher Nossos Serviços"
+    subtitle: "Serviços de reparo profissionais em que você pode confiar"
+    expert_technicians:
+      title: "Técnicos Especialistas"
+      description: "Profissionais certificados com anos de experiência"
+      icon: "user-check"
+    genuine_parts:
+      title: "Peças Genuínas"
+      description: "Apenas peças genuínas ou de alta qualidade"
+      icon: "star"
+    fast_turnaround:
+      title: "Retorno Rápido"
+      description: "Maioria dos reparos concluídos em 24-48 horas"
+      icon: "clock"
+    warranty:
+      title: "Garantia de 90 Dias"
+      description: "Garantia abrangente em todos os reparos"
+      icon: "shield"
+    transparent_pricing:
+      title: "Preços Transparentes"
+      description: "Sem taxas ocultas - preços antecipados"
+      icon: "eye"
+    data_security:
+      title: "Segurança de Dados"
+      description: "Sua privacidade e segurança de dados é nossa prioridade"
+      icon: "lock"
+      
+  cta:
+    title: "Pronto para Consertar Seu Dispositivo?"
+    description: "Não deixe um dispositivo quebrado te atrasar. Agende seu reparo hoje e volte ao que mais importa."
+    primaryAction: "Agendar Reparo Agora"
+    secondaryAction: "Obter Orçamento Gratuito"
+    benefits:
+      - "Diagnóstico gratuito"
+      - "Garantia de 90 dias"
+      - "Serviço no mesmo dia disponível"
+      - "Preços transparentes"

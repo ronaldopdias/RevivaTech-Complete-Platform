@@ -1,0 +1,96 @@
+@import "tailwindcss";
+@import "../styles/mobile-optimizations.css";
+@import "../styles/modules/design-tokens.css";
+@import "../styles/modules/animations.css";
+@import "../styles/modules/utilities.css";
+@import "../styles/modules/responsive.css";
+
+/* === ESSENTIAL BASE STYLES === */
+
+/* Base document styles */
+html {
+  font-family: var(--font-body);
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--color-surface-background);
+  color: var(--color-surface-foreground);
+  font-family: var(--font-body);
+  line-height: var(--leading-normal);
+  font-size: var(--text-base);
+}
+
+/* Remove default margins and improve consistency */
+* {
+  box-sizing: border-box;
+}
+
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Ensure images and media are responsive by default */
+img,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Remove default list styles */
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+/* Better focus handling */
+:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Dark mode support */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* High contrast support */
+@media (prefers-contrast: high) {
+  :root {
+    --color-surface-border: currentColor;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

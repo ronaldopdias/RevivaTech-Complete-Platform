@@ -1,0 +1,113 @@
+# Generate.mdc - Cursor Rules
+
+This file contains the rules for generating code and components for the Revivatech computer repair shop website.
+
+## Project Overview
+- Computer repair shop website with booking system
+- Multi-language support (English/Portuguese)
+- Device database from 2016-2025
+- Customer dashboard with real-time features
+- Admin dashboard with business intelligence
+- Chatwoot live chat messaging integration
+- Nordic design system (Apple-inspired aesthetics)
+- CRM integration capabilities
+
+## Code Generation Rules
+- Follow TypeScript strict mode
+- Use React 19 with Next.js 15
+- Implement configuration-driven architecture
+- Create configuration files before components
+- Use component registry pattern
+- No hardcoded values - everything configurable
+- Implement Tailwind CSS with design tokens
+- Use shadcn/ui with configuration wrappers
+- Apply Nordic Design System through theme config
+- All text must use content configuration
+- Maintain accessibility standards (WCAG 2.1 AA)
+- Support dark/light mode through theme configuration
+- Ensure mobile-first responsive design with breakpoint configs
+
+## Chat Development Guidelines
+- Use Chatwoot for customer support chat
+- Implement WebSocket for real-time messaging
+- Auto-authenticate logged-in customers
+- Support file uploads in chat conversations
+- Integrate chat context with repair history
+- Provide multi-language chat support (EN/PT)
+- Implement agent routing and availability status
+- Log all conversations to CRM system
+
+## Customer Dashboard Development
+- Implement JWT authentication with refresh tokens
+- Create real-time repair status tracking
+- Build Nordic-styled stats cards and components
+- Integrate WebSocket for live updates
+- Support quote approval workflow
+- Implement notification center
+- Ensure mobile-responsive dashboard
+- Cache dashboard data for performance
+
+## Component Library Standards
+- All components must extend base configurable component
+- Create configuration schema for each component
+- Support variant system through configuration
+- Implement slot-based composition
+- Generate TypeScript types from schemas
+- Create component documentation from config
+- Support dynamic prop validation
+- Enable runtime configuration updates
+
+## Nordic Design Implementation
+- Use theme configuration for all design tokens
+- Primary color from theme config (default: #007AFF)
+- Typography from theme.typography configuration
+- Spacing from theme.spacing scale
+- Effects from theme.effects configuration
+- Never hardcode design values
+- All styles through design token references
+- Responsive breakpoints from theme config
+- Dark/light modes through theme variants
+
+## Admin Dashboard Enhancements
+- Embed Chatwoot admin interface
+- Real-time conversation monitoring
+- Agent performance analytics
+- Business intelligence dashboards
+- Workflow automation features
+- Performance monitoring integration
+- Nordic design consistency
+- Mobile-optimized admin interface
+
+## API Integration Standards
+- Use service abstraction layer for all APIs
+- Define service interfaces before implementation
+- Configure endpoints in service config files
+- No hardcoded URLs or endpoints
+- RESTful API design with OpenAPI documentation
+- JWT authentication with role-based access
+- Rate limiting through configuration
+- Error handling with configurable responses
+- Metrics configuration for monitoring
+- WebSocket configuration for real-time features
+- CRM adapter pattern for integrations
+- Webhook configuration system
+
+## Security Requirements
+- JWT token rotation and validation
+- CORS configuration for cross-origin requests
+- Input validation with Zod schemas
+- SQL injection prevention
+- XSS protection
+- CSRF token implementation
+- Secure file upload handling
+- Rate limiting for API endpoints
+
+## Testing Guidelines
+- Unit tests for all API endpoints
+- Integration tests for chat functionality
+- Component testing for React components
+- E2E testing for critical user flows
+- Performance testing for real-time features
+- Security testing for authentication
+- Mobile testing across devices
+- Cross-browser compatibility testing

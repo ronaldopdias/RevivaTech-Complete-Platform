@@ -1,0 +1,314 @@
+locale: en
+namespace: services
+
+content:
+  header:
+    title: "Our Repair Services"
+    subtitle: "Professional repair services for all your devices"
+    description: "From MacBook screen repairs to PC virus removal, we handle all your device needs with expert care, genuine parts, and industry-leading warranties."
+    
+  overview:
+    title: "Complete Device Repair Solutions"
+    subtitle: "Expert repairs for all major brands and device types"
+    description: "Our certified technicians have years of experience repairing devices from all major manufacturers. We use only genuine or high-quality replacement parts and back every repair with our 90-day warranty."
+    
+  categories:
+    mac:
+      title: "Mac Repair Services"
+      description: "Comprehensive repair services for all Apple Mac devices"
+      subtitle: "MacBook, iMac, Mac Mini, and Mac Pro repairs"
+      
+    pc:
+      title: "PC & Laptop Repair"
+      description: "Complete repair services for Windows PCs and laptops"
+      subtitle: "All brands including HP, Dell, Lenovo, ASUS, and custom builds"
+      
+    mobile:
+      title: "Mobile Device Repair"
+      description: "iPhone, iPad, and Android device repair services"
+      subtitle: "Screen repairs, battery replacement, and more"
+      
+    data:
+      title: "Data Recovery"
+      description: "Professional data recovery from all storage devices"
+      subtitle: "Hard drives, SSDs, memory cards, and RAID systems"
+      
+  services:
+    # Mac Services
+    macbook_screen:
+      title: "MacBook Screen Repair"
+      description: "Professional MacBook screen replacement for all models from 2015 to 2024"
+      features:
+        - "LCD and OLED screen replacement"
+        - "Genuine Apple and high-quality aftermarket parts"
+        - "Color calibration and testing"
+        - "Same-day service available"
+      pricing:
+        from: 150
+        currency: "GBP"
+        
+    macbook_battery:
+      title: "MacBook Battery Replacement"
+      description: "Restore your MacBook's battery life with genuine battery replacement"
+      features:
+        - "Genuine Apple batteries"
+        - "Battery health diagnostics"
+        - "Cycle count reset"
+        - "90-day warranty"
+      pricing:
+        from: 120
+        currency: "GBP"
+        
+    macbook_keyboard:
+      title: "MacBook Keyboard Repair"
+      description: "Fix sticky keys, replace keyboards, and repair the butterfly mechanism"
+      features:
+        - "Individual key replacement"
+        - "Complete keyboard replacement"
+        - "Butterfly mechanism repair"
+        - "Membrane replacement"
+      pricing:
+        from: 80
+        currency: "GBP"
+        
+    macbook_logic_board:
+      title: "MacBook Logic Board Repair"
+      description: "Micro-soldering and component-level repairs for MacBook logic boards"
+      features:
+        - "Liquid damage repair"
+        - "Power management issues"
+        - "USB-C port repair"
+        - "Component replacement"
+      pricing:
+        from: 200
+        currency: "GBP"
+        
+    imac_screen:
+      title: "iMac Screen Repair"
+      description: "Professional iMac screen replacement for all sizes and models"
+      features:
+        - "21.5\" and 27\" screen replacement"
+        - "Retina display repair"
+        - "Glass panel replacement"
+        - "Backlight repair"
+      pricing:
+        from: 300
+        currency: "GBP"
+        
+    # PC Services
+    laptop_screen:
+      title: "Laptop Screen Repair"
+      description: "Screen replacement for all laptop brands and models"
+      features:
+        - "LCD and LED screen replacement"
+        - "Touch screen repair"
+        - "Hinge repair"
+        - "Backlight repair"
+      pricing:
+        from: 100
+        currency: "GBP"
+        
+    laptop_keyboard:
+      title: "Laptop Keyboard Repair"
+      description: "Keyboard replacement and repair for all laptop brands"
+      features:
+        - "Individual key replacement"
+        - "Complete keyboard replacement"
+        - "Backlight repair"
+        - "Trackpad repair"
+      pricing:
+        from: 60
+        currency: "GBP"
+        
+    laptop_battery:
+      title: "Laptop Battery Replacement"
+      description: "Restore your laptop's battery life with genuine replacement batteries"
+      features:
+        - "Genuine manufacturer batteries"
+        - "Battery calibration"
+        - "Power adapter testing"
+        - "Charging port repair"
+      pricing:
+        from: 80
+        currency: "GBP"
+        
+    pc_repair:
+      title: "Desktop PC Repair"
+      description: "Complete desktop PC repair and upgrade services"
+      features:
+        - "Hardware diagnostics"
+        - "Component replacement"
+        - "Performance upgrades"
+        - "Custom build services"
+      pricing:
+        from: 50
+        currency: "GBP"
+        
+    virus_removal:
+      title: "Virus & Malware Removal"
+      description: "Complete virus removal and system optimization"
+      features:
+        - "Malware detection and removal"
+        - "System optimization"
+        - "Data backup and recovery"
+        - "Security software installation"
+      pricing:
+        from: 40
+        currency: "GBP"
+        
+    # Mobile Services
+    iphone_screen:
+      title: "iPhone Screen Repair"
+      description: "Professional iPhone screen replacement for all models"
+      features:
+        - "Original quality screens"
+        - "Same-day service"
+        - "Water damage assessment"
+        - "Touch ID/Face ID restoration"
+      pricing:
+        from: 80
+        currency: "GBP"
+        
+    iphone_battery:
+      title: "iPhone Battery Replacement"
+      description: "Restore your iPhone's battery performance"
+      features:
+        - "Genuine Apple batteries"
+        - "Battery health diagnostics"
+        - "Same-day service"
+        - "Warranty coverage"
+      pricing:
+        from: 50
+        currency: "GBP"
+        
+    ipad_screen:
+      title: "iPad Screen Repair"
+      description: "Professional iPad screen replacement and repair"
+      features:
+        - "All iPad models supported"
+        - "Digitizer replacement"
+        - "Home button repair"
+        - "Camera repair"
+      pricing:
+        from: 120
+        currency: "GBP"
+        
+    android_repair:
+      title: "Android Device Repair"
+      description: "Repair services for Samsung, Google, and other Android devices"
+      features:
+        - "Screen replacement"
+        - "Battery replacement"
+        - "Charging port repair"
+        - "Camera repair"
+      pricing:
+        from: 60
+        currency: "GBP"
+        
+    # Data Recovery Services
+    hdd_recovery:
+      title: "Hard Drive Data Recovery"
+      description: "Professional data recovery from failed hard drives"
+      features:
+        - "Mechanical failure recovery"
+        - "Logical error repair"
+        - "Clean room recovery"
+        - "No-data, no-fee policy"
+      pricing:
+        from: 150
+        currency: "GBP"
+        
+    ssd_recovery:
+      title: "SSD Data Recovery"
+      description: "Advanced data recovery from solid-state drives"
+      features:
+        - "NAND flash recovery"
+        - "Controller repair"
+        - "Encryption recovery"
+        - "TRIM recovery"
+      pricing:
+        from: 200
+        currency: "GBP"
+        
+    raid_recovery:
+      title: "RAID Data Recovery"
+      description: "Professional RAID system recovery services"
+      features:
+        - "RAID 0, 1, 5, 6, 10 recovery"
+        - "NAS recovery"
+        - "Server recovery"
+        - "Business continuity"
+      pricing:
+        from: 300
+        currency: "GBP"
+        
+    memory_card_recovery:
+      title: "Memory Card Recovery"
+      description: "Data recovery from SD cards, microSD, and other memory cards"
+      features:
+        - "Photo and video recovery"
+        - "Corrupted card repair"
+        - "Formatted card recovery"
+        - "Physical damage repair"
+      pricing:
+        from: 80
+        currency: "GBP"
+        
+  process:
+    title: "Our Service Process"
+    subtitle: "Professional, transparent, and reliable service"
+    step1:
+      title: "Free Diagnosis"
+      description: "Comprehensive device assessment and detailed quote"
+      icon: "search"
+    step2:
+      title: "Expert Repair"
+      description: "Professional repair using genuine parts and industry techniques"
+      icon: "wrench"
+    step3:
+      title: "Quality Testing"
+      description: "Thorough testing to ensure optimal performance"
+      icon: "check-circle"
+    step4:
+      title: "Warranty Coverage"
+      description: "90-day warranty on all repairs and parts"
+      icon: "shield"
+      
+  features:
+    title: "Why Choose Our Services"
+    subtitle: "Professional repair services you can trust"
+    expert_technicians:
+      title: "Expert Technicians"
+      description: "Certified professionals with years of experience"
+      icon: "user-check"
+    genuine_parts:
+      title: "Genuine Parts"
+      description: "Only genuine or high-quality replacement parts"
+      icon: "star"
+    fast_turnaround:
+      title: "Fast Turnaround"
+      description: "Most repairs completed within 24-48 hours"
+      icon: "clock"
+    warranty:
+      title: "90-Day Warranty"
+      description: "Comprehensive warranty on all repairs"
+      icon: "shield"
+    transparent_pricing:
+      title: "Transparent Pricing"
+      description: "No hidden fees - upfront pricing"
+      icon: "eye"
+    data_security:
+      title: "Data Security"
+      description: "Your privacy and data security is our priority"
+      icon: "lock"
+      
+  cta:
+    title: "Ready to Get Your Device Repaired?"
+    description: "Don't let a broken device slow you down. Book your repair today and get back to what matters most."
+    primaryAction: "Book Repair Now"
+    secondaryAction: "Get Free Quote"
+    benefits:
+      - "Free diagnosis"
+      - "90-day warranty"
+      - "Same-day service available"
+      - "Transparent pricing"

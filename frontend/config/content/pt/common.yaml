@@ -1,0 +1,107 @@
+locale: pt
+namespace: common
+
+content:
+  navigation:
+    home: "Início"
+    services: "Serviços"
+    booking: "Agendar Reparo"
+    about: "Sobre"
+    contact: "Contato"
+    login: "Entrar"
+    dashboard: "Painel"
+    
+  footer:
+    company:
+      title: "RevivaTech"
+      description: "Serviços profissionais de reparo de computadores com cuidado especializado e peças genuínas."
+      
+    services:
+      title: "Serviços"
+      mac_repair: "Reparo Mac"
+      pc_repair: "Reparo PC"
+      data_recovery: "Recuperação de Dados"
+      mobile_repair: "Reparo Mobile"
+      
+    support:
+      title: "Suporte"
+      contact: "Entre em Contato"
+      book_repair: "Agendar Reparo"
+      track_repair: "Rastrear Reparo"
+      faq: "FAQ"
+      
+    legal:
+      title: "Legal"
+      privacy: "Política de Privacidade"
+      terms: "Termos de Serviço"
+      warranty: "Garantia"
+      returns: "Devoluções"
+      
+    contact:
+      title: "Informações de Contato"
+      address: "8 GodsHill Close, Bournemouth, BH8 0EJ"
+      phone: "+44 20 1234 5678"
+      email: "hello@revivatech.com"
+      hours: "Seg-Sex: 9h-18h"
+      
+    social:
+      title: "Nos Siga"
+      
+    newsletter:
+      title: "Mantenha-se Atualizado"
+      description: "Receba atualizações sobre dicas de reparo e ofertas especiais"
+      placeholder: "Digite seu email"
+      subscribe: "Inscrever"
+      
+    copyright: "© 2024 RevivaTech. Todos os direitos reservados."
+    
+  buttons:
+    book_now: "Agendar Agora"
+    learn_more: "Saiba Mais"
+    get_quote: "Obter Orçamento"
+    contact_us: "Entre em Contato"
+    view_all: "Ver Todos"
+    read_more: "Ler Mais"
+    get_started: "Começar"
+    try_again: "Tentar Novamente"
+    submit: "Enviar"
+    cancel: "Cancelar"
+    close: "Fechar"
+    next: "Próximo"
+    previous: "Anterior"
+    save: "Salvar"
+    edit: "Editar"
+    delete: "Excluir"
+    
+  status:
+    loading: "Carregando..."
+    error: "Erro"
+    success: "Sucesso"
+    pending: "Pendente"
+    completed: "Concluído"
+    failed: "Falhou"
+    
+  messages:
+    success: "Operação concluída com sucesso"
+    error: "Algo deu errado. Tente novamente."
+    not_found: "Página não encontrada"
+    unauthorized: "Você não está autorizado a acessar esta página"
+    server_error: "Erro do servidor. Tente novamente mais tarde."
+    
+  forms:
+    required: "Este campo é obrigatório"
+    invalid_email: "Por favor, digite um endereço de email válido"
+    invalid_phone: "Por favor, digite um número de telefone válido"
+    min_length: "O comprimento mínimo é {min} caracteres"
+    max_length: "O comprimento máximo é {max} caracteres"
+    
+  accessibility:
+    skip_to_content: "Pular para o conteúdo principal"
+    open_menu: "Abrir menu de navegação"
+    close_menu: "Fechar menu de navegação"
+    toggle_theme: "Alternar modo escuro"
+    
+  meta:
+    site_name: "RevivaTech"
+    default_title: "RevivaTech - Serviços Profissionais de Reparo de Computadores"
+    default_description: "Serviços especializados de reparo de computadores para Mac, PC e dispositivos móveis. Diagnóstico gratuito, garantia de 90 dias e serviço profissional em que você pode confiar."

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Test - Session Persistence</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .debug { background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #007cba; }
+        .success { border-left-color: #28a745; color: #155724; }
+        .error { border-left-color: #dc3545; color: #721c24; }
+        .warning { border-left-color: #ffc107; color: #856404; }
+        .step { margin: 20px 0; padding: 15px; background: #e9ecef; border-radius: 4px; }
+        button { background: #007cba; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .token-display { font-family: monospace; font-size: 12px; background: #f8f9fa; padding: 10px; border-radius: 4px; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 Admin Session Persistence Test</h1>
+        <p><strong>Purpose:</strong> Test if login session persists when navigating to admin pages</p>
+        
+        <div id="results"></div>
+        
+        <div class="step">
+            <h3>Step 1: Login</h3>
+            <button onclick="performLogin()">🔑 Login as Admin</button>
+            <div id="login-result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>Step 2: Check Stored Tokens</h3>
+            <button onclick="checkTokens()">🔍 Check localStorage Tokens</button>
+            <div id="token-result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>Step 3: Test Admin API Access</h3>
+            <button onclick="testAdminAPI()">🔧 Test Admin API</button>
+            <div id="api-result"></div>
+        </div>
+        
+        <div class="step">
+            <h3>Step 4: Navigate to Admin (Real Test)</h3>
+            <button onclick="navigateToAdmin()">🎯 Go to Admin Page</button>
+            <p><em>This will actually navigate away to test session persistence</em></p>
+        </div>
+        
+        <div class="step">
+            <h3>Debug Info</h3>
+            <button onclick="showDebugInfo()">🐛 Show Debug Info</button>
+            <div id="debug-result"></div>
+        </div>
+    </div>
+    
+    <script>
+        let currentTokens = null;
+        
+        function addResult(containerId, message, type = 'debug') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `debug ${type}`;
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+        
+        async function performLogin() {
+            addResult('login-result', '🔄 Attempting login...', 'warning');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@revivatech.co.uk',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentTokens = data.tokens;
+                    localStorage.setItem('revivatech_auth_tokens', JSON.stringify(data.tokens));
+                    localStorage.setItem('revivatech_auth_user', JSON.stringify(data.user));
+                    
+                    addResult('login-result', '✅ Login successful!', 'success');
+                    addResult('login-result', `👤 User: ${data.user.email} (${data.user.role})`, 'success');
+                    addResult('login-result', `🔑 Access Token: ${data.tokens.accessToken.substring(0, 50)}...`, 'success');
+                } else {
+                    addResult('login-result', `❌ Login failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                addResult('login-result', `❌ Login request failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkTokens() {
+            const tokens = localStorage.getItem('revivatech_auth_tokens');
+            const user = localStorage.getItem('revivatech_auth_user');
+            
+            if (tokens && user) {
+                const parsedTokens = JSON.parse(tokens);
+                const parsedUser = JSON.parse(user);
+                
+                addResult('token-result', '✅ Tokens found in localStorage', 'success');
+                addResult('token-result', `<div class="token-display">Tokens: ${JSON.stringify(parsedTokens, null, 2)}</div>`, 'success');
+                addResult('token-result', `<div class="token-display">User: ${JSON.stringify(parsedUser, null, 2)}</div>`, 'success');
+            } else {
+                addResult('token-result', '❌ No tokens found in localStorage', 'error');
+            }
+        }
+        
+        async function testAdminAPI() {
+            const tokens = localStorage.getItem('revivatech_auth_tokens');
+            
+            if (!tokens) {
+                addResult('api-result', '❌ No tokens available. Please login first.', 'error');
+                return;
+            }
+            
+            const parsedTokens = JSON.parse(tokens);
+            
+            try {
+                const response = await fetch('/api/auth/validate', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${parsedTokens.accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addResult('api-result', '✅ Admin API access successful', 'success');
+                    addResult('api-result', `👤 Validated user: ${data.user.email}`, 'success');
+                } else {
+                    addResult('api-result', `❌ Admin API failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                addResult('api-result', `❌ Admin API request failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function navigateToAdmin() {
+            const tokens = localStorage.getItem('revivatech_auth_tokens');
+            
+            if (!tokens) {
+                addResult('results', '❌ Please login first before navigating to admin', 'error');
+                return;
+            }
+            
+            addResult('results', '🔄 Navigating to admin page... Check if session persists!', 'warning');
+            
+            // Add a small delay to show the message
+            setTimeout(() => {
+                window.location.href = '/admin';
+            }, 1000);
+        }
+        
+        function showDebugInfo() {
+            const userAgent = navigator.userAgent;
+            const url = window.location.href;
+            const cookies = document.cookie;
+            
+            addResult('debug-result', `🌐 URL: ${url}`, 'debug');
+            addResult('debug-result', `🖥️ User Agent: ${userAgent}`, 'debug');
+            addResult('debug-result', `🍪 Cookies: ${cookies || 'None'}`, 'debug');
+            
+            // Check if service worker is active
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    if (registrations.length > 0) {
+                        addResult('debug-result', `⚙️ Service Workers: ${registrations.length} active`, 'warning');
+                        registrations.forEach((reg, index) => {
+                            addResult('debug-result', `SW${index}: ${reg.scope}`, 'warning');
+                        });
+                    } else {
+                        addResult('debug-result', '⚙️ No service workers active', 'debug');
+                    }
+                });
+            }
+        }
+        
+        // Auto-check on page load
+        window.onload = function() {
+            addResult('results', '🚀 Admin Session Test loaded', 'success');
+            addResult('results', '⏰ Test started at: ' + new Date().toISOString(), 'debug');
+            
+            // Auto-check if we already have tokens
+            const tokens = localStorage.getItem('revivatech_auth_tokens');
+            if (tokens) {
+                addResult('results', '✅ Existing tokens found in localStorage', 'success');
+            } else {
+                addResult('results', '⚠️ No existing tokens found', 'warning');
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+locale: en
+namespace: common
+
+content:
+  navigation:
+    home: "Home"
+    services: "Services"
+    booking: "Book Repair"
+    about: "About"
+    contact: "Contact"
+    login: "Login"
+    dashboard: "Dashboard"
+    
+  footer:
+    company:
+      title: "RevivaTech"
+      description: "Professional computer repair services with expert care and genuine parts."
+      
+    services:
+      title: "Services"
+      mac_repair: "Mac Repair"
+      pc_repair: "PC Repair"
+      data_recovery: "Data Recovery"
+      mobile_repair: "Mobile Repair"
+      
+    support:
+      title: "Support"
+      contact: "Contact Us"
+      book_repair: "Book Repair"
+      track_repair: "Track Repair"
+      faq: "FAQ"
+      
+    legal:
+      title: "Legal"
+      privacy: "Privacy Policy"
+      terms: "Terms of Service"
+      warranty: "Warranty"
+      returns: "Returns"
+      
+    contact:
+      title: "Contact Info"
+      address: "8 GodsHill Close, Bournemouth, BH8 0EJ"
+      phone: "+44 20 1234 5678"
+      email: "hello@revivatech.com"
+      hours: "Mon-Fri: 9AM-6PM"
+      
+    social:
+      title: "Follow Us"
+      
+    newsletter:
+      title: "Stay Updated"
+      description: "Get updates on repair tips and special offers"
+      placeholder: "Enter your email"
+      subscribe: "Subscribe"
+      
+    copyright: "© 2024 RevivaTech. All rights reserved."
+    
+  buttons:
+    book_now: "Book Now"
+    learn_more: "Learn More"
+    get_quote: "Get Quote"
+    contact_us: "Contact Us"
+    view_all: "View All"
+    read_more: "Read More"
+    get_started: "Get Started"
+    try_again: "Try Again"
+    submit: "Submit"
+    cancel: "Cancel"
+    close: "Close"
+    next: "Next"
+    previous: "Previous"
+    save: "Save"
+    edit: "Edit"
+    delete: "Delete"
+    
+  status:
+    loading: "Loading..."
+    error: "Error"
+    success: "Success"
+    pending: "Pending"
+    completed: "Completed"
+    failed: "Failed"
+    
+  messages:
+    success: "Operation completed successfully"
+    error: "Something went wrong. Please try again."
+    not_found: "Page not found"
+    unauthorized: "You are not authorized to access this page"
+    server_error: "Server error. Please try again later."
+    
+  forms:
+    required: "This field is required"
+    invalid_email: "Please enter a valid email address"
+    invalid_phone: "Please enter a valid phone number"
+    min_length: "Minimum length is {min} characters"
+    max_length: "Maximum length is {max} characters"
+    
+  accessibility:
+    skip_to_content: "Skip to main content"
+    open_menu: "Open navigation menu"
+    close_menu: "Close navigation menu"
+    toggle_theme: "Toggle dark mode"
+    
+  meta:
+    site_name: "RevivaTech"
+    default_title: "RevivaTech - Professional Computer Repair Services"
+    default_description: "Expert computer repair services for Mac, PC, and mobile devices. Free diagnosis, 90-day warranty, and professional service you can trust."

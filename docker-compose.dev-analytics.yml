@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # RevivaTech Frontend (Development with Analytics)
+  revivatech_frontend_dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: revivatech_frontend_dev
+    restart: unless-stopped
+    user: root
+    ports:
+      - "3010:3010"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3011
+      - NEXT_PUBLIC_DOMAIN=revivatech.co.uk
+      # Analytics Configuration for Testing
+      - NEXT_PUBLIC_ANALYTICS_ENABLED=true
+      - NEXT_PUBLIC_ANALYTICS_DEBUG=true
+      - NEXT_PUBLIC_ANALYTICS_CONSENT_REQUIRED=false
+      # Placeholder Analytics IDs (will work with debug mode)
+      - NEXT_PUBLIC_GA4_MEASUREMENT_ID=G-PLACEHOLDER123456
+      - NEXT_PUBLIC_GA_ID=G-PLACEHOLDER123456
+      - NEXT_PUBLIC_FACEBOOK_PIXEL_ID=1234567890123456
+      - NEXT_PUBLIC_POSTHOG_KEY=phc_placeholder_key_here_32_chars
+      - NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+      # Business Intelligence & Reporting
+      - NEXT_PUBLIC_REPORTING_ENABLED=true
+      - NEXT_PUBLIC_REPORTING_WEBHOOK_URL=
+      - NEXT_PUBLIC_REPORT_EMAIL_RECIPIENTS=
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - revivatech-new-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  revivatech-new-network:
+    external: true

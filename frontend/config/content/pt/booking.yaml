@@ -1,0 +1,79 @@
+locale: pt
+namespace: booking
+
+content:
+  header:
+    title: "Agende Seu Reparo"
+    subtitle: "Serviço rápido e profissional para todos os seus dispositivos"
+    description: "Conserte seu dispositivo com nossos técnicos especialistas. Diagnóstico gratuito, preços transparentes e garantia de 90 dias em todos os reparos."
+    
+  benefits:
+    benefit1: "Diagnóstico gratuito em 1 hora"
+    benefit2: "Garantia de 90 dias em todos os reparos"
+    benefit3: "Serviço no mesmo dia disponível"
+    benefit4: "Suporte ao cliente 24/7"
+    
+  form:
+    title: "Formulário de Agendamento de Reparo"
+    description: "Por favor, forneça detalhes sobre seu dispositivo e o problema que está enfrentando."
+    
+  process:
+    title: "Como Funciona Nosso Processo de Reparo"
+    subtitle: "Serviço simples, transparente e confiável do início ao fim"
+    step1:
+      title: "Enviar Agendamento"
+      description: "Preencha nosso formulário detalhado com as informações do dispositivo e descrição do problema"
+    step2:
+      title: "Agendar Consulta"
+      description: "Entraremos em contato em 1 hora para confirmar sua consulta e detalhes do serviço"
+    step3:
+      title: "Diagnóstico Gratuito"
+      description: "Nossos técnicos certificados diagnosticarão seu dispositivo e fornecerão um orçamento detalhado"
+    step4:
+      title: "Reparo Especializado"
+      description: "Uma vez aprovado, repararemos seu dispositivo usando peças genuínas e técnicas profissionais"
+    step5:
+      title: "Garantia de Qualidade"
+      description: "Testes completos e verificações de qualidade antes de devolver seu dispositivo totalmente reparado"
+      
+  pricing:
+    title: "Preços Transparentes"
+    subtitle: "Sem taxas ocultas - você saberá o custo antecipadamente"
+    diagnostic:
+      title: "Taxa de Diagnóstico"
+      description: "Diagnóstico abrangente e orçamento"
+      badge: "Isenta se o reparo for concluído"
+    priority:
+      title: "Serviço Prioritário"
+      description: "Acelere seu reparo (24-48 horas)"
+    emergency:
+      title: "Serviço de Emergência"
+      description: "Serviço no mesmo dia disponível"
+    pickup:
+      title: "Coleta e Entrega"
+      description: "Coleta e entrega gratuitas no centro de Londres"
+    note: "Todos os preços incluem IVA. A taxa de diagnóstico é isenta se você prosseguir com o reparo."
+    
+  faq:
+    title: "Perguntas Frequentes"
+    subtitle: "Perguntas comuns sobre nosso processo de agendamento de reparo"
+    question1: "Quanto tempo leva o diagnóstico?"
+    answer1: "Nosso diagnóstico gratuito geralmente leva 1-2 horas. Você receberá um orçamento detalhado com reparos recomendados e preços."
+    question2: "E se eu decidir não reparar meu dispositivo?"
+    answer2: "Sem problema! Se você decidir não prosseguir com o reparo, pagará apenas a taxa de diagnóstico (£25). Não há obrigação de reparar."
+    question3: "Vocês oferecem garantia nos reparos?"
+    answer3: "Sim! Todos os reparos vêm com uma garantia abrangente de 90 dias cobrindo peças e mão de obra. Garantimos nosso trabalho."
+    question4: "Posso acompanhar o progresso do meu reparo?"
+    answer4: "Absolutamente! Você receberá atualizações por SMS e email durante o processo de reparo, e pode acompanhar o progresso online com sua referência de agendamento."
+    question5: "Que métodos de pagamento vocês aceitam?"
+    answer5: "Aceitamos dinheiro, pagamentos com cartão, transferências bancárias e pagamentos sem contato. O pagamento é devido na conclusão do reparo."
+    
+  support:
+    title: "Precisa de Ajuda com Seu Agendamento?"
+    description: "Nossa equipe de suporte está aqui para ajudá-lo com qualquer dúvida sobre o processo de agendamento."
+    phone:
+      label: "Nos Ligue"
+    email:
+      label: "Nos Envie um Email"
+    whatsapp:
+      label: "WhatsApp"

@@ -1,0 +1,207 @@
+import type { NextConfig } from "next";
+import path from "path";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  // Production performance optimization
+  poweredByHeader: false,
+  reactStrictMode: process.env.NODE_ENV === 'development',
+  compress: true,
+  productionBrowserSourceMaps: false,
+  generateEtags: true,
+  
+  // WebSocket and HMR configuration
+  devIndicators: {
+    position: 'bottom-right',
+  },
+  
+  // Custom server configuration for WebSocket handling
+  assetPrefix: process.env.NODE_ENV === 'development' ? undefined : '',
+  
+  // Compiler options for better HMR handling
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  
+  // Skip ESLint during production builds
+  eslint: {
+    ignoreDuringBuilds: process.env.SKIP_LINT === 'true',
+  },
+  
+  // Cross-origin configuration for dual domain setup
+  allowedDevOrigins: [
+    'revivatech.co.uk',
+    'revivatech.com.br',
+    'localhost:3010',
+    'localhost:3000',
+    '100.122.130.67:3010',
+    '100.122.130.67'
+  ],
+  
+  // PWA Configuration with aggressive cache busting for auth changes
+  headers: async () => [
+    {
+      source: '/sw.js',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'public, max-age=0, must-revalidate',
+        },
+        {
+          key: 'Service-Worker-Allowed',
+          value: '/',
+        },
+      ],
+    },
+    {
+      source: '/manifest.json',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'public, max-age=31536000, immutable',
+        },
+      ],
+    },
+    // Force no cache for auth-related pages and components
+    {
+      source: '/(login|admin|dashboard)/:path*',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+        {
+          key: 'Pragma',
+          value: 'no-cache',
+        },
+        {
+          key: 'Expires',
+          value: '0',
+        },
+      ],
+    },
+    // Force reload of JavaScript files
+    {
+      source: '/_next/static/chunks/:path*',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'public, max-age=0, must-revalidate',
+        },
+      ],
+    },
+  ],
+  
+  // API rewrites for external domain access (excluding NextAuth.js routes)
+  async rewrites() {
+    return [
+      {
+        source: '/api/((?!auth).*)',
+        destination: 'http://localhost:3011/api/$1', // Proxy to backend (excluding /api/auth)
+      },
+    ];
+  },
+
+  // Output file tracing exclusions (moved from experimental)
+  outputFileTracingExcludes: {
+    '*': [
+      'node_modules/@tensorflow/**/*',
+      'node_modules/ioredis/**/*',
+      'node_modules/pg/**/*'
+    ]
+  },
+
+  // Production optimizations and experimental features
+  experimental: {
+    // Bundle optimization for better performance
+    optimizePackageImports: [
+      'lucide-react', 
+      '@headlessui/react', 
+      'framer-motion', 
+      'recharts',
+      'chart.js',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs'
+    ],
+    // Production optimizations
+    ...(process.env.NODE_ENV === 'production' && {
+      forceSwcTransforms: true,
+      swcTraceProfiling: false,
+      serverMinification: true
+    })
+  },
+  
+  // Advanced Image optimization with CDN support
+  images: {
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 86400, // 24 hours
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.revivatech.co.uk',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.revivatech.co.uk',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cloudflare-cdn.revivatech.co.uk',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.cloudflare.com',
+      },
+    ],
+    // Disabled custom CDN loader - using local images
+    // loader: 'custom',
+    // loaderFile: './src/lib/image-loader.js',
+  },
+  
+  // Webpack configuration for both development and production
+  webpack: (config: any, { isServer }: any) => {
+    // Path aliases
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@shared': path.resolve(__dirname, '../shared'),
+    };
+
+    // Handle Node.js modules that should only run on server
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        dns: false,
+        child_process: false,
+        pg: false,
+        'pg-hstore': false,
+        ioredis: false,
+      };
+    }
+
+    // Bundle analyzer for production builds
+    if (process.env.ANALYZE === 'true' && process.env.NODE_ENV === 'production') {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'static',
+          openAnalyzer: false,
+          reportFilename: './bundle-analysis.html',
+        })
+      );
+    }
+    
+    return config;
+  },
+};
+
+export default nextConfig;

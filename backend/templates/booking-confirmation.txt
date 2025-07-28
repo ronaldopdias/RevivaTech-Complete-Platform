@@ -1,0 +1,78 @@
+================================================================================
+✅ BOOKING CONFIRMED - REVIVATECH
+================================================================================
+
+{{greeting}} {{user.first_name}},
+
+Thank you for choosing {{company.name}} for your device repair needs!
+
+Your booking has been successfully confirmed and our expert technicians are 
+ready to help restore your device.
+
+================================================================================
+📋 YOUR REPAIR DETAILS
+================================================================================
+
+Booking ID:        {{booking.id}}
+Device:            {{repair.brand}} {{repair.model}}
+Service Type:      {{booking.service_type}}
+Issue Description: {{repair.issue}}
+{{#if booking.appointment_date}}
+Preferred Date:    {{booking.appointment_date}}
+{{/if}}
+Urgency Level:     {{booking.urgency_level}}
+Status:            {{repair.status}}
+
+ESTIMATED COST:    £{{repair.cost_estimate}}
+*Final price confirmed after diagnostic
+
+================================================================================
+🚀 WHAT HAPPENS NEXT?
+================================================================================
+
+✓ We'll contact you within 2 hours to confirm appointment details
+✓ Bring your device to our secure repair facility
+✓ Our certified technicians will diagnose the issue
+✓ We'll provide a detailed quote before starting any work
+✓ Track your repair progress in real-time via our customer portal
+
+================================================================================
+📋 IMPORTANT REMINDERS
+================================================================================
+
+• Please bring your device charger and any relevant accessories
+• Back up your data before bringing your device (if possible)
+• Bring a valid ID for device collection
+• Our repair guarantee covers all work for 90 days
+
+================================================================================
+🤝 NEED HELP? WE'RE HERE FOR YOU
+================================================================================
+
+Phone:        {{company.phone}}
+Email:        {{company.email}}
+Hours:        {{company.support_hours}}
+Address:      {{company.address}}
+
+Track Your Repair: https://revivatech.co.uk/customer-dashboard
+Contact Support:    https://revivatech.co.uk/contact
+
+================================================================================
+🏆 TRUST SIGNALS
+================================================================================
+
+⭐ 4.9/5 Customer Rating - Trusted by 10,000+ satisfied customers
+🔒 Your Data is Protected - We follow strict privacy standards
+🛡️ 90-Day Warranty - All repairs covered with comprehensive guarantee
+
+================================================================================
+{{company.name}} - Professional Device Repair Services
+{{company.address}}
+Website: https://revivatech.co.uk
+
+Unsubscribe: {{system.unsubscribe_url}}
+Email Preferences: {{system.preferences_url}}
+Privacy Policy: https://revivatech.co.uk/privacy
+
+© {{system.year}} RevivaTech. All rights reserved.
+================================================================================

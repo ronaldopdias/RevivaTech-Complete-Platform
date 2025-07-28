@@ -1,0 +1,16 @@
+# This would be a proper 192x192 PNG icon in production
+# For now, creating a placeholder text file
+# In production, generate proper PWA icons using tools like:
+# - PWA Builder
+# - Favicon Generator
+# - Adobe Illustrator/Figma export
+
+# Icon specifications for RevivaTech:
+# - 192x192px: Main app icon
+# - 512x512px: Large app icon  
+# - Background: #007AFF (Apple Blue)
+# - Foreground: White "R" or tool icon
+# - Maskable: Yes (safe area compliance)
+# - Purpose: any maskable
+
+echo "RevivaTech PWA Icon Placeholder - 192x192"

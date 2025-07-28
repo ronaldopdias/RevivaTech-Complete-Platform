@@ -1,0 +1,79 @@
+locale: en
+namespace: booking
+
+content:
+  header:
+    title: "Book Your Repair"
+    subtitle: "Quick, professional service for all your devices"
+    description: "Get your device fixed by our expert technicians. Free diagnosis, transparent pricing, and 90-day warranty on all repairs."
+    
+  benefits:
+    benefit1: "Free diagnosis within 1 hour"
+    benefit2: "90-day warranty on all repairs"
+    benefit3: "Same-day service available"
+    benefit4: "24/7 customer support"
+    
+  form:
+    title: "Repair Booking Form"
+    description: "Please provide details about your device and the issue you're experiencing."
+    
+  process:
+    title: "How Our Repair Process Works"
+    subtitle: "Simple, transparent, and reliable service from start to finish"
+    step1:
+      title: "Submit Booking"
+      description: "Fill out our detailed booking form with your device information and issue description"
+    step2:
+      title: "Schedule Appointment"
+      description: "We'll contact you within 1 hour to confirm your appointment and service details"
+    step3:
+      title: "Free Diagnosis"
+      description: "Our certified technicians will diagnose your device and provide a detailed quote"
+    step4:
+      title: "Expert Repair"
+      description: "Once approved, we'll repair your device using genuine parts and professional techniques"
+    step5:
+      title: "Quality Assurance"
+      description: "Thorough testing and quality checks before returning your fully repaired device"
+      
+  pricing:
+    title: "Transparent Pricing"
+    subtitle: "No hidden fees - you'll know the cost upfront"
+    diagnostic:
+      title: "Diagnostic Fee"
+      description: "Comprehensive diagnosis and quote"
+      badge: "Waived if repair completed"
+    priority:
+      title: "Priority Service"
+      description: "Fast-track your repair (24-48 hours)"
+    emergency:
+      title: "Emergency Service"
+      description: "Same-day service available"
+    pickup:
+      title: "Pickup & Delivery"
+      description: "Free pickup and delivery in central London"
+    note: "All prices are inclusive of VAT. Diagnostic fee is waived if you proceed with the repair."
+    
+  faq:
+    title: "Frequently Asked Questions"
+    subtitle: "Common questions about our repair booking process"
+    question1: "How long does the diagnosis take?"
+    answer1: "Our free diagnosis typically takes 1-2 hours. You'll receive a detailed quote with recommended repairs and pricing."
+    question2: "What if I decide not to repair my device?"
+    answer2: "No problem! If you decide not to proceed with the repair, you'll only pay the diagnostic fee (£25). There's no obligation to repair."
+    question3: "Do you offer a warranty on repairs?"
+    answer3: "Yes! All repairs come with a comprehensive 90-day warranty covering parts and labor. We stand behind our work."
+    question4: "Can I track my repair progress?"
+    answer4: "Absolutely! You'll receive SMS and email updates throughout the repair process, and can track progress online with your booking reference."
+    question5: "What payment methods do you accept?"
+    answer5: "We accept cash, card payments, bank transfers, and contactless payments. Payment is due upon completion of the repair."
+    
+  support:
+    title: "Need Help with Your Booking?"
+    description: "Our support team is here to help you with any questions about the booking process."
+    phone:
+      label: "Call Us"
+    email:
+      label: "Email Us"
+    whatsapp:
+      label: "WhatsApp"

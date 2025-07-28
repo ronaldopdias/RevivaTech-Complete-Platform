@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .debug { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>RevivaTech Auth Debug Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `debug ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+        
+        // Test localStorage
+        addResult('🔍 Testing localStorage access...');
+        try {
+            localStorage.setItem('test', 'value');
+            localStorage.removeItem('test');
+            addResult('✅ localStorage: Working', 'success');
+        } catch (e) {
+            addResult('❌ localStorage: Failed - ' + e.message, 'error');
+        }
+        
+        // Check for auth tokens
+        addResult('🔍 Checking for existing auth tokens...');
+        const tokens = localStorage.getItem('revivatech_auth_tokens');
+        const user = localStorage.getItem('revivatech_auth_user');
+        
+        if (tokens && user) {
+            addResult('✅ Auth tokens found in localStorage', 'success');
+            addResult('📋 Tokens: ' + JSON.stringify(JSON.parse(tokens), null, 2));
+            addResult('👤 User: ' + JSON.stringify(JSON.parse(user), null, 2));
+        } else {
+            addResult('⚠️ No auth tokens found', 'warning');
+        }
+        
+        // Test API connectivity
+        addResult('🔍 Testing API connectivity...');
+        fetch('/api/health')
+            .then(response => response.json())
+            .then(data => {
+                addResult('✅ API Health: ' + JSON.stringify(data), 'success');
+            })
+            .catch(error => {
+                addResult('❌ API Health failed: ' + error.message, 'error');
+            });
+            
+        // Test login endpoint
+        addResult('🔍 Testing login endpoint...');
+        fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: 'admin@revivatech.co.uk',
+                password: 'admin123'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                addResult('✅ Login test successful', 'success');
+                // Store tokens
+                localStorage.setItem('revivatech_auth_tokens', JSON.stringify(data.tokens));
+                localStorage.setItem('revivatech_auth_user', JSON.stringify(data.user));
+                addResult('💾 Tokens stored in localStorage', 'success');
+                
+                // Redirect to admin
+                setTimeout(() => {
+                    addResult('🔄 Redirecting to admin page...', 'warning');
+                    window.location.href = '/admin';
+                }, 2000);
+            } else {
+                addResult('❌ Login failed: ' + (data.error || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            addResult('❌ Login request failed: ' + error.message, 'error');
+        });
+        
+        addResult('⏰ Test started at: ' + new Date().toISOString());
+    </script>
+</body>
+</html>

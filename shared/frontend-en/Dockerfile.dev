@@ -1,0 +1,42 @@
+# Development Dockerfile for RevivaTech New Platform Frontend
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    bash \
+    git
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies with legacy peer deps due to Auth0 version conflict
+RUN npm install --legacy-peer-deps
+
+# Copy source code
+COPY . .
+
+# Create shared components symlink
+RUN ln -sf ../components ./shared
+
+# Create next-env.d.ts with proper permissions
+RUN touch next-env.d.ts
+
+# Set permissions
+RUN chown -R node:node /app
+
+# Switch to non-root user
+USER node
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3010/api/health || exit 1
+
+# Expose port
+EXPOSE 3010
+
+# Start development server
+CMD ["npm", "run", "dev"]

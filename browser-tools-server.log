@@ -1,0 +1,330 @@
+Starting Browser Tools Server...
+Requested port: 3025
+Found available port: 3025
+
+=== Browser Tools Server Started ===
+Aggregator listening on http://0.0.0.0:3025
+
+Available on the following network addresses:
+  - http://100.122.130.67:3025
+  - http://172.19.0.1:3025
+  - http://172.18.0.1:3025
+  - http://172.17.0.1:3025
+  - http://172.20.0.1:3025
+  - http://192.168.1.199:3025
+
+For local access use: http://localhost:3025
+Received current URL update request: {
+  "url": "chrome://extensions/?id=kaidpfegcfilphkaaelbdgfcpfhebpdc",
+  "tabId": 1308154896,
+  "timestamp": 1753695507101,
+  "source": "tab_activated"
+}
+Updated current tab ID: null -> 1308154896
+Updated current URL via dedicated endpoint:  -> chrome://extensions/?id=kaidpfegcfilphkaaelbdgfcpfhebpdc
+URL update details: source=tab_activated, tabId=1308154896, timestamp=2025-07-28T09:38:27.101Z
+Received current URL update request: {
+  "url": "https://claude.ai/chat/3d402eaf-946f-479a-a13f-74b043a97387",
+  "tabId": 1308154889,
+  "timestamp": 1753695511152,
+  "source": "tab_activated"
+}
+Updated current tab ID: 1308154896 -> 1308154889
+Updated current URL via dedicated endpoint: chrome://extensions/?id=kaidpfegcfilphkaaelbdgfcpfhebpdc -> https://claude.ai/chat/3d402eaf-946f-479a-a13f-74b043a97387
+URL update details: source=tab_activated, tabId=1308154889, timestamp=2025-07-28T09:38:31.152Z
+Received current URL update request: {
+  "url": "http://localhost:3010/admin/templates",
+  "tabId": 1308154447,
+  "timestamp": 1753695512326,
+  "source": "tab_activated"
+}
+Updated current tab ID: 1308154889 -> 1308154447
+Updated current URL via dedicated endpoint: https://claude.ai/chat/3d402eaf-946f-479a-a13f-74b043a97387 -> http://localhost:3010/admin/templates
+URL update details: source=tab_activated, tabId=1308154447, timestamp=2025-07-28T09:38:32.326Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/procedures",
+  "tabId": 1308154448,
+  "timestamp": 1753695512991,
+  "source": "tab_activated"
+}
+Updated current tab ID: 1308154447 -> 1308154448
+Updated current URL via dedicated endpoint: http://localhost:3010/admin/templates -> http://100.122.130.67:3010/admin/procedures
+URL update details: source=tab_activated, tabId=1308154448, timestamp=2025-07-28T09:38:32.991Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/procedures",
+  "tabId": 1308154448,
+  "timestamp": 1753695874531,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/procedures -> http://100.122.130.67:3010/admin/procedures
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T09:44:34.531Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/database",
+  "tabId": 1308154448,
+  "timestamp": 1753695878867,
+  "source": "tab_url_change"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/procedures -> http://100.122.130.67:3010/admin/database
+URL update details: source=tab_url_change, tabId=1308154448, timestamp=2025-07-28T09:44:38.867Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/database",
+  "tabId": 1308154448,
+  "timestamp": 1753695878876,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/database -> http://100.122.130.67:3010/admin/database
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T09:44:38.876Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/database",
+  "tabId": 1308154448,
+  "timestamp": 1753695879494,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/database -> http://100.122.130.67:3010/admin/database
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T09:44:39.494Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/repair-queue",
+  "tabId": 1308154448,
+  "timestamp": 1753695895570,
+  "source": "tab_url_change"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/database -> http://100.122.130.67:3010/admin/repair-queue
+URL update details: source=tab_url_change, tabId=1308154448, timestamp=2025-07-28T09:44:55.570Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/repair-queue",
+  "tabId": 1308154448,
+  "timestamp": 1753695895577,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/repair-queue -> http://100.122.130.67:3010/admin/repair-queue
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T09:44:55.577Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/customers",
+  "tabId": 1308154448,
+  "timestamp": 1753695903276,
+  "source": "tab_url_change"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/repair-queue -> http://100.122.130.67:3010/admin/customers
+URL update details: source=tab_url_change, tabId=1308154448, timestamp=2025-07-28T09:45:03.276Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/customers",
+  "tabId": 1308154448,
+  "timestamp": 1753695903284,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/customers -> http://100.122.130.67:3010/admin/customers
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T09:45:03.284Z
+Wiping all logs...
+All logs have been wiped
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/customers",
+  "tabId": 1308154448,
+  "timestamp": 1753696355884,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/customers -> http://100.122.130.67:3010/admin/customers
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T09:52:35.884Z
+Wiping all logs...
+All logs have been wiped
+Wiping all logs...
+All logs have been wiped
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/customers",
+  "tabId": 1308154448,
+  "timestamp": 1753698646039,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/customers -> http://100.122.130.67:3010/admin/customers
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T10:30:46.039Z
+Received current URL update request: {
+  "url": "https://grok.com/chat/4cde510b-0cb2-4609-bcce-e2d218a3757a",
+  "tabId": 1308154468,
+  "timestamp": 1753698785355,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154468
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/customers -> https://grok.com/chat/4cde510b-0cb2-4609-bcce-e2d218a3757a
+URL update details: source=page_complete, tabId=1308154468, timestamp=2025-07-28T10:33:05.355Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/customers",
+  "tabId": 1308154448,
+  "timestamp": 1753699192434,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154468 -> 1308154448
+Updated current URL via dedicated endpoint: https://grok.com/chat/4cde510b-0cb2-4609-bcce-e2d218a3757a -> http://100.122.130.67:3010/admin/customers
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T10:39:52.434Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/customers",
+  "tabId": 1308154448,
+  "timestamp": 1753699213176,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/customers -> http://100.122.130.67:3010/admin/customers
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T10:40:13.176Z
+Wiping all logs...
+All logs have been wiped
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/customers",
+  "tabId": 1308154448,
+  "timestamp": 1753699405710,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/customers -> http://100.122.130.67:3010/admin/customers
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T10:43:25.710Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/users",
+  "tabId": 1308154448,
+  "timestamp": 1753699465330,
+  "source": "tab_url_change"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/customers -> http://100.122.130.67:3010/admin/users
+URL update details: source=tab_url_change, tabId=1308154448, timestamp=2025-07-28T10:44:25.330Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/users",
+  "tabId": 1308154448,
+  "timestamp": 1753699465332,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/users -> http://100.122.130.67:3010/admin/users
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T10:44:25.332Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/repair-queue",
+  "tabId": 1308154448,
+  "timestamp": 1753699475170,
+  "source": "tab_url_change"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/users -> http://100.122.130.67:3010/admin/repair-queue
+URL update details: source=tab_url_change, tabId=1308154448, timestamp=2025-07-28T10:44:35.170Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/repair-queue",
+  "tabId": 1308154448,
+  "timestamp": 1753699475173,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/repair-queue -> http://100.122.130.67:3010/admin/repair-queue
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T10:44:35.173Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/procedures",
+  "tabId": 1308154448,
+  "timestamp": 1753699505231,
+  "source": "tab_url_change"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/repair-queue -> http://100.122.130.67:3010/admin/procedures
+URL update details: source=tab_url_change, tabId=1308154448, timestamp=2025-07-28T10:45:05.231Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/procedures",
+  "tabId": 1308154448,
+  "timestamp": 1753699505240,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154448 -> 1308154448
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/procedures -> http://100.122.130.67:3010/admin/procedures
+URL update details: source=page_complete, tabId=1308154448, timestamp=2025-07-28T10:45:05.240Z
+Received current URL update request: {
+  "url": "https://grok.com/chat/4cde510b-0cb2-4609-bcce-e2d218a3757a",
+  "tabId": 1308154468,
+  "timestamp": 1753700071958,
+  "source": "tab_activated"
+}
+Updated current tab ID: 1308154448 -> 1308154468
+Updated current URL via dedicated endpoint: http://100.122.130.67:3010/admin/procedures -> https://grok.com/chat/4cde510b-0cb2-4609-bcce-e2d218a3757a
+URL update details: source=tab_activated, tabId=1308154468, timestamp=2025-07-28T10:54:31.958Z
+Received current URL update request: {
+  "url": "https://grok.com/",
+  "tabId": 1308154468,
+  "timestamp": 1753700074747,
+  "source": "tab_url_change"
+}
+Updated current tab ID: 1308154468 -> 1308154468
+Updated current URL via dedicated endpoint: https://grok.com/chat/4cde510b-0cb2-4609-bcce-e2d218a3757a -> https://grok.com/
+URL update details: source=tab_url_change, tabId=1308154468, timestamp=2025-07-28T10:54:34.747Z
+Received current URL update request: {
+  "url": "https://grok.com/",
+  "tabId": 1308154468,
+  "timestamp": 1753700074749,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154468 -> 1308154468
+Updated current URL via dedicated endpoint: https://grok.com/ -> https://grok.com/
+URL update details: source=page_complete, tabId=1308154468, timestamp=2025-07-28T10:54:34.749Z
+Received current URL update request: {
+  "url": "https://grok.com/",
+  "tabId": 1308154468,
+  "timestamp": 1753700074752,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154468 -> 1308154468
+Updated current URL via dedicated endpoint: https://grok.com/ -> https://grok.com/
+URL update details: source=page_complete, tabId=1308154468, timestamp=2025-07-28T10:54:34.752Z
+Received current URL update request: {
+  "url": "https://grok.com/",
+  "tabId": 1308154468,
+  "timestamp": 1753700075032,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154468 -> 1308154468
+Updated current URL via dedicated endpoint: https://grok.com/ -> https://grok.com/
+URL update details: source=page_complete, tabId=1308154468, timestamp=2025-07-28T10:54:35.032Z
+Received current URL update request: {
+  "url": "https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3",
+  "tabId": 1308154468,
+  "timestamp": 1753700087481,
+  "source": "tab_url_change"
+}
+Updated current tab ID: 1308154468 -> 1308154468
+Updated current URL via dedicated endpoint: https://grok.com/ -> https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3
+URL update details: source=tab_url_change, tabId=1308154468, timestamp=2025-07-28T10:54:47.481Z
+Received current URL update request: {
+  "url": "https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3",
+  "tabId": 1308154468,
+  "timestamp": 1753700087487,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154468 -> 1308154468
+Updated current URL via dedicated endpoint: https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3 -> https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3
+URL update details: source=page_complete, tabId=1308154468, timestamp=2025-07-28T10:54:47.487Z
+Received current URL update request: {
+  "url": "https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3",
+  "tabId": 1308154468,
+  "timestamp": 1753700087567,
+  "source": "page_complete"
+}
+Updated current tab ID: 1308154468 -> 1308154468
+Updated current URL via dedicated endpoint: https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3 -> https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3
+URL update details: source=page_complete, tabId=1308154468, timestamp=2025-07-28T10:54:47.567Z
+Received current URL update request: {
+  "url": "https://github.com/AgentDeskAI/browser-tools-mcp",
+  "tabId": 1308154897,
+  "timestamp": 1753700108339,
+  "source": "tab_activated"
+}
+Updated current tab ID: 1308154468 -> 1308154897
+Updated current URL via dedicated endpoint: https://grok.com/chat/7e5fe4bc-2fda-4566-b81e-c28a57a4e9b3 -> https://github.com/AgentDeskAI/browser-tools-mcp
+URL update details: source=tab_activated, tabId=1308154897, timestamp=2025-07-28T10:55:08.339Z
+Received current URL update request: {
+  "url": "http://100.122.130.67:3010/admin/procedures",
+  "tabId": 1308154448,
+  "timestamp": 1753700116503,
+  "source": "tab_activated"
+}
+Updated current tab ID: 1308154897 -> 1308154448
+Updated current URL via dedicated endpoint: https://github.com/AgentDeskAI/browser-tools-mcp -> http://100.122.130.67:3010/admin/procedures
+URL update details: source=tab_activated, tabId=1308154448, timestamp=2025-07-28T10:55:16.503Z

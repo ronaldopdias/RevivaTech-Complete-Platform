@@ -1,0 +1,197 @@
+/* RevivaTech Design System - Utilities Module */
+/* Common utility classes and helpers */
+
+/* === TEXT UTILITIES === */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.font-normal { font-weight: 400; }
+
+.uppercase { text-transform: uppercase; }
+.lowercase { text-transform: lowercase; }
+.capitalize { text-transform: capitalize; }
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* === ACCESSIBILITY UTILITIES === */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.live-region {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.live-region[aria-live="polite"] {
+  /* Polite announcements */
+}
+
+.live-region[aria-live="assertive"] {
+  /* Assertive announcements */
+}
+
+/* === INTERACTION UTILITIES === */
+.touch-optimized {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.touch-target {
+  min-height: var(--touch-target-min, 44px);
+  min-width: var(--touch-target-min, 44px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-target-large {
+  min-height: var(--touch-target-recommended, 48px);
+  min-width: var(--touch-target-recommended, 48px);
+}
+
+.native-feel {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.touch-feedback {
+  transition: all 0.15s ease-out;
+}
+
+.touch-feedback:active {
+  transform: scale(0.97);
+  opacity: 0.8;
+}
+
+/* === MOBILE UTILITIES === */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.mobile-scroll-momentum {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.pull-to-refresh {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.swipeable {
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.swipeable-horizontal {
+  touch-action: pan-x;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mobile-card {
+  border-radius: var(--radius-2xl);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* === SAFE AREA UTILITIES === */
+.safe-area-pt {
+  padding-top: var(--safe-area-inset-top, 0);
+}
+
+.safe-area-pr {
+  padding-right: var(--safe-area-inset-right, 0);
+}
+
+.safe-area-pb {
+  padding-bottom: var(--safe-area-inset-bottom, 0);
+}
+
+.safe-area-pl {
+  padding-left: var(--safe-area-inset-left, 0);
+}
+
+.safe-area-inset {
+  padding-top: var(--safe-area-inset-top, 0);
+  padding-right: var(--safe-area-inset-right, 0);
+  padding-bottom: var(--safe-area-inset-bottom, 0);
+  padding-left: var(--safe-area-inset-left, 0);
+}
+
+/* === CONTRAST UTILITIES === */
+.contrast-safe {
+  /* Ensures minimum 4.5:1 contrast ratio */
+  background-color: var(--color-surface-background);
+  color: var(--color-surface-foreground);
+}
+
+.contrast-safe-inverse {
+  background-color: var(--color-surface-foreground);
+  color: var(--color-surface-background);
+}
+
+/* === ICON UTILITIES === */
+svg {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--easing-interface);
+}
+
+svg:not([width]):not([height]):not(.custom-size) {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Icon size variants */
+.icon-xs svg { width: 0.75rem; height: 0.75rem; }
+.icon-sm svg { width: 0.875rem; height: 0.875rem; }
+.icon-md svg { width: 1rem; height: 1rem; }
+.icon-lg svg { width: 1.5rem; height: 1.5rem; }
+.icon-xl svg { width: 2rem; height: 2rem; }
+.icon-2xl svg { width: 2.5rem; height: 2.5rem; }
+
+/* Context-specific icon sizing */
+button svg,
+a svg,
+.btn svg {
+  width: 1rem;
+  height: 1rem;
+}

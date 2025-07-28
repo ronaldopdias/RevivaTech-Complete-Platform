@@ -1,0 +1,60 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- RevivaTech Logo - Nordic Design -->
+  
+  <!-- Icon/Symbol -->
+  <g id="icon">
+    <!-- Circuit pattern background -->
+    <rect x="8" y="8" width="44" height="44" rx="8" fill="#F0F8FF" stroke="#007AFF" stroke-width="0.5"/>
+    
+    <!-- Main repair symbol -->
+    <g stroke="#007AFF" stroke-width="2" fill="none">
+      <!-- Computer/device outline -->
+      <rect x="16" y="20" width="28" height="20" rx="2"/>
+      <line x1="20" y1="44" x2="40" y2="44"/>
+      
+      <!-- Repair/restoration arrows -->
+      <g stroke-width="1.5">
+        <!-- Circular arrows suggesting revival/restoration -->
+        <path d="M25 30 C25 26, 28 23, 32 23" marker-end="url(#arrowhead)"/>
+        <path d="M35 30 C35 34, 32 37, 28 37" marker-end="url(#arrowhead)"/>
+      </g>
+      
+      <!-- Central dot -->
+      <circle cx="30" cy="30" r="1.5" fill="#007AFF"/>
+    </g>
+    
+    <!-- Arrow marker definition -->
+    <defs>
+      <marker id="arrowhead" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
+        <polygon points="0 0, 4 2, 0 4" fill="#007AFF"/>
+      </marker>
+    </defs>
+  </g>
+  
+  <!-- Company Name -->
+  <g id="text" fill="#1D1D1F">
+    <!-- "Reviva" -->
+    <text x="68" y="28" font-family="SF Pro Display, Inter, system-ui, sans-serif" font-size="22" font-weight="600">
+      Reviva
+    </text>
+    
+    <!-- "Tech" -->
+    <text x="132" y="28" font-family="SF Pro Display, Inter, system-ui, sans-serif" font-size="22" font-weight="400" fill="#007AFF">
+      Tech
+    </text>
+    
+    <!-- Tagline -->
+    <text x="68" y="44" font-family="SF Pro Text, Inter, system-ui, sans-serif" font-size="10" font-weight="400" fill="#6B7280">
+      Professional Computer Repair
+    </text>
+  </g>
+  
+  <!-- Subtle tech pattern -->
+  <g opacity="0.1" stroke="#007AFF" stroke-width="0.5" fill="none">
+    <circle cx="170" cy="15" r="3"/>
+    <circle cx="180" cy="25" r="2"/>
+    <circle cx="190" cy="35" r="1.5"/>
+    <line x1="172" y1="17" x2="178" y2="23"/>
+    <line x1="182" y1="27" x2="188" y2="33"/>
+  </g>
+</svg>

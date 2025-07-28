@@ -1,0 +1,41 @@
+{
+  "repair": {
+    "id": "REP-2024-001",
+    "referenceNumber": "REP-2024-001",
+    "status": "In Progress",
+    "device": {
+      "brand": "Apple",
+      "model": "iPhone 15 Pro Max",
+      "color": "Natural Titanium",
+      "storage": "256GB"
+    },
+    "issue": {
+      "type": "Screen Repair",
+      "description": "Cracked screen with touch issues",
+      "priority": "Standard",
+      "photos": [
+        "/images/repair-photos/device-front.jpg",
+        "/images/repair-photos/device-damage.jpg"
+      ]
+    },
+    "customer": {
+      "name": "John Doe",
+      "email": "customer@example.com",
+      "phone": "+44 7123 456789"
+    },
+    "serviceType": "In-Store",
+    "estimatedCompletion": "2024-01-15T16:00:00Z",
+    "warranty": "6 months",
+    "createdAt": "2024-01-10T10:00:00Z",
+    "updatedAt": "2024-01-12T14:30:00Z",
+    "technician": {
+      "name": "Mike Smith",
+      "specialization": "Mobile Devices"
+    },
+    "progress": {
+      "currentStep": 3,
+      "totalSteps": 6,
+      "percentage": 50
+    }
+  }
+}

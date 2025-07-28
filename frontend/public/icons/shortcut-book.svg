@@ -1,0 +1,22 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with Trust Blue -->
+  <circle cx="48" cy="48" r="42" fill="#ADD8E6"/>
+  <circle cx="48" cy="48" r="42" fill="none" stroke="#4A9FCC" stroke-width="3"/>
+  
+  <!-- Simple wrench icon -->
+  <g transform="translate(48, 48)">
+    <!-- Wrench body -->
+    <path d="M-8 -16L-4 -20L4 -12L8 -16L12 -12L4 -4L12 4L8 8L4 4L-4 12L-8 8L-16 0L-12 -4L-8 -16Z" 
+          fill="#FFFFFF" stroke="#1A5266" stroke-width="2" stroke-linejoin="round"/>
+    
+    <!-- Wrench head circle -->
+    <circle cx="8" cy="-8" r="6" fill="none" stroke="#1A5266" stroke-width="2"/>
+    <circle cx="8" cy="-8" r="3" fill="#1A5266"/>
+  </g>
+  
+  <!-- Plus icon for "add/book" -->
+  <g transform="translate(68, 28)">
+    <circle cx="0" cy="0" r="10" fill="#008080"/>
+    <path d="M-5 0L5 0M0 -5L0 5" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>

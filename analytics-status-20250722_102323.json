@@ -1,0 +1,13 @@
+{
+    "timestamp": "2025-07-22T10:23:23+01:00",
+    "status": "mostly_healthy",
+    "checks": {
+        "frontend": true,
+        "backend": true,
+        "containers": true,
+        "analytics_api": true,
+        "performance": false
+    },
+    "environment": "development",
+    "monitoring_version": "1.0"
+}

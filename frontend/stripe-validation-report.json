@@ -1,0 +1,62 @@
+{
+  "validation_timestamp": "2025-07-14T18:44:01.138Z",
+  "environment": {
+    "STRIPE_PUBLISHABLE_KEY": "✅ Test mode",
+    "STRIPE_SECRET_KEY": "✅ Test mode",
+    "STRIPE_WEBHOOK_SECRET": "❌ Invalid format",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "➖ Optional",
+    "PAYPAL_CLIENT_ID": "✅ Present",
+    "PAYPAL_CLIENT_SECRET": "✅ Present"
+  },
+  "connectivity": {
+    "stripe_api": "❌ Invalid API Key provided: sk_test_*1...",
+    "payment_methods_api": "❌ Invalid API Key provided: sk_test_*1..."
+  },
+  "api_endpoints": {
+    "create_payment_intent": "❌ Request failed with status code 400",
+    "webhook": "⚠️ Unexpected response: 500"
+  },
+  "payment_tests": {
+    "Small Payment - iPhone Battery": {
+      "status": "❌ Invalid API Key provided: sk_test_*1...",
+      "amount": "£59.99"
+    },
+    "Standard Payment - MacBook Screen": {
+      "status": "❌ Invalid API Key provided: sk_test_*1...",
+      "amount": "£129.99"
+    },
+    "Large Payment - PC Diagnostic": {
+      "status": "❌ Invalid API Key provided: sk_test_*1...",
+      "amount": "£250.00"
+    }
+  },
+  "webhook_tests": {
+    "validation": "❌ Invalid API Key provided: sk_test_*1...",
+    "secret_configured": "✅ Valid format"
+  },
+  "errors": [
+    "Invalid secret key format: STRIPE_WEBHOOK_SECRET",
+    "Stripe API connectivity failed: Invalid API Key provided: sk_test_*1...",
+    "Payment Intent API failed: Request failed with status code 400",
+    "Payment scenario failed - Small Payment - iPhone Battery: Invalid API Key provided: sk_test_*1...",
+    "Payment scenario failed - Standard Payment - MacBook Screen: Invalid API Key provided: sk_test_*1...",
+    "Payment scenario failed - Large Payment - PC Diagnostic: Invalid API Key provided: sk_test_*1..."
+  ],
+  "warnings": [
+    "Webhook validation failed: Invalid API Key provided: sk_test_*1..."
+  ],
+  "summary": {
+    "total_errors": 6,
+    "total_warnings": 1,
+    "environment_status": "❌ Issues found",
+    "api_status": "❌ Failed",
+    "payment_ready": "❌ Not ready",
+    "test_mode": "✅ Test mode"
+  },
+  "recommendations": [
+    "❌ Fix all errors before proceeding to production",
+    "🧪 Test payment flows manually using the test page at /test-stripe-elements",
+    "📧 Configure email notifications for payment events",
+    "📊 Set up monitoring for payment success/failure rates"
+  ]
+}

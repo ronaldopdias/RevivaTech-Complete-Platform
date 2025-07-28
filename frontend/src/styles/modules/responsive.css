@@ -1,0 +1,112 @@
+/* RevivaTech Design System - Responsive Module */
+/* Mobile-first responsive design utilities */
+
+/* === RESPONSIVE DESIGN === */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+  
+  .container {
+    padding-left: var(--spacing-4);
+    padding-right: var(--spacing-4);
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 13px;
+  }
+  
+  .container {
+    padding-left: var(--spacing-3);
+    padding-right: var(--spacing-3);
+  }
+}
+
+/* === MOBILE EXPERIENCE EXCELLENCE === */
+
+/* Mobile-First Touch Optimization */
+@media (max-width: 768px) {
+  .touch-optimized {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  
+  /* Touch Target Sizing */
+  .touch-target {
+    min-height: var(--touch-target-min, 44px);
+    min-width: var(--touch-target-min, 44px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .touch-target-large {
+    min-height: var(--touch-target-recommended, 48px);
+    min-width: var(--touch-target-recommended, 48px);
+  }
+}
+
+/* === DARK MODE SUPPORT === */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-border: var(--neutral-700);
+    --shadow-lg: 0 0 0 1px var(--neutral-700);
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-surface-border: var(--color-neutral-700);
+    --shadow-lg: 0 0 0 1px var(--color-neutral-700);
+  }
+  
+  .dark {
+    --color-surface-border: var(--color-neutral-300);
+    --shadow-lg: 0 0 0 1px var(--color-neutral-300);
+  }
+}
+
+/* === CONTAINER QUERIES (if supported) === */
+@container (max-width: 600px) {
+  .container-responsive {
+    padding: var(--spacing-4);
+  }
+}
+
+@container (min-width: 601px) {
+  .container-responsive {
+    padding: var(--spacing-8);
+  }
+}
+
+/* === PRINT STYLES === */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+  
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  
+  body {
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  
+  p, li {
+    page-break-inside: avoid;
+  }
+}

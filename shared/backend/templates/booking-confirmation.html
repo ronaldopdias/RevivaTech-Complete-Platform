@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Confirmed - RevivaTech</title>
+    <style>
+        /* Reset styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* RevivaTech Brand Colors */
+        :root {
+            --trust-blue: #ADD8E6;
+            --trust-blue-dark: #4A9FCC;
+            --trust-blue-darker: #1A5266;
+            --professional-teal: #008080;
+            --professional-teal-dark: #0F766E;
+            --neutral-grey: #36454F;
+            --neutral-light: #F9FAFB;
+            --success-green: #10B981;
+            --warning-amber: #F59E0B;
+        }
+
+        body {
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--neutral-grey);
+            background-color: var(--neutral-light);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--trust-blue) 0%, var(--professional-teal) 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .header .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px 20px;
+        }
+
+        .trust-badge {
+            background-color: var(--success-green);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            font-weight: 600;
+            margin-bottom: 25px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .booking-details {
+            background-color: var(--neutral-light);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+            border-left: 4px solid var(--trust-blue);
+        }
+
+        .booking-details h3 {
+            color: var(--trust-blue-darker);
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: var(--neutral-grey);
+            min-width: 140px;
+        }
+
+        .detail-value {
+            color: var(--trust-blue-darker);
+            font-weight: 500;
+            flex: 1;
+            text-align: right;
+        }
+
+        .price-highlight {
+            background-color: var(--trust-blue);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .price-highlight .price {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .price-highlight .note {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .next-steps {
+            background-color: #E6F7FF;
+            border: 1px solid var(--trust-blue);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .next-steps h4 {
+            color: var(--trust-blue-darker);
+            margin-bottom: 15px;
+        }
+
+        .step {
+            margin-bottom: 12px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .step::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--success-green);
+            font-weight: bold;
+        }
+
+        .cta-buttons {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background-color: var(--trust-blue);
+            color: white;
+            padding: 14px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 8px 12px;
+            transition: background-color 0.3s ease;
+        }
+
+        .cta-button:hover {
+            background-color: var(--trust-blue-dark);
+        }
+
+        .cta-button.secondary {
+            background-color: var(--professional-teal);
+        }
+
+        .cta-button.secondary:hover {
+            background-color: var(--professional-teal-dark);
+        }
+
+        .contact-section {
+            background-color: var(--neutral-light);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+            text-align: center;
+        }
+
+        .contact-section h4 {
+            color: var(--trust-blue-darker);
+            margin-bottom: 15px;
+        }
+
+        .contact-info {
+            margin: 8px 0;
+        }
+
+        .contact-info a {
+            color: var(--professional-teal);
+            text-decoration: none;
+        }
+
+        .footer {
+            background-color: var(--trust-blue-darker);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: var(--trust-blue);
+            text-decoration: none;
+        }
+
+        .social-links {
+            margin: 15px 0;
+        }
+
+        .social-links a {
+            margin: 0 10px;
+            color: var(--trust-blue);
+            text-decoration: none;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 600px) {
+            .email-container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            
+            .header {
+                padding: 20px 15px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .content {
+                padding: 20px 15px;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+            }
+            
+            .detail-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+            
+            .cta-button {
+                display: block;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>✅ Booking Confirmed!</h1>
+            <div class="subtitle">Your repair is scheduled - We've got you covered</div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Trust Badge -->
+            <div class="trust-badge">
+                ✅ Booking #{{booking.id}} Successfully Created
+            </div>
+
+            <!-- Greeting -->
+            <p style="font-size: 16px; margin-bottom: 20px;">
+                {{greeting}} {{user.first_name}},
+            </p>
+            
+            <p style="margin-bottom: 25px;">
+                Thank you for choosing <strong>{{company.name}}</strong> for your device repair needs. 
+                Your booking has been confirmed and our expert technicians are ready to help restore your device.
+            </p>
+
+            <!-- Booking Details -->
+            <div class="booking-details">
+                <h3>📋 Your Repair Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Booking ID:</span>
+                    <span class="detail-value"><strong>{{booking.id}}</strong></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Device:</span>
+                    <span class="detail-value">{{repair.brand}} {{repair.model}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Service Type:</span>
+                    <span class="detail-value">{{booking.service_type}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Issue Description:</span>
+                    <span class="detail-value">{{repair.issue}}</span>
+                </div>
+                {{#if booking.appointment_date}}
+                <div class="detail-row">
+                    <span class="detail-label">Preferred Date:</span>
+                    <span class="detail-value">{{booking.appointment_date}}</span>
+                </div>
+                {{/if}}
+                <div class="detail-row">
+                    <span class="detail-label">Urgency Level:</span>
+                    <span class="detail-value">{{booking.urgency_level}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Status:</span>
+                    <span class="detail-value"><strong>{{repair.status}}</strong></span>
+                </div>
+            </div>
+
+            <!-- Price Information -->
+            <div class="price-highlight">
+                <div class="price">Estimated Cost: £{{repair.cost_estimate}}</div>
+                <div class="note">*Final price confirmed after diagnostic</div>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="next-steps">
+                <h4>🚀 What Happens Next?</h4>
+                <div class="step">We'll contact you within 2 hours to confirm appointment details</div>
+                <div class="step">Bring your device to our secure repair facility</div>
+                <div class="step">Our certified technicians will diagnose the issue</div>
+                <div class="step">We'll provide a detailed quote before starting any work</div>
+                <div class="step">Track your repair progress in real-time via our customer portal</div>
+            </div>
+
+            <!-- CTA Buttons -->
+            <div class="cta-buttons">
+                <a href="https://revivatech.co.uk/customer-dashboard" class="cta-button">
+                    📱 Track Your Repair
+                </a>
+                <a href="https://revivatech.co.uk/contact" class="cta-button secondary">
+                    💬 Contact Support
+                </a>
+            </div>
+
+            <!-- Important Information -->
+            <div style="background-color: #FFF3CD; border: 1px solid #F59E0B; border-radius: 8px; padding: 15px; margin: 25px 0;">
+                <h4 style="color: #D97706; margin-bottom: 10px;">📋 Important Reminders:</h4>
+                <ul style="margin-left: 20px; color: #92400E;">
+                    <li>Please bring your device charger and any relevant accessories</li>
+                    <li>Back up your data before bringing your device (if possible)</li>
+                    <li>Bring a valid ID for device collection</li>
+                    <li>Our repair guarantee covers all work for 90 days</li>
+                </ul>
+            </div>
+
+            <!-- Contact Section -->
+            <div class="contact-section">
+                <h4>🤝 Need Help? We're Here for You</h4>
+                <div class="contact-info">📞 <a href="tel:{{company.phone}}">{{company.phone}}</a></div>
+                <div class="contact-info">✉️ <a href="mailto:{{company.email}}">{{company.email}}</a></div>
+                <div class="contact-info">🕒 {{company.support_hours}}</div>
+                <div class="contact-info">📍 {{company.address}}</div>
+            </div>
+
+            <!-- Trust Signals -->
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="color: var(--neutral-grey); font-weight: 600; margin-bottom: 10px;">
+                    🏆 Trusted by 10,000+ satisfied customers
+                </p>
+                <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 15px;">
+                    <span style="background-color: var(--success-green); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px;">
+                        ⭐ 4.9/5 Rating
+                    </span>
+                    <span style="background-color: var(--professional-teal); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px;">
+                        🔒 Data Protected
+                    </span>
+                    <span style="background-color: var(--trust-blue); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px;">
+                        🛡️ 90-Day Warranty
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div style="margin-bottom: 15px;">
+                <strong>{{company.name}}</strong> - Professional Device Repair Services
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                {{company.address}}
+            </div>
+
+            <div class="social-links">
+                <a href="https://revivatech.co.uk">🌐 Website</a>
+                <a href="#">📘 Facebook</a>
+                <a href="#">🐦 Twitter</a>
+                <a href="#">📷 Instagram</a>
+            </div>
+
+            <div style="margin-top: 15px; font-size: 12px; opacity: 0.8;">
+                <a href="{{system.unsubscribe_url}}">Unsubscribe</a> | 
+                <a href="{{system.preferences_url}}">Email Preferences</a> | 
+                <a href="https://revivatech.co.uk/privacy">Privacy Policy</a>
+            </div>
+            
+            <div style="margin-top: 10px; font-size: 11px; opacity: 0.7;">
+                © {{system.year}} RevivaTech. All rights reserved.
+            </div>
+        </div>
+    </div>
+
+    <!-- Tracking Pixel -->
+    {{system.tracking_pixel}}
+</body>
+</html>

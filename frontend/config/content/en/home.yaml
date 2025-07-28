@@ -1,0 +1,133 @@
+locale: en
+namespace: home
+
+content:
+  hero:
+    title: "Expert Computer Repair Services"
+    subtitle: "Fast, reliable repairs for all your devices with professional service you can trust"
+    description: "From MacBook screen repairs to PC virus removal, we handle all your device needs with expert care and genuine parts."
+    primaryAction: "Book a Repair"
+    secondaryAction: "View Services"
+    imageAlt: "Professional repair workspace with computers and tools"
+    features:
+      - "Free diagnostics"
+      - "90-day warranty"
+      - "Same-day service available"
+      
+  services:
+    title: "Our Services"
+    subtitle: "Professional repair services for all your devices"
+    mac:
+      title: "Mac Repair"
+      description: "Professional repairs for all Mac devices including MacBook, iMac, and Mac Mini"
+      feature1: "Screen replacement"
+      feature2: "Battery service"
+      feature3: "Logic board repair"
+      
+    pc:
+      title: "PC & Laptop Repair"
+      description: "Complete PC and laptop repair services for all brands and models"
+      feature1: "Hardware upgrades"
+      feature2: "Virus removal"
+      feature3: "Data recovery"
+      
+    data:
+      title: "Data Recovery"
+      description: "Professional data recovery services for all storage devices"
+      feature1: "Hard drive recovery"
+      feature2: "SSD recovery"
+      feature3: "RAID recovery"
+        
+  features:
+    title: "Why Choose RevivaTech?"
+    subtitle: "Professional service with a personal touch"
+    items:
+      fast:
+        icon: "clock"
+        title: "Fast Turnaround"
+        description: "Most repairs completed within 24-48 hours with express options available"
+        
+      warranty:
+        icon: "shield"
+        title: "90-Day Warranty"
+        description: "All repairs backed by our comprehensive 90-day warranty for peace of mind"
+        
+      quality:
+        icon: "star"
+        title: "Quality Parts"
+        description: "We use only genuine or high-quality replacement parts for lasting repairs"
+        
+      expert:
+        icon: "user-check"
+        title: "Expert Technicians"
+        description: "Certified technicians with years of experience in device repair"
+        
+      transparent:
+        icon: "eye"
+        title: "Transparent Pricing"
+        description: "No hidden fees - you'll know the cost upfront before we start any work"
+        
+      secure:
+        icon: "lock"
+        title: "Data Security"
+        description: "Your data privacy and security is our top priority throughout the repair process"
+        
+  whyChoose:
+    title: "Why Choose RevivaTech?"
+    subtitle: "Professional service with a personal touch"
+    experts:
+      title: "Expert Technicians"
+      description: "Our certified technicians have years of experience in device repair"
+      imageAlt: "Expert technicians working on devices"
+    fast:
+      title: "Fast Turnaround"
+      description: "Most repairs completed within 24-48 hours with express options available"
+      imageAlt: "Fast repair service"
+    warranty:
+      title: "90-Day Warranty"
+      description: "All repairs backed by our comprehensive warranty for peace of mind"
+      imageAlt: "Warranty guarantee certificate"
+        
+  process:
+    title: "Our Repair Process"
+    subtitle: "Simple, transparent, and reliable"
+    step1:
+      title: "Book Online"
+      description: "Schedule your repair appointment online or visit our shop"
+    step2:
+      title: "Free Diagnosis"
+      description: "We provide a comprehensive diagnosis at no cost"
+    step3:
+      title: "Expert Repair"
+      description: "Our certified technicians perform the repair"
+    step4:
+      title: "Quality Check"
+      description: "Thorough testing to ensure everything works perfectly"
+        
+  testimonials:
+    title: "What Our Customers Say"
+    subtitle: "Don't just take our word for it"
+    customer1:
+      role: "Business Owner"
+      content: "Excellent service! My MacBook was repaired quickly and professionally. The warranty gave me confidence in their work."
+    customer2:
+      role: "Student"
+      content: "Fast turnaround and great communication throughout. Highly recommend for any laptop repairs."
+    customer3:
+      role: "Photographer"
+      content: "Thought my data was lost forever, but they recovered everything! Professional and trustworthy service."
+        
+  cta:
+    title: "Ready to Get Your Device Fixed?"
+    description: "Don't let a broken device slow you down. Book your repair today and get back to what matters most."
+    primaryAction: "Book Repair Now"
+    secondaryAction: "Contact Us"
+    feature1: "Free diagnostics"
+    feature2: "90-day warranty"
+    feature3: "Same-day service available"
+    
+  stats:
+    devices_repaired: "10,000+"
+    customer_satisfaction: "99%"
+    warranty_period: "90 days"
+    turnaround_time: "24-48h"

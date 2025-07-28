@@ -1,0 +1,61 @@
+{
+  "config": {
+    "ingress": [
+      {
+        "hostname": "mail.revivatech.co.uk",
+        "service": "http://127.0.0.1:8000",
+        "originRequest": {
+          "httpHostHeader": "mail.revivatech.co.uk"
+        }
+      },
+      {
+        "hostname": "revivatech.com.br",
+        "service": "http://127.0.0.1:3000",
+        "originRequest": {
+          "httpHostHeader": "revivatech.com.br"
+        }
+      },
+      {
+        "hostname": "www.revivatech.com.br",
+        "service": "http://127.0.0.1:3000",
+        "originRequest": {
+          "httpHostHeader": "www.revivatech.com.br"
+        }
+      },
+      {
+        "hostname": "crm.revivatech.com.br",
+        "service": "http://127.0.0.1:3001",
+        "originRequest": {
+          "httpHostHeader": "crm.revivatech.com.br"
+        }
+      },
+      {
+        "hostname": "revivatech.co.uk",
+        "service": "http://127.0.0.1:3004",
+        "originRequest": {
+          "httpHostHeader": "revivatech.co.uk"
+        }
+      },
+      {
+        "hostname": "www.revivatech.co.uk",
+        "service": "http://127.0.0.1:3004",
+        "originRequest": {
+          "httpHostHeader": "www.revivatech.co.uk"
+        }
+      },
+      {
+        "hostname": "crm.revivatech.co.uk",
+        "service": "http://127.0.0.1:3001",
+        "originRequest": {
+          "httpHostHeader": "crm.revivatech.co.uk"
+        }
+      },
+      {
+        "service": "http_status:404"
+      }
+    ],
+    "warp-routing": {
+      "enabled": false
+    }
+  }
+} 

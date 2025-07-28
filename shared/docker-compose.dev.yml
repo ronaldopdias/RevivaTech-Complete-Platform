@@ -1,0 +1,155 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for new platform
+  new-database:
+    image: postgres:15-alpine
+    container_name: revivatech_new_database
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: revivatech_new
+      POSTGRES_USER: revivatech_user
+      POSTGRES_PASSWORD: revivatech_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=en_US.UTF-8"
+    ports:
+      - "5435:5432"
+    volumes:
+      - revivatech_new_db_data:/var/lib/postgresql/data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - revivatech-new-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revivatech_user -d revivatech_new"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Redis for new platform
+  new-redis:
+    image: redis:7-alpine
+    container_name: revivatech_new_redis
+    restart: unless-stopped
+    ports:
+      - "6383:6379"
+    volumes:
+      - revivatech_new_redis_data:/data
+    networks:
+      - revivatech-new-network
+    command: redis-server --appendonly yes --requirepass revivatech_redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Backend API for new platform
+  new-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: revivatech_new_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3011
+      LOG_LEVEL: debug
+      # Database
+      DB_HOST: new-database
+      DB_PORT: 5432
+      DB_NAME: revivatech_new
+      DB_USER: revivatech_user
+      DB_PASSWORD: revivatech_password
+      DATABASE_URL: postgresql://revivatech_user:revivatech_password@new-database:5432/revivatech_new
+      # Redis
+      REDIS_HOST: new-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: revivatech_redis_password
+      # Security
+      SESSION_SECRET: new-platform-session-secret-change-in-production
+      JWT_SECRET: new-platform-jwt-secret-change-in-production
+      JWT_EXPIRES_IN: 24h
+      # API
+      API_BASE_URL: http://localhost:3011
+      FRONTEND_URL: http://localhost:3010
+      CORS_ORIGIN: http://localhost:3010,https://revivatech.co.uk,https://www.revivatech.co.uk
+      # Trust proxy
+      TRUST_PROXY: "true"
+    ports:
+      - "3011:3011"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - revivatech_new_backend_uploads:/app/uploads
+      - revivatech_new_backend_logs:/app/logs
+    depends_on:
+      new-database:
+        condition: service_healthy
+      new-redis:
+        condition: service_healthy
+    networks:
+      - revivatech-new-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend for new platform
+  new-frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    container_name: revivatech_new_frontend
+    restart: unless-stopped
+    user: "0:0"  # Run as root user for development (fixes permission issues)
+    environment:
+      NODE_ENV: development
+      PORT: 3010
+      NEXT_PUBLIC_API_URL: http://localhost:3011
+      NEXT_PUBLIC_DOMAIN: en
+      NEXT_PUBLIC_LOCALE: en-GB
+      NEXT_PUBLIC_CURRENCY: GBP
+      NEXT_PUBLIC_TIMEZONE: Europe/London
+      # Development optimizations
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      NEXT_TELEMETRY_DISABLED: 1
+    ports:
+      - "3010:3010"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+      - ./components:/app/shared:ro
+    depends_on:
+      new-backend:
+        condition: service_healthy
+    networks:
+      - revivatech-new-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  revivatech_new_db_data:
+    driver: local
+    name: revivatech_new_db_data
+  revivatech_new_redis_data:
+    driver: local
+    name: revivatech_new_redis_data
+  revivatech_new_backend_uploads:
+    driver: local
+    name: revivatech_new_backend_uploads
+  revivatech_new_backend_logs:
+    driver: local
+    name: revivatech_new_backend_logs
+
+networks:
+  revivatech-new-network:
+    driver: bridge
+    name: revivatech-new-network

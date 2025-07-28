@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  # RevivaTech Frontend (English) - Production
+  revivatech_new_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NODE_ENV: production
+    container_name: revivatech_new_frontend
+    restart: unless-stopped
+    ports:
+      - "3010:3000"
+    environment:
+      - NODE_ENV=production
+      # API URL is determined dynamically by hostname detection
+      - NEXT_PUBLIC_DOMAIN=revivatech.co.uk
+      - DISABLE_PWA_INSTALL_PROMPT=false
+      # Analytics Configuration
+      - NEXT_PUBLIC_ANALYTICS_ENABLED=${NEXT_PUBLIC_ANALYTICS_ENABLED:-true}
+      - NEXT_PUBLIC_ANALYTICS_DEBUG=${NEXT_PUBLIC_ANALYTICS_DEBUG:-false}
+      - NEXT_PUBLIC_ANALYTICS_CONSENT_REQUIRED=${NEXT_PUBLIC_ANALYTICS_CONSENT_REQUIRED:-true}
+      # Google Analytics 4
+      - NEXT_PUBLIC_GA4_MEASUREMENT_ID=${NEXT_PUBLIC_GA4_MEASUREMENT_ID}
+      - NEXT_PUBLIC_GA_ID=${NEXT_PUBLIC_GA_ID}
+      # Facebook Pixel
+      - NEXT_PUBLIC_FACEBOOK_PIXEL_ID=${NEXT_PUBLIC_FACEBOOK_PIXEL_ID}
+      # PostHog Analytics
+      - NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY}
+      - NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
+      # Business Intelligence & Reporting
+      - NEXT_PUBLIC_REPORTING_ENABLED=${NEXT_PUBLIC_REPORTING_ENABLED:-true}
+      - NEXT_PUBLIC_REPORTING_WEBHOOK_URL=${NEXT_PUBLIC_REPORTING_WEBHOOK_URL}
+      - NEXT_PUBLIC_REPORT_EMAIL_RECIPIENTS=${NEXT_PUBLIC_REPORT_EMAIL_RECIPIENTS}
+    networks:
+      - revivatech_network
+    depends_on:
+      - revivatech_new_backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # RevivaTech Backend API - Production
+  revivatech_new_backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: revivatech_new_backend
+    restart: unless-stopped
+    ports:
+      - "3011:3011"
+    environment:
+      - NODE_ENV=production
+      - PORT=3011
+      - DATABASE_HOST=revivatech_new_database
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=revivatech_prod
+      - DATABASE_USER=revivatech_user
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=revivatech_new_redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    networks:
+      - revivatech_network
+    depends_on:
+      - revivatech_new_database
+      - revivatech_new_redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # PostgreSQL Database - Production
+  revivatech_new_database:
+    image: postgres:16-alpine
+    container_name: revivatech_new_database
+    restart: unless-stopped
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_DB=revivatech_prod
+      - POSTGRES_USER=revivatech_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - revivatech_postgres_data_new:/var/lib/postgresql/data
+      - ./backend/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    networks:
+      - revivatech_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revivatech_user -d revivatech_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Redis Cache - Production
+  revivatech_new_redis:
+    image: redis:7-alpine
+    container_name: revivatech_new_redis
+    restart: unless-stopped
+    ports:
+      - "6383:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - revivatech_redis_data_new:/data
+    networks:
+      - revivatech_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Nginx Reverse Proxy - Production
+  revivatech_new_nginx:
+    image: nginx:alpine
+    container_name: revivatech_new_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/production.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    networks:
+      - revivatech_network
+    depends_on:
+      - revivatech_new_frontend
+      - revivatech_new_backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  revivatech_postgres_data_new:
+    driver: local
+  revivatech_redis_data_new:
+    driver: local
+
+networks:
+  revivatech_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

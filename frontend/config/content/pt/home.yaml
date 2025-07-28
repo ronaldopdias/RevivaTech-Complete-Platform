@@ -1,0 +1,157 @@
+locale: pt
+namespace: home
+
+content:
+  hero:
+    title: "Serviços Especializados de Reparação de Computadores"
+    subtitle: "Reparações rápidas e confiáveis para todos os seus dispositivos com serviço profissional em que pode confiar"
+    description: "Desde reparação de ecrãs MacBook até remoção de vírus de PC, tratamos de todas as suas necessidades tecnológicas com cuidado especializado e peças genuínas."
+    cta:
+      primary: "Marcar Reparação"
+      secondary: "Ver Serviços"
+    features:
+      - "Diagnóstico gratuito"
+      - "Garantia de 90 dias"
+      - "Serviço no mesmo dia disponível"
+      
+  services:
+    title: "Os Nossos Serviços"
+    subtitle: "Serviços de reparação profissionais para todos os seus dispositivos"
+    items:
+      mac:
+        title: "Reparação Mac"
+        description: "Reparações profissionais para todos os dispositivos Mac incluindo MacBook, iMac e Mac Mini"
+        features:
+          - "Substituição de ecrã"
+          - "Serviço de bateria"
+          - "Reparação de placa lógica"
+          - "Recuperação de danos por água"
+        starting_price: "A partir de £49"
+        popular: true
+        
+      pc:
+        title: "Reparação PC & Portátil"
+        description: "Serviços completos de reparação de PC e portátil para todas as marcas e modelos"
+        features:
+          - "Atualizações de hardware"
+          - "Remoção de vírus"
+          - "Recuperação de dados"
+          - "Substituição de ecrã"
+        starting_price: "A partir de £39"
+        
+      mobile:
+        title: "Reparação de Dispositivos Móveis"
+        description: "Reparações de iPhone e Android com peças genuínas"
+        features:
+          - "Reparação de ecrã"
+          - "Substituição de bateria"
+          - "Danos por água"
+          - "Reparação de câmara"
+        starting_price: "A partir de £29"
+        
+      data_recovery:
+        title: "Recuperação de Dados"
+        description: "Serviços profissionais de recuperação de dados para todos os dispositivos de armazenamento"
+        features:
+          - "Recuperação de disco rígido"
+          - "Recuperação de SSD"
+          - "Recuperação RAID"
+          - "Recuperação de dados móveis"
+        starting_price: "A partir de £99"
+        
+  features:
+    title: "Porquê Escolher a RevivaTech?"
+    subtitle: "Serviço profissional com toque pessoal"
+    items:
+      fast:
+        icon: "clock"
+        title: "Execução Rápida"
+        description: "A maioria das reparações concluídas em 24-48 horas com opções expresso disponíveis"
+        
+      warranty:
+        icon: "shield"
+        title: "Garantia de 90 Dias"
+        description: "Todas as reparações cobertas pela nossa garantia abrangente de 90 dias para tranquilidade"
+        
+      quality:
+        icon: "star"
+        title: "Peças de Qualidade"
+        description: "Usamos apenas peças genuínas ou de alta qualidade para reparações duradouras"
+        
+      expert:
+        icon: "user-check"
+        title: "Técnicos Especialistas"
+        description: "Técnicos certificados com anos de experiência em reparação de dispositivos"
+        
+      transparent:
+        icon: "eye"
+        title: "Preços Transparentes"
+        description: "Sem taxas ocultas - conhecerá o custo antecipadamente antes de iniciarmos qualquer trabalho"
+        
+      secure:
+        icon: "lock"
+        title: "Segurança de Dados"
+        description: "A privacidade e segurança dos seus dados é a nossa prioridade máxima durante todo o processo de reparação"
+        
+  process:
+    title: "O Nosso Processo de Reparação"
+    subtitle: "Simples, transparente e confiável"
+    steps:
+      - title: "Marcar Online"
+        description: "Agende a sua consulta de reparação online ou visite a nossa loja"
+        icon: "calendar"
+        
+      - title: "Diagnóstico Gratuito"
+        description: "Fornecemos um diagnóstico abrangente sem qualquer custo"
+        icon: "search"
+        
+      - title: "Orçamento e Aprovação"
+        description: "Receba um orçamento detalhado e aprove a reparação"
+        icon: "file-text"
+        
+      - title: "Reparação Especializada"
+        description: "Os nossos técnicos certificados realizam a reparação"
+        icon: "wrench"
+        
+      - title: "Verificação de Qualidade"
+        description: "Teste minucioso para garantir que tudo funciona perfeitamente"
+        icon: "check-circle"
+        
+      - title: "Recolha"
+        description: "Recolha o seu dispositivo com documentação de garantia"
+        icon: "package"
+        
+  testimonials:
+    title: "O Que Dizem Os Nossos Clientes"
+    subtitle: "Não acredite apenas na nossa palavra"
+    items:
+      - name: "Sarah Johnson"
+        rating: 5
+        comment: "Excelente serviço! O meu MacBook foi reparado rapidamente e profissionalmente. A garantia deu-me confiança no trabalho deles."
+        device: "MacBook Pro"
+        repair: "Substituição de ecrã"
+        
+      - name: "Mike Chen"
+        rating: 5
+        comment: "Execução rápida e excelente comunicação durante todo o processo. Recomendo vivamente para qualquer reparação de portátil."
+        device: "Portátil Dell"
+        repair: "Reparação de placa-mãe"
+        
+      - name: "Emma Wilson"
+        rating: 5
+        comment: "Pensei que os meus dados estavam perdidos para sempre, mas eles recuperaram tudo! Serviço profissional e confiável."
+        device: "Disco Rígido Externo"
+        repair: "Recuperação de dados"
+        
+  cta:
+    title: "Pronto para Reparar o Seu Dispositivo?"
+    description: "Não deixe que um dispositivo avariado o atrase. Marque a sua reparação hoje e volte ao que mais importa."
+    button: "Marcar Reparação Agora"
+    phone: "Telefone: +44 20 1234 5678"
+    email: "Email: support@revivatech.com"
+    
+  stats:
+    devices_repaired: "10.000+"
+    customer_satisfaction: "99%"
+    warranty_period: "90 dias"
+    turnaround_time: "24-48h"
