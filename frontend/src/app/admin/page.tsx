@@ -19,10 +19,10 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import AdminDashboardAnalytics from '@/components/admin/AdminDashboardAnalytics';
 import AnalyticsOverview from '@/components/admin/AnalyticsOverview';
 import { adminService } from '@/services/admin.service';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { 
   DollarSign, TrendingUp, Users, BarChart3, 
   PieChart, Target, Activity, Settings,

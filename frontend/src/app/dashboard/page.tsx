@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -38,9 +38,10 @@ import {
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, signOut, error } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Mock data for real dashboard
   const [dashboardData, setDashboardData] = useState({
@@ -68,8 +69,21 @@ export default function DashboardPage() {
   });
 
   const handleLogout = async () => {
-    await logout();
-    router.push('/');
+    if (isSigningOut) return; // Prevent double-clicks
+    
+    setIsSigningOut(true);
+    try {
+      // Better Auth signOut returns void on success, no result object
+      await signOut();
+      console.log('Logout successful');
+      router.push('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still redirect even if logout fails
+      router.push('/');
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -120,11 +134,12 @@ export default function DashboardPage() {
               </Link>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 hover:text-blue-600"
+                disabled={isSigningOut}
+                className="flex items-center gap-2 hover:text-blue-600 disabled:opacity-50"
                 style={{ color: '#000000' }}
               >
                 <LogOut className="w-4 h-4" />
-                Logout
+                {isSigningOut ? 'Signing out...' : 'Logout'}
               </button>
             </div>
           </div>

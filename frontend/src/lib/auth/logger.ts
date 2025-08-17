@@ -1,136 +1,128 @@
 /**
- * Professional authentication logging utility for RevivaTech
- * Enterprise-grade logging for NextAuth.js operations
+ * Better Auth Logger - Simple Implementation
+ * Provides basic logging for authentication events
+ * Simplified replacement for removed auth-logger module
  */
 
 export interface AuthLogEntry {
-  timestamp: Date
+  id: string
+  timestamp: string
   level: 'info' | 'warn' | 'error' | 'debug'
   event: string
-  details: any
-  userEmail?: string
-  sessionId?: string
+  message: string
+  metadata?: Record<string, any>
+  user?: {
+    id?: string
+    email?: string
+  }
 }
 
-class AuthLogger {
-  private logs: AuthLogEntry[] = []
-  private maxLogs = 1000 // Keep last 1000 log entries
+export interface AuthMetrics {
+  totalLogs: number
+  errorCount: number
+  warningCount: number
+  infoCount: number
+  recentErrors: number
+}
 
-  private log(level: AuthLogEntry['level'], event: string, details: any, userEmail?: string, sessionId?: string) {
+class SimpleAuthLogger {
+  private logs: AuthLogEntry[] = []
+  private maxLogs = 1000
+
+  private generateId(): string {
+    return Math.random().toString(36).substr(2, 9)
+  }
+
+  private addLog(level: AuthLogEntry['level'], event: string, message: string, metadata?: Record<string, any>, user?: AuthLogEntry['user']): void {
     const entry: AuthLogEntry = {
-      timestamp: new Date(),
+      id: this.generateId(),
+      timestamp: new Date().toISOString(),
       level,
       event,
-      details,
-      userEmail,
-      sessionId
+      message,
+      metadata,
+      user
     }
 
-    this.logs.push(entry)
+    this.logs.unshift(entry)
     
-    // Keep only the last maxLogs entries
+    // Keep only the most recent logs
     if (this.logs.length > this.maxLogs) {
-      this.logs = this.logs.slice(-this.maxLogs)
-    }
-
-    // Console logging with proper formatting
-    const prefix = `[NextAuth][${level.toUpperCase()}][${event}]`
-    const message = `${prefix} ${userEmail ? `(${userEmail})` : ''}`
-    
-    switch (level) {
-      case 'error':
-        console.error(message, details)
-        break
-      case 'warn':
-        console.warn(message, details)
-        break
-      case 'debug':
-        if (process.env.NODE_ENV === 'development') {
-          console.debug(message, details)
-        }
-        break
-      default:
-        console.log(message, details)
+      this.logs = this.logs.slice(0, this.maxLogs)
     }
   }
 
-  info(event: string, details: any, userEmail?: string, sessionId?: string) {
-    this.log('info', event, details, userEmail, sessionId)
+  info(event: string, metadata?: Record<string, any>): void {
+    this.addLog('info', event, `Info: ${event}`, metadata)
   }
 
-  warn(event: string, details: any, userEmail?: string, sessionId?: string) {
-    this.log('warn', event, details, userEmail, sessionId)
+  warn(event: string, metadata?: Record<string, any>): void {
+    this.addLog('warn', event, `Warning: ${event}`, metadata)
   }
 
-  error(event: string, details: any, userEmail?: string, sessionId?: string) {
-    this.log('error', event, details, userEmail, sessionId)
+  error(event: string, metadata?: Record<string, any>): void {
+    this.addLog('error', event, `Error: ${event}`, metadata)
   }
 
-  debug(event: string, details: any, userEmail?: string, sessionId?: string) {
-    this.log('debug', event, details, userEmail, sessionId)
+  debug(event: string, metadata?: Record<string, any>): void {
+    this.addLog('debug', event, `Debug: ${event}`, metadata)
   }
 
-  // Get recent logs for debugging
-  getRecentLogs(count = 50): AuthLogEntry[] {
-    return this.logs.slice(-count)
+  getRecentLogs(count: number = 50): AuthLogEntry[] {
+    return this.logs.slice(0, count)
   }
 
-  // Get logs for specific user
-  getUserLogs(userEmail: string, count = 20): AuthLogEntry[] {
+  getUserLogs(email: string, count: number = 50): AuthLogEntry[] {
     return this.logs
-      .filter(log => log.userEmail === userEmail)
-      .slice(-count)
+      .filter(log => log.user?.email === email)
+      .slice(0, count)
   }
 
-  // Get error logs
-  getErrorLogs(count = 20): AuthLogEntry[] {
+  getErrorLogs(count: number = 50): AuthLogEntry[] {
     return this.logs
       .filter(log => log.level === 'error')
-      .slice(-count)
+      .slice(0, count)
   }
 
-  // Clear logs (for testing)
-  clearLogs() {
+  getLogs(count: number = 50): AuthLogEntry[] {
+    return this.getRecentLogs(count)
+  }
+
+  getLogsByEvent(event: string): AuthLogEntry[] {
+    return this.logs.filter(log => log.event === event)
+  }
+
+  getMetrics(): AuthMetrics {
+    const totalLogs = this.logs.length
+    const errorCount = this.logs.filter(log => log.level === 'error').length
+    const warningCount = this.logs.filter(log => log.level === 'warn').length
+    const infoCount = this.logs.filter(log => log.level === 'info').length
+    
+    // Count recent errors (last 24 hours)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const recentErrors = this.logs.filter(
+      log => log.level === 'error' && new Date(log.timestamp) > yesterday
+    ).length
+
+    return {
+      totalLogs,
+      errorCount,
+      warningCount,
+      infoCount,
+      recentErrors
+    }
+  }
+
+  clearLogs(): void {
     this.logs = []
   }
-}
 
-// Singleton instance
-export const authLogger = new AuthLogger()
-
-// Convenience functions for common auth events
-export const logAuthAttempt = (email: string, success: boolean, error?: any) => {
-  if (success) {
-    authLogger.info('AUTH_ATTEMPT_SUCCESS', { email }, email)
-  } else {
-    authLogger.error('AUTH_ATTEMPT_FAILED', { email, error: error?.message || error }, email)
+  exportLogs(): string {
+    return JSON.stringify(this.logs, null, 2)
   }
 }
 
-export const logSessionCreated = (userEmail: string, sessionId: string) => {
-  authLogger.info('SESSION_CREATED', { userEmail }, userEmail, sessionId)
-}
-
-export const logSessionDestroyed = (userEmail: string, sessionId: string) => {
-  authLogger.info('SESSION_DESTROYED', { userEmail }, userEmail, sessionId)
-}
-
-export const logConfigurationError = (error: any) => {
-  authLogger.error('CONFIGURATION_ERROR', { error: error?.message || error })
-}
-
-export const logNetworkError = (endpoint: string, error: any, userEmail?: string) => {
-  authLogger.error('NETWORK_ERROR', { endpoint, error: error?.message || error }, userEmail)
-}
-
-export const logBackendError = (endpoint: string, status: number, response: any, userEmail?: string) => {
-  authLogger.error('BACKEND_ERROR', { endpoint, status, response }, userEmail)
-}
-
-export const logCSRFError = (userEmail?: string) => {
-  authLogger.error('CSRF_ERROR', { message: 'CSRF token validation failed' }, userEmail)
-}
-
-export const logDebugInfo = (event: string, details: any, userEmail?: string) => {
-  authLogger.debug(event, details, userEmail)
-}
+// Export singleton instance
+export const authLogger = new SimpleAuthLogger()
+export type { AuthLogEntry, AuthMetrics }

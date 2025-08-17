@@ -1,13 +1,13 @@
 'use client'
 
-import { useSession } from "next-auth/react"
+import { useSession } from "./better-auth-client"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import type { UserRole } from "./types"
+import type { User } from "better-auth/types"
+import { UserRole, hasRole } from "./better-auth-client"
 
 /**
- * Professional client-side authentication guards for RevivaTech
- * Enterprise-grade component protection with NextAuth.js
+ * Client-side authentication guards using official Better Auth patterns
  */
 
 interface ClientAuthGuardProps {
@@ -17,10 +17,15 @@ interface ClientAuthGuardProps {
   redirectTo?: string
 }
 
-// Role checking utility (client-side compatible)
-function hasRole(userRole: UserRole, requiredRoles: UserRole | UserRole[]): boolean {
-  const roles = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles]
-  return roles.includes(userRole)
+function AccessDenied() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+        <p className="text-gray-600">You don't have permission to access this page.</p>
+      </div>
+    </div>
+  )
 }
 
 export function ClientAuthGuard({
@@ -29,82 +34,36 @@ export function ClientAuthGuard({
   fallback = <AccessDenied />,
   redirectTo = '/login'
 }: ClientAuthGuardProps) {
-  const { data: session, status } = useSession()
+  const { data: session, isPending } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'loading') return
-
-    if (!session?.user) {
+    if (!isPending && !session) {
       router.push(redirectTo)
-      return
     }
+  }, [session, isPending, router, redirectTo])
 
-    if (requiredRole && !hasRole(session.user.role, requiredRole)) {
-      // For client-side, we don't redirect on role mismatch, just show fallback
-      return
-    }
-  }, [session, status, requiredRole, redirectTo, router])
-
-  // Show loading state
-  if (status === 'loading') {
+  if (isPending) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-trust-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-neutral-600">Verifying authentication...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
   }
 
-  // Not authenticated
-  if (!session?.user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-4xl mb-4">🔒</div>
-          <p className="text-sm text-neutral-600">Redirecting to login...</p>
-        </div>
-      </div>
-    )
+  if (!session) {
+    return null // Will redirect
   }
 
-  // Role check failed
-  if (requiredRole && !hasRole(session.user.role, requiredRole)) {
-    return fallback
+  // Check role requirements
+  if (requiredRole && requiredRole.length > 0) {
+    const userRole = session.user.role as UserRole
+    const hasRequiredRole = requiredRole.some(role => hasRole(userRole, [role]))
+    
+    if (!hasRequiredRole) {
+      return fallback
+    }
   }
 
   return <>{children}</>
-}
-
-/**
- * Professional access denied component
- */
-function AccessDenied() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-      <div className="text-center space-y-4 max-w-md mx-auto p-8">
-        <div className="text-4xl mb-4">🚫</div>
-        <h2 className="text-xl font-semibold text-neutral-900">Access Denied</h2>
-        <p className="text-sm text-neutral-600">
-          You don't have permission to access this page. Please contact your administrator if you believe this is an error.
-        </p>
-        <div className="flex space-x-4 justify-center mt-6">
-          <a
-            href="/dashboard"
-            className="px-4 py-2 bg-trust-500 text-white rounded-md hover:bg-trust-600 transition-colors text-sm"
-          >
-            Go to Dashboard
-          </a>
-          <a
-            href="/login"
-            className="px-4 py-2 border border-neutral-300 text-neutral-700 rounded-md hover:bg-neutral-50 transition-colors text-sm"
-          >
-            Sign In
-          </a>
-        </div>
-      </div>
-    </div>
-  )
 }
