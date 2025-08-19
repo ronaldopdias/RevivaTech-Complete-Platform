@@ -13,8 +13,7 @@ class DataRetentionService {
     });
 
     this.redis = Redis.createClient({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: process.env.REDIS_PORT || 6383
+      url: process.env.REDIS_URL || process.env.REDIS_INTERNAL_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
     });
 
     this.retentionPolicies = new Map();

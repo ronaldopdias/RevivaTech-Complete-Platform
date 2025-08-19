@@ -38,9 +38,9 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
 
     let query = `
       SELECT 
-        id, email, first_name, last_name, phone, role, status, 
-        email_verified, last_login, created_at, updated_at
-      FROM users
+        id, email, "firstName", "lastName", phone, role, "isActive",
+        "emailVerified", "createdAt", "updatedAt"
+      FROM "user"
       WHERE 1=1
     `;
     const params = [];
@@ -51,8 +51,8 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
       paramCount++;
       query += ` AND (
         LOWER(email) LIKE LOWER($${paramCount}) OR 
-        LOWER(first_name) LIKE LOWER($${paramCount}) OR 
-        LOWER(last_name) LIKE LOWER($${paramCount})
+        LOWER("firstName") LIKE LOWER($${paramCount}) OR 
+        LOWER("lastName") LIKE LOWER($${paramCount})
       )`;
       params.push(`%${search}%`);
     }
@@ -64,21 +64,26 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
       params.push(role);
     }
 
-    // Add status filter
+    // Add status filter (map to isActive)
     if (status) {
       paramCount++;
-      query += ` AND status = $${paramCount}`;
-      params.push(status);
+      if (status === 'active') {
+        query += ` AND "isActive" = $${paramCount}`;
+        params.push(true);
+      } else {
+        query += ` AND "isActive" = $${paramCount}`;
+        params.push(false);
+      }
     }
 
     // Add pagination
-    query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+    query += ` ORDER BY "createdAt" DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     params.push(limit, offset);
 
     // Get total count
     let countQuery = `
       SELECT COUNT(*) as total
-      FROM users
+      FROM "user"
       WHERE 1=1
     `;
     const countParams = [];
@@ -86,8 +91,8 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     if (search) {
       countQuery += ` AND (
         LOWER(email) LIKE LOWER($1) OR 
-        LOWER(first_name) LIKE LOWER($1) OR 
-        LOWER(last_name) LIKE LOWER($1)
+        LOWER("firstName") LIKE LOWER($1) OR 
+        LOWER("lastName") LIKE LOWER($1)
       )`;
       countParams.push(`%${search}%`);
     }
@@ -98,8 +103,13 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     if (status) {
-      countQuery += ` AND status = $${countParams.length + 1}`;
-      countParams.push(status);
+      if (status === 'active') {
+        countQuery += ` AND "isActive" = $${countParams.length + 1}`;
+        countParams.push(true);
+      } else {
+        countQuery += ` AND "isActive" = $${countParams.length + 1}`;
+        countParams.push(false);
+      }
     }
 
     const [usersResult, countResult] = await Promise.all([
@@ -111,15 +121,15 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
       users: usersResult.rows.map(user => ({
         id: user.id,
         email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         phone: user.phone,
         role: user.role,
-        status: user.status,
-        emailVerified: user.email_verified,
-        lastLogin: user.last_login,
-        createdAt: user.created_at,
-        updatedAt: user.updated_at
+        status: user.isActive ? 'active' : 'inactive',
+        emailVerified: user.emailVerified,
+        lastLogin: null, // Better Auth doesn't track lastLogin
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
       })),
       pagination: {
         page: parseInt(page),
@@ -471,15 +481,15 @@ router.get('/stats/overview', authenticateToken, requireAdmin, async (req, res) 
   try {
     const statsQuery = `
       SELECT 
-        COUNT(*) FILTER (WHERE role = 'customer') as total_customers,
-        COUNT(*) FILTER (WHERE role = 'admin') as total_admins,
-        COUNT(*) FILTER (WHERE role = 'technician') as total_technicians,
-        COUNT(*) FILTER (WHERE status = 'active') as active_users,
-        COUNT(*) FILTER (WHERE status = 'suspended') as suspended_users,
-        COUNT(*) FILTER (WHERE status = 'inactive') as inactive_users,
-        COUNT(*) FILTER (WHERE email_verified = true) as verified_users,
-        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as new_users_30d
-      FROM users
+        COUNT(*) FILTER (WHERE role = 'CUSTOMER') as total_customers,
+        COUNT(*) FILTER (WHERE role IN ('ADMIN', 'SUPER_ADMIN')) as total_admins,
+        COUNT(*) FILTER (WHERE role = 'TECHNICIAN') as total_technicians,
+        COUNT(*) FILTER (WHERE "isActive" = true) as active_users,
+        COUNT(*) FILTER (WHERE "isActive" = false) as suspended_users,
+        0 as inactive_users,
+        COUNT(*) FILTER (WHERE "emailVerified" = true) as verified_users,
+        COUNT(*) FILTER (WHERE "createdAt" >= CURRENT_DATE - INTERVAL '30 days') as new_users_30d
+      FROM "user"
     `;
 
     const result = await req.pool.query(statsQuery);
