@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (paymentIntent.status === 'requires_confirmation') {
       const confirmedPaymentIntent = await stripe.paymentIntents.confirm(paymentIntentId, {
         payment_method: paymentMethodId,
-        return_url: returnUrl || `${process.env.NEXTAUTH_URL || 'http://localhost:3010'}/booking/success`,
+        return_url: returnUrl || `${process.env.BETTER_AUTH_BASE_URL || 'http://localhost:3010'}/booking/success`,
       });
 
       return NextResponse.json({

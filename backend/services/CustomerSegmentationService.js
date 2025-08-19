@@ -17,8 +17,8 @@ class CustomerSegmentationService {
     this.db = new Pool({
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 5435,
-      database: process.env.DB_NAME || 'revivatech_db',
-      user: process.env.DB_USER || 'revivatech_user',
+      database: process.env.DB_NAME || 'revivatech',
+      user: process.env.DB_USER || 'revivatech',
       password: process.env.DB_PASSWORD || 'revivatech_password',
       max: 20,
       idleTimeoutMillis: 30000,
@@ -26,10 +26,10 @@ class CustomerSegmentationService {
     });
 
     // Initialize Redis connection for caching
-    this.redis = Redis.createClient({
-      url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6383}`,
-      password: process.env.REDIS_PASSWORD,
-    });
+    const redisConfig = {
+      url: `redis://localhost:${process.env.REDIS_PORT || 6383}`
+    };
+    this.redis = Redis.createClient(redisConfig);
 
     this.redis.on('error', (err) => console.error('Redis Client Error', err));
     this.redis.connect();

@@ -73,7 +73,7 @@ export const useOnboarding = ({
 
     const shouldShow = autoStart && 
       !state.isComplete && 
-      (!requiresAuth || isAuthenticated());
+      (!requiresAuth || isAuthenticated);
 
     setIsVisible(shouldShow);
   }, [isLoading, autoStart, requiresAuth, state.isComplete]);

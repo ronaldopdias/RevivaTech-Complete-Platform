@@ -1,15 +1,13 @@
-import { auth } from "@/lib/auth/server"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
 /**
- * Professional authentication middleware for RevivaTech
- * Enterprise-grade route protection and session management
+ * Better Auth Middleware for RevivaTech
+ * Simple route protection without session verification at middleware level
+ * Authentication state will be verified at page/component level
  */
 
-export default auth((req) => {
-  const { nextUrl } = req
-  const isLoggedIn = !!req.auth
-  const userRole = req.auth?.user?.role
+export default async function middleware(request: NextRequest) {
+  const { nextUrl } = request
 
   // Define route patterns
   const isAdminRoute = nextUrl.pathname.startsWith('/admin')
@@ -31,60 +29,19 @@ export default auth((req) => {
     '/terms',
     '/privacy',
     '/careers',
-    '/warranty'
+    '/warranty',
+    '/login'
   ].includes(nextUrl.pathname) || nextUrl.pathname.startsWith('/api/')
 
-  // Professional authentication logic
-  
   // Allow public routes
   if (isPublicRoute) {
     return NextResponse.next()
   }
 
-  // Redirect authenticated users away from auth pages
-  if (isAuthRoute && isLoggedIn) {
-    const redirectUrl = getUserDashboard(userRole)
-    return NextResponse.redirect(new URL(redirectUrl, nextUrl))
-  }
-
-  // Protect admin routes
-  if (isAdminRoute) {
-    if (!isLoggedIn) {
-      const loginUrl = new URL('/login', nextUrl)
-      loginUrl.searchParams.set('returnUrl', nextUrl.pathname)
-      return NextResponse.redirect(loginUrl)
-    }
-
-    if (!isAdminOrSuperAdmin(userRole)) {
-      return NextResponse.redirect(new URL('/auth/unauthorized', nextUrl))
-    }
-  }
-
-  // Protect technician routes
-  if (isTechnicianRoute) {
-    if (!isLoggedIn) {
-      const loginUrl = new URL('/login', nextUrl)
-      loginUrl.searchParams.set('returnUrl', nextUrl.pathname)
-      return NextResponse.redirect(loginUrl)
-    }
-
-    if (!isTechnicianOrAbove(userRole)) {
-      return NextResponse.redirect(new URL('/auth/unauthorized', nextUrl))
-    }
-  }
-
-  // Protect dashboard and other authenticated routes
-  const protectedRoutes = ['/dashboard', '/profile', '/booking', '/customer-portal']
-  if (protectedRoutes.some(route => nextUrl.pathname.startsWith(route))) {
-    if (!isLoggedIn) {
-      const loginUrl = new URL('/login', nextUrl)
-      loginUrl.searchParams.set('returnUrl', nextUrl.pathname)
-      return NextResponse.redirect(loginUrl)
-    }
-  }
-
+  // For protected routes, let Better Auth handle session verification
+  // The components will use client-side auth guards
   return NextResponse.next()
-})
+}
 
 /**
  * Professional role checking utilities
@@ -117,7 +74,7 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api/auth (NextAuth.js internal routes)
+     * - api/auth (Better Auth internal routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)

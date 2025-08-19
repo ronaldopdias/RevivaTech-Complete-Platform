@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { UserRole } from '@/lib/auth/types';
 
 interface AuthGuardProps {

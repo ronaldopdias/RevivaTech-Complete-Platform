@@ -18,7 +18,29 @@ export { signIn, signOut, signUp } from './better-auth-client'
 
 // Types and utilities (client-safe)
 export type { User, Session } from 'better-auth/types'
+export type { UseUserRoleReturn } from './useUserRole'
 export { UserRole, hasRole, checkPermission } from './better-auth-client'
+
+// Role configuration and utilities
+export {
+  ROLE_HIERARCHY,
+  PERMISSIONS,
+  getRoleLevel,
+  roleInheritsFrom,
+  roleHasPermission,
+  getRolePermissions
+} from './roleConfig'
+
+export {
+  checkMinimumRole,
+  createPermissionChecker,
+  getRolesAtOrBelow,
+  formatRoleForDisplay,
+  isValidRoleTransition,
+  extractRoleInfo,
+  ROLE_GROUPS,
+  isValidUserRole
+} from './roleUtils'
 
 // Guard components
 export { ClientAuthGuard } from './client-guards'

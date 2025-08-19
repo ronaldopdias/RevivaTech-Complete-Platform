@@ -5,7 +5,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import AdminDashboardAnalytics from '@/components/admin/AdminDashboardAnalytics';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { useAuthenticatedApi } from '@/lib/auth/useAuthenticatedApi';
 import {
   TrendingUp,

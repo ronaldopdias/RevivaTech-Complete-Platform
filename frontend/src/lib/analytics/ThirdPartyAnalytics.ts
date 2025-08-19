@@ -323,7 +323,7 @@ class ThirdPartyAnalyticsService {
         this.posthog.capture(event.name, eventData);
       }
 
-      console.log('Event tracked:', event.name, eventData);
+      // Event tracked silently to reduce console spam
     } catch (error) {
       console.error('Failed to track event:', error);
     }

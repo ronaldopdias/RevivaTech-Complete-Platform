@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 
 interface WebSocketMessage {
   type: string;

@@ -1,6 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
-const { authenticateToken, requireRole } = require('../middleware/authentication');
+const { authenticateSession: authenticateToken, requireRole } = require('../middleware/better-auth-middleware');
+const { authenticateHybrid, requireRole: requireHybridRole } = require('../middleware/hybrid-authentication');
 const crypto = require('crypto');
 const router = express.Router();
 
@@ -420,7 +421,7 @@ router.get('/milestones/list', authenticateToken, async (req, res) => {
 });
 
 // Get repair statistics (admin only)
-router.get('/stats/overview', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), async (req, res) => {
+router.get('/stats/overview', authenticateHybrid, requireHybridRole(['ADMIN', 'SUPER_ADMIN']), async (req, res) => {
   try {
     const statsQuery = `
       SELECT 

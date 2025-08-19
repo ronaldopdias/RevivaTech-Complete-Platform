@@ -35,7 +35,10 @@ class CoreWebVitalsMonitor {
   private reportCallback?: (report: PerformanceReport) => void;
 
   constructor() {
-    this.initializeObservers();
+    // Only initialize observers on client-side to prevent SSR errors
+    if (typeof window !== 'undefined') {
+      this.initializeObservers();
+    }
   }
 
   private initializeObservers() {
@@ -80,7 +83,7 @@ class CoreWebVitalsMonitor {
       });
 
       // Interaction to Next Paint (INP) - new metric
-      if ('PerformanceEventTiming' in window) {
+      if (typeof window !== 'undefined' && 'PerformanceEventTiming' in window) {
         this.observeMetric('event', (entries) => {
           let maxINP = 0;
           for (const entry of entries as any[]) {

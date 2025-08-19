@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { SimpleThemeProvider } from "@/providers/SimpleThemeProvider";
 import { ServiceProvider } from "@/providers/ServiceProvider";
-import { SessionProvider } from "next-auth/react";
 import { OnboardingProvider } from "@/providers/OnboardingProvider";
 import PWAInitializer from "@/components/PWAInitializer";
 import FingerprintAnalytics from "@/components/analytics/FingerprintAnalytics";
@@ -12,7 +11,7 @@ import { UniversalAnalyticsProvider } from "@/components/analytics/UniversalAnal
 import ThirdPartyAnalyticsWrapper from "@/components/analytics/ThirdPartyAnalyticsWrapper";
 import ConsentManager from "@/components/analytics/ConsentManager";
 import { WebSocketProvider } from "@/lib/realtime/WebSocketProvider";
-import { AuthProvider } from "@/lib/auth/AuthContext";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 
 // Analytics are managed via ThirdPartyAnalyticsWrapper
 
@@ -292,7 +291,6 @@ export default function RootLayout({
             defaultTheme="system"
             storageKey="revivatech-theme"
           >
-            <SessionProvider>
               <AuthProvider>
                 <ServiceProvider
                   config={{
@@ -329,7 +327,6 @@ export default function RootLayout({
                 </OnboardingProvider>
               </ServiceProvider>
               </AuthProvider>
-            </SessionProvider>
           </SimpleThemeProvider>
         </div>
       </body>

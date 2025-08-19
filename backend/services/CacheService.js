@@ -21,7 +21,6 @@ class CacheService extends EventEmitter {
     this.config = {
       host: process.env.REDIS_HOST || 'localhost',
       port: process.env.REDIS_PORT || 6383,
-      password: process.env.REDIS_PASSWORD || null,
       db: process.env.REDIS_DB || 0,
       keyPrefix: process.env.REDIS_KEY_PREFIX || 'revivatech:',
       defaultTTL: 3600, // 1 hour
@@ -69,11 +68,16 @@ class CacheService extends EventEmitter {
   async init() {
     try {
       // Create Redis client with connection pooling
-      this.client = Redis.createClient({
+      const clientConfig = {
         host: this.config.host,
         port: this.config.port,
-        password: this.config.password,
         db: this.config.db,
+      };
+      // Only add password if it's defined and not null
+      if (this.config.password) {
+        clientConfig.password = this.config.password;
+      }
+      this.client = Redis.createClient(clientConfig);
         retry_strategy: (options) => {
           if (options.error && options.error.code === 'ECONNREFUSED') {
             console.error('Redis connection refused');

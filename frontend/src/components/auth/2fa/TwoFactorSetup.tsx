@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { totpService, totpUtils } from '@/lib/auth/totp';
 import { backupCodesService, backupCodesUtils } from '@/lib/auth/backup-codes';
 import { 

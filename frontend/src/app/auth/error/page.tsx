@@ -17,14 +17,14 @@ interface AuthErrorPageProps {
 }
 
 /**
- * Professional NextAuth.js error page
+ * Professional Better Auth error page
  * Handles all authentication error scenarios with recovery options
  */
 export default function AuthErrorPage({ searchParams }: AuthErrorPageProps) {
   const { error, callbackUrl } = searchParams
   const returnUrl = callbackUrl || '/dashboard'
 
-  // Map NextAuth.js error codes to user-friendly messages
+  // Map Better Auth error codes to user-friendly messages
   const getErrorContent = (errorCode?: string) => {
     switch (errorCode) {
       case 'Configuration':
@@ -52,9 +52,11 @@ export default function AuthErrorPage({ searchParams }: AuthErrorPageProps) {
         }
 
       case 'CredentialsSignin':
+      case 'invalid_credentials':
+      case 'auth_state_invalid':
         return {
           title: 'Sign In Failed',
-          message: 'The email or password you entered is incorrect.',
+          message: 'The email or password you entered is incorrect, or your session has expired.',
           action: 'Please check your credentials and try again.',
           recoverable: true
         }

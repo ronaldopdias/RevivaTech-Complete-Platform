@@ -8,8 +8,8 @@ export const getApiBaseUrl = () => {
   
   const hostname = window.location.hostname;
   
-  // Tailscale IP access (development)
-  if (hostname === '100.122.130.67') return 'http://100.122.130.67:3011';
+  // Dynamic hostname detection - use localhost for private IPs
+  if (hostname.match(/^100\.\d+\.\d+\.\d+$/)) return 'http://localhost:3011';
   
   // Production domain
   if (hostname.includes('revivatech.co.uk')) return 'https://api.revivatech.co.uk';

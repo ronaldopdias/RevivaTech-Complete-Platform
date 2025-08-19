@@ -138,7 +138,7 @@ INSERT INTO repair_types (name, description, category_id, base_price, estimated_
 ('Joy-Con Drift Repair', 'Fix Nintendo Switch controller analog stick drift', 27, 59.99, 1, 'easy', '{"analog_stick": true, "contact_cleaner": true, "calibration": true}', TRUE),
 ('Console Software Recovery', 'Restore corrupted system software', 25, 89.99, 2, 'easy', '{"software_tools": true, "system_files": true, "backup_storage": true}', TRUE);
 
--- Create a default admin user (password: admin123 - change in production!)
+-- Create a default admin user (password: AdminPass123 - change in production!)
 INSERT INTO users (email, password_hash, first_name, last_name, role, email_verified) VALUES
 ('admin@revivatech.co.uk', '$2b$10$rGZqhJk1ZMFqKfCYhFZkpeWxJwGhQoAqV8EuLZnFqx7YY6CgfJJYG', 'System', 'Administrator', 'admin', TRUE);
 

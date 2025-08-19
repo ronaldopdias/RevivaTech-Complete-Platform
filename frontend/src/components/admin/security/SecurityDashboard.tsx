@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { AdminGate } from '@/lib/auth/role-guards';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { securityApi, SecurityMetrics, SecurityAlert, ActiveSession, AuditLogEntry } from '@/lib/api/securityApi';
 import { 
   Shield, 

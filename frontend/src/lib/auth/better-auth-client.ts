@@ -9,37 +9,63 @@
 import { createAuthClient } from "better-auth/react"
 import { organization, twoFactor } from "better-auth/plugins"
 
-// Get the base URL for authentication
+// Get the base URL for authentication - Fixed for server alignment
 function getAuthBaseURL(): string {
   // Always use the current origin to avoid CORS issues
   if (typeof window !== 'undefined') {
     // Client-side: use current domain (works for both localhost and production)
-    return window.location.origin
+    return window.location.origin + '/api/auth'
   }
   
   // Server-side fallback: use environment variables or default
-  return process.env.NEXT_PUBLIC_APP_URL || 'https://localhost:3010'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3010'
+  return baseUrl + '/api/auth'
 }
 
-// Create Better Auth client
+// Create Better Auth client - Fixed base URL alignment
 export const authClient = createAuthClient({
-  baseURL: getAuthBaseURL() + '/api/auth',
+  baseURL: getAuthBaseURL(),
   plugins: [
     organization(),
     twoFactor(),
   ],
 })
 
-// Custom sign-in wrapper to ensure correct endpoint usage
+// Enhanced sign-in with explicit session synchronization
 export const signIn = async (credentials: { email: string; password: string }) => {
-  console.log('[Better Auth] Attempting sign-in with email:', credentials.email);
+  // Sign-in attempt (removed debug log)
   try {
     // Use Better Auth's signIn.email method specifically
     const result = await authClient.signIn.email({
       email: credentials.email,
       password: credentials.password,
     });
-    console.log('[Better Auth] Sign-in successful:', result);
+    // Sign-in result processed
+    
+    // Optimized session synchronization for Better Auth
+    if (result && !result.error) {
+      // Login successful, synchronizing session
+      
+      // Quick session validation - let Better Auth handle the session state
+      try {
+        const sessionCheck = await fetch('/api/auth/get-session', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (sessionCheck.ok) {
+          const sessionData = await sessionCheck.json();
+          // Session synchronized successfully
+        }
+      } catch (syncError) {
+        console.warn('[Better Auth] Session sync warning:', syncError);
+        // Continue - the login still succeeded
+      }
+    }
+    
     return result;
   } catch (error) {
     console.error('[Better Auth] Sign-in failed:', error);
@@ -55,6 +81,33 @@ export const useActiveOrganization = authClient.useActiveOrganization || (() => 
 // signIn is defined above as custom wrapper
 export const signOut = authClient.signOut  
 export const signUp = authClient.signUp
+
+// Enhanced session refresh utility for Better Auth sync
+export const refreshSession = async () => {
+  try {
+    // Refreshing session
+    const response = await fetch('/api/auth/get-session', {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      }
+    });
+    
+    if (response.ok) {
+      const sessionData = await response.json();
+      // Session refreshed successfully
+      return sessionData;
+    } else {
+      // No active session found
+      return null;
+    }
+  } catch (error) {
+    console.error('[Better Auth] Session refresh failed:', error);
+    return null;
+  }
+};
 
 // Better Auth client does NOT have useAuth - this was causing 404 errors
 // useAuth is created in useAuthCompat.ts as a compatibility layer

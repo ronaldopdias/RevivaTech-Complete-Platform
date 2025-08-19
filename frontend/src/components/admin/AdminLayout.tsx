@@ -59,7 +59,7 @@ export function AdminLayout({ children, title = 'Admin Dashboard', breadcrumbs =
     <div className="h-full flex flex-col">
       {/* Logo/Brand Section */}
       <div
-        className="h-16 px-4 flex items-center border-b border-white/10"
+        className="h-16 px-4 flex items-center border-b border-white/10 flex-shrink-0"
         style={{ background: 'linear-gradient(135deg, #ADD8E6 0%, #4A9FCC 100%)' }}
       >
         <div className="flex items-center gap-3">
@@ -73,27 +73,29 @@ export function AdminLayout({ children, title = 'Admin Dashboard', breadcrumbs =
         </div>
       </div>
 
-      {/* Navigation Menu */}
-      <nav className="flex-1 pt-2">
-        <ul className="space-y-1 px-2">
-          {menuItems.map((item) => (
-            <li key={item.text}>
-              <Link
-                href={item.href}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-[#36454F] hover:bg-[#ADD8E6] hover:text-[#1A5266] hover:translate-x-1 transition-all duration-200 group"
-              >
-                {React.createElement(item.icon, { className: "w-5 h-5 text-[#4A9FCC] group-hover:text-[#1A5266]" })}
-                <span className="text-sm font-medium group-hover:font-semibold">
-                  {item.text}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      {/* Navigation Menu - Scrollable Container */}
+      <div className="flex-1 overflow-hidden">
+        <nav className="h-full pt-2 overflow-y-auto admin-nav-scroll">
+          <ul className="space-y-1 px-2 pb-4">
+            {menuItems.map((item) => (
+              <li key={item.text}>
+                <Link
+                  href={item.href}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-[#36454F] hover:bg-[#ADD8E6] hover:text-[#1A5266] hover:translate-x-1 transition-all duration-200 group"
+                >
+                  {React.createElement(item.icon, { className: "w-5 h-5 text-[#4A9FCC] group-hover:text-[#1A5266]" })}
+                  <span className="text-sm font-medium group-hover:font-semibold">
+                    {item.text}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
 
       {/* Trust Signal Footer */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-2 mb-2">
           <Badge
             variant="outline"

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CheckCircle, AlertCircle, RefreshCw, Shield } from 'lucide-react';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { authDiagnosticService, DiagnosticReport } from '@/lib/auth/diagnostic-service';
 
 interface DiagnosticPanelProps {
@@ -18,7 +18,7 @@ export function DiagnosticPanel({ className = '' }: DiagnosticPanelProps) {
   const [isVisible, setIsVisible] = useState(false);
 
   // Only allow admin access
-  if (!isAdmin()) {
+  if (!isAdmin) {
     return null;
   }
 

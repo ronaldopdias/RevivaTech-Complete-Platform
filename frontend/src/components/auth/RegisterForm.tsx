@@ -6,7 +6,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Checkbox from '@/components/ui/Checkbox';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { RegisterData } from '@/lib/auth/types';
 
 interface RegisterFormProps {

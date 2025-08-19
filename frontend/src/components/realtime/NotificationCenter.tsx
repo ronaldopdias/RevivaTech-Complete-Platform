@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, X, Check, Settings, Volume2, VolumeX } from 'lucide-react';
 import { useWebSocket, useWebSocketSubscription } from '@/lib/realtime/WebSocketProvider';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';

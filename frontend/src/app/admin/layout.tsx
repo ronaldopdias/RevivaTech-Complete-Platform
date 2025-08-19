@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { ClientAuthGuard } from '@/lib/auth/client-guards';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -187,11 +187,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     },
   ];
 
-  // Filter navigation items based on permissions
-  const allowedNavItems = navigationItems.filter(item => {
-    if (!item.permission) return true;
-    return checkPermission(item.permission.resource, item.permission.action);
-  });
+  // Filter navigation items based on permissions (memoized for performance)
+  const allowedNavItems = useMemo(() => {
+    return navigationItems.filter(item => {
+      if (!item.permission) return true;
+      return checkPermission(item.permission.resource, item.permission.action);
+    });
+  }, [checkPermission, navigationItems]);
 
   const handleLogout = async () => {
     try {
@@ -199,6 +201,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     }
+  };
+
+  // Handle scroll events within navigation to prevent page scroll
+  const handleNavWheel = (e: React.WheelEvent) => {
+    const target = e.currentTarget;
+    const atTop = target.scrollTop === 0;
+    const atBottom = target.scrollTop >= target.scrollHeight - target.clientHeight;
+    
+    // Only allow bubbling if at scroll boundaries and trying to scroll further
+    if ((atTop && e.deltaY < 0) || (atBottom && e.deltaY > 0)) {
+      return; // Allow natural page scroll
+    }
+    
+    e.stopPropagation(); // Prevent page scroll when scrolling within nav
   };
 
 
@@ -260,7 +276,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 overflow-y-auto">
+          <nav 
+            className="flex-1 px-4 py-6 overflow-y-auto"
+            onWheel={handleNavWheel}
+          >
             <div className="space-y-1">
               {allowedNavItems.map((item) => {
                 const isActive = pathname === item.href;

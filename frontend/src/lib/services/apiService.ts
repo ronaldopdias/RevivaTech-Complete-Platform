@@ -41,9 +41,9 @@ class ApiService {
     // Client-side: detect hostname and use appropriate backend URL
     const hostname = window.location.hostname;
     
-    // Tailscale IP access (development) - use backend on same IP
-    if (hostname === '100.122.130.67') {
-      return 'http://100.122.130.67:3011';
+    // Dynamic hostname detection - use localhost for private IPs
+    if (hostname.match(/^100\.\d+\.\d+\.\d+$/)) {
+      return 'http://localhost:3011';
     }
     
     // External domain access - use API subdomain through Cloudflare tunnel
@@ -55,9 +55,9 @@ class ApiService {
       return 'https://api.revivatech.com.br';
     }
     
-    // Tailscale serve hostname (development) - use backend through Tailscale IP
+    // Tailscale serve hostname (development) - use localhost backend
     if (hostname.includes('.tail1168f5.ts.net')) {
-      return 'http://100.122.130.67:3011';
+      return 'http://localhost:3011';
     }
     
     // Default/localhost access - use local backend

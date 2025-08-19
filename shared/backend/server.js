@@ -82,7 +82,7 @@ const corsOptions = {
     const baseOrigins = [
       'http://localhost:3010',
       'http://localhost:3000',
-      'http://100.122.130.67:3010',  // Tailscale IP for development
+      'http://localhost:3010',  // Development frontend
       'https://revivatech.co.uk',
       'https://www.revivatech.co.uk',
       'https://revivatech.com.br',

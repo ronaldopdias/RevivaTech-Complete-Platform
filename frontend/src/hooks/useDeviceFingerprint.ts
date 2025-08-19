@@ -60,6 +60,9 @@ export const useDeviceFingerprint = (options: FingerprintOptions = {}) => {
    */
   const checkConsent = useCallback((): boolean => {
     if (!respectConsent) return true;
+    
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined') return false;
 
     try {
       const consent = localStorage.getItem('revivatech-privacy-consent');

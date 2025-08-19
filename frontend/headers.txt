@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch
+content-type: application/json
+set-cookie: __Secure-better-auth.session_token=GC8GUqpe97eg09ePRRa8lfBGIUvnouIR.V2dNpCXopHV9FqPs%2FAEk4fLZm2rU5wo2V2RFoeo%2BAlg%3D; Max-Age=604800; Path=/; HttpOnly; Secure; SameSite=Lax
+Date: Sat, 16 Aug 2025 12:31:34 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+

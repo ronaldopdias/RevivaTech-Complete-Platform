@@ -82,7 +82,7 @@ const corsOptions = {
     const baseOrigins = [
       'http://localhost:3010',
       'http://localhost:3000',
-      'http://100.122.130.67:3010',  // Tailscale IP for development
+      'http://localhost:3010',  // Development frontend
       'https://revivatech.co.uk',
       'https://www.revivatech.co.uk',
       'https://revivatech.com.br',
@@ -355,8 +355,8 @@ try {
   logger.error('❌ Admin routes not available:', error.message);
 }
 
-// Import authentication middleware once
-const { authenticateToken, requireRole } = require('./middleware/authentication');
+// Import hybrid authentication middleware (supports both JWT and Better Auth)
+const { authenticateHybrid: authenticateToken, requireRole } = require('./middleware/hybrid-authentication');
 
 // Import and mount users routes (CRITICAL - user management system)
 try {

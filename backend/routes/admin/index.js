@@ -13,9 +13,11 @@ const analyticsRoutes = require('./analytics');
 const usersRoutes = require('./users');
 const databaseRoutes = require('./database');
 const customersRoutes = require('./customers');
+const repairsRoutes = require('../repairs');
+const bookingsRoutes = require('../bookings');
 
-// Import authentication middleware
-const { authenticateToken, requireAdmin } = require('../../middleware/authentication');
+// Import hybrid authentication middleware (supports both JWT and Better Auth)
+const { authenticateHybrid, requireAdmin } = require('../../middleware/hybrid-authentication');
 
 // Debug authentication middleware to understand what's happening
 const debugAuth = (req, res, next) => {
@@ -36,11 +38,11 @@ const debugAfterRoleCheck = (req, res, next) => {
     next();
 };
 
-// Apply authentication middleware to all admin routes
-router.use(authenticateToken);
+// Apply hybrid authentication middleware to all admin routes
+router.use(authenticateHybrid);
 router.use(requireAdmin);
 router.use((req, res, next) => {
-    console.log(`✅ Admin authenticated: ${req.user.email} (${req.user.role})`);
+    console.log(`✅ Admin authenticated: ${req.user.email} (${req.user.role}) via ${req.authMethod || 'Unknown'}`);
     next();
 });
 
@@ -51,6 +53,8 @@ router.use('/analytics', analyticsRoutes);
 router.use('/users', usersRoutes);
 router.use('/database', databaseRoutes);
 router.use('/customers', customersRoutes);
+router.use('/repairs', repairsRoutes);
+router.use('/bookings', bookingsRoutes);
 
 // Admin dashboard overview endpoint
 router.get('/', async (req, res) => {
@@ -89,6 +93,16 @@ router.get('/', async (req, res) => {
                     base: '/api/admin/customers',
                     methods: ['GET', 'PUT'],
                     description: 'Customer management and administration'
+                },
+                repairs: {
+                    base: '/api/admin/repairs',
+                    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+                    description: 'Repair management and statistics'
+                },
+                bookings: {
+                    base: '/api/admin/bookings',
+                    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+                    description: 'Booking management and statistics'
                 }
             },
             features: {

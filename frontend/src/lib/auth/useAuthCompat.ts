@@ -10,6 +10,7 @@
 import { useSession, signIn, signOut, signUp } from './better-auth-client'
 import { useUserRole } from './useUserRole'
 import { UserRole } from './better-auth-client'
+import { useMemo, useCallback } from 'react'
 
 export function useAuth() {
   // Better Auth only provides useSession, not useAuth
@@ -41,12 +42,22 @@ export function useAuth() {
   // Enhanced loading state management
   const isLoading = userLoading || sessionLoading || roleLoading;
   
-  // More reliable authentication check for Better Auth
-  // Sometimes session exists before user is extracted, so check session first
-  const isAuthenticated = (
-    (!!session && !sessionError) || // Primary: session exists and no error
-    (!!user && !!session && !sessionError) // Secondary: both user and session
-  );
+  // Enhanced Better Auth authentication check with error handling
+  const isAuthenticated = (() => {
+    try {
+      // Check for session existence and validity
+      if (!session) return false;
+      if (sessionError) return false;
+      
+      // Check for user data in session
+      if (!session.user && !session.email) return false;
+      
+      return true;
+    } catch (error) {
+      console.error('[Auth] Error checking authentication status:', error);
+      return false;
+    }
+  })();
   
   // Enhanced session validation
   const hasValidSession = !!session && !!session.user && !sessionError;
@@ -102,16 +113,12 @@ export function useAuth() {
   // Enhanced sign out with comprehensive error handling
   const enhancedSignOut = async () => {
     try {
-      console.log('[Auth] Starting sign out process...');
-      
       // Check if we're already signed out
       if (!isAuthenticated && !session) {
-        console.log('[Auth] Already signed out, clearing any stale state');
         return { success: true, message: 'Already signed out' };
       }
       
       const result = await signOut();
-      console.log('[Auth] Sign out successful');
       
       // Add small delay to ensure session is cleared
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -123,12 +130,10 @@ export function useAuth() {
       // Handle specific error cases
       if (error instanceof Error) {
         if (error.message.includes('network') || error.message.includes('fetch')) {
-          console.log('[Auth] Network error during sign out, clearing local session');
           return { success: true, message: 'Local sign out completed due to network error' };
         }
         
         if (error.message.includes('session') || error.message.includes('token')) {
-          console.log('[Auth] Session error during sign out, likely already expired');
           return { success: true, message: 'Session already expired' };
         }
       }
@@ -141,15 +146,12 @@ export function useAuth() {
   // Enhanced sign in with comprehensive error handling
   const enhancedSignIn = async (credentials) => {
     try {
-      console.log('[Auth] Starting sign in process for:', credentials.email);
-      
       // Validate credentials before attempting sign in
       if (!credentials?.email || !credentials?.password) {
         throw new Error('Missing email or password');
       }
       
       const result = await signIn(credentials);
-      console.log('[Auth] Sign in successful, result:', { success: result?.success, error: result?.error });
       
       // Check if sign in was actually successful
       if (result?.error) {
@@ -217,22 +219,18 @@ export function useAuth() {
     // Role utility function
     hasRole: hasRoleFunc,
     
-    // Enhanced permission checking function with error handling
-    checkPermission: (resource: string, action: string) => {
+    // Enhanced permission checking function with error handling and memoization
+    checkPermission: useCallback((resource: string, action: string) => {
       try {
         const roleToCheck = userRole || session?.user?.role || currentRole;
         
         if (!roleToCheck) {
-          console.log('[Auth] No role available for permission check');
           return false;
         }
         
         if (!resource || !action) {
-          console.warn('[Auth] Invalid resource or action for permission check:', { resource, action });
           return false;
         }
-        
-        console.log('[Auth] Checking permission for role:', roleToCheck, 'resource:', resource, 'action:', action);
         
         // Super admin has all permissions
         if (roleToCheck === 'SUPER_ADMIN') return true;
@@ -264,22 +262,18 @@ export function useAuth() {
         console.error('[Auth] Error checking permissions:', error);
         return false; // Fail secure - deny access on error
       }
-    },
+    }, [userRole, session?.user?.role, currentRole]),
     
     // Enhanced error recovery function
     recoverFromAuthError: async () => {
       try {
-        console.log('[Auth] Attempting to recover from auth error...');
-        
         // Try to refresh session
         const { data: refreshedSession } = useSession();
         
         if (refreshedSession) {
-          console.log('[Auth] Session recovered successfully');
           return { success: true, session: refreshedSession };
         }
         
-        console.log('[Auth] No session available, user needs to re-authenticate');
         return { success: false, requiresReauth: true };
       } catch (error) {
         console.error('[Auth] Error during auth recovery:', error);

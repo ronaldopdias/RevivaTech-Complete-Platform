@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authLogger } from '@/lib/auth/logger'
-import { auth } from '@/lib/auth/server'
+import { auth } from '@/lib/auth/better-auth-server'
 
 /**
- * NextAuth.js Debug Endpoint
+ * Better Auth Debug Endpoint
  * Provides authentication debugging information for development
  */
 export async function GET(request: NextRequest) {

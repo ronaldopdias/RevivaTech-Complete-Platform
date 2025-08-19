@@ -9,7 +9,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { UserRole } from '@/lib/auth/types';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';

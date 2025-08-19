@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import SmartOnboardingFlow, { type UserProfile } from '@/components/onboarding/SmartOnboardingFlow';
 import { useOnboarding } from '@/hooks/useOnboarding';
 

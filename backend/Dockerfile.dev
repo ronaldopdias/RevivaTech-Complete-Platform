@@ -1,0 +1,42 @@
+# Development Dockerfile for RevivaTech Backend
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    bash \
+    git \
+    python3 \
+    make \
+    g++
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Install nodemon for hot reload
+RUN npm install -g nodemon
+
+# Copy source code
+COPY . .
+
+# Set permissions
+RUN chown -R node:node /app
+
+# Switch to non-root user
+USER node
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3011/health || exit 1
+
+# Expose port
+EXPOSE 3011
+
+# Start development server with nodemon for hot reload
+CMD ["nodemon", "--watch", ".", "--ext", "js,json", "server.js"]

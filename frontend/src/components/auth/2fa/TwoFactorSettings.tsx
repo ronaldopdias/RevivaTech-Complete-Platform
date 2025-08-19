@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { totpUtils } from '@/lib/auth/totp';
 import { BackupCode } from '@/lib/auth/backup-codes';
 import TwoFactorSetup from './TwoFactorSetup';

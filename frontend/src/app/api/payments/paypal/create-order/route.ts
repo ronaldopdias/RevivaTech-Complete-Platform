@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
             landing_page: 'LOGIN',
             shipping_preference: 'NO_SHIPPING',
             user_action: 'PAY_NOW',
-            return_url: returnUrl || `${process.env.NEXTAUTH_URL || 'http://localhost:3010'}/booking/success`,
-            cancel_url: cancelUrl || `${process.env.NEXTAUTH_URL || 'http://localhost:3010'}/booking/cancel`,
+            return_url: returnUrl || `${process.env.BETTER_AUTH_BASE_URL || 'http://localhost:3010'}/booking/success`,
+            cancel_url: cancelUrl || `${process.env.BETTER_AUTH_BASE_URL || 'http://localhost:3010'}/booking/cancel`,
           },
         },
       },
@@ -138,8 +138,8 @@ export async function POST(request: NextRequest) {
         brand_name: 'RevivaTech Computer Repair',
         landing_page: 'BILLING',
         user_action: 'PAY_NOW',
-        return_url: returnUrl || `${process.env.NEXTAUTH_URL || 'http://localhost:3010'}/booking/success`,
-        cancel_url: cancelUrl || `${process.env.NEXTAUTH_URL || 'http://localhost:3010'}/booking/cancel`,
+        return_url: returnUrl || `${process.env.BETTER_AUTH_BASE_URL || 'http://localhost:3010'}/booking/success`,
+        cancel_url: cancelUrl || `${process.env.BETTER_AUTH_BASE_URL || 'http://localhost:3010'}/booking/cancel`,
       },
     };
 

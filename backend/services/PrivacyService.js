@@ -7,14 +7,14 @@ class PrivacyService {
     this.db = new Pool({
       user: process.env.DB_USER || 'revivatech',
       host: process.env.DB_HOST || 'localhost',
-      database: process.env.DB_NAME || 'revivatech_db',
+      database: process.env.DB_NAME || 'revivatech',
       password: process.env.DB_PASSWORD || 'revivatech_password',
       port: process.env.DB_PORT || 5435,
     });
 
     this.redis = Redis.createClient({
       host: process.env.REDIS_HOST || 'localhost',
-      port: process.env.REDIS_PORT || 6383,
+      port: process.env.REDIS_PORT || 6383
     });
 
     this.initializeDatabase();

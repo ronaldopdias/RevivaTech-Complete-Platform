@@ -4,31 +4,15 @@
  * Connects to real backend APIs for production data
  */
 
-// Dynamic API URL configuration (matching RevivaTech auth service pattern)
+// API URL configuration - Use frontend proxy endpoints for authenticated requests
 const getApiBaseUrl = () => {
-  if (typeof window === 'undefined') {
-    // Server-side: use backend URL directly
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011';
-  }
-
-  // Client-side: Dynamic detection based on hostname
-  const hostname = window.location.hostname;
-  
-  // Check if we're running locally (even if accessed via external domain)
-  // This handles the case where frontend is accessed via revivatech.co.uk but backend is local
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:3011';
+  // Always use the current frontend origin to use proxy endpoints
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
   }
   
-  // For external domains, check if local backend is available
-  // This is a development/testing scenario where external domain points to local frontend
-  if (hostname.includes('revivatech.co.uk') || hostname.includes('revivatech.com.br')) {
-    // In development, still use localhost backend even when accessed via external domain
-    return 'http://localhost:3011';
-  }
-  
-  // Fallback for other environments
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011';
+  // Server-side fallback
+  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3010';
 };
 
 /**
@@ -142,28 +126,13 @@ export interface SystemHealth {
 
 class AdminService {
   /**
-   * Get authentication headers
+   * Get authentication headers for Better Auth (cookie-based)
    */
   private getAuthHeaders(): HeadersInit {
-    // Get token from localStorage (matching AuthContext pattern)
-    let token = null;
-    if (typeof window !== 'undefined') {
-      try {
-        const tokens = localStorage.getItem('revivatech_auth_tokens');
-        if (tokens) {
-          const parsedTokens = JSON.parse(tokens);
-          token = parsedTokens.accessToken;
-        }
-      } catch (error) {
-        console.error('Error reading auth tokens:', error);
-      }
-    }
-    
+    // Better Auth uses cookies for session management, not JWT tokens
+    // No Authorization header needed - cookies will be sent automatically
     return {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-      // Include credentials for cookie-based auth
-      'credentials': 'include',
     };
   }
 
@@ -213,7 +182,7 @@ class AdminService {
     try {
       const apiUrl = getApiBaseUrl();
       const response = await this.makeAuthenticatedRequest(
-        `${apiUrl}/api/repairs/stats/overview`,
+        `${apiUrl}/api/admin/repairs/stats/overview`,
         { method: 'GET' }
       );
 
@@ -236,7 +205,7 @@ class AdminService {
     try {
       const apiUrl = getApiBaseUrl();
       const response = await this.makeAuthenticatedRequest(
-        `${apiUrl}/api/bookings/stats/overview`,
+        `${apiUrl}/api/admin/bookings/stats/overview`,
         { method: 'GET' }
       );
 

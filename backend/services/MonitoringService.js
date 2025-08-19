@@ -37,12 +37,24 @@ class MonitoringService extends EventEmitter {
       metricsRetention: config.metricsRetention || 7 * 24 * 60 * 60 * 1000, // 7 days
       alertCooldown: config.alertCooldown || 5 * 60 * 1000, // 5 minutes
       
-      // Services to monitor
+      // Services to monitor - using environment-aware URLs
       services: {
-        database: { enabled: true, url: 'postgresql://localhost:5435' },
-        cache: { enabled: true, url: 'redis://localhost:6383' },
-        api: { enabled: true, url: 'http://localhost:3011/health' },
-        frontend: { enabled: true, url: 'http://localhost:3010' },
+        database: { 
+          enabled: true, 
+          url: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'revivatech'}:${process.env.DB_PASSWORD || 'revivatech_password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5435}/${process.env.DB_NAME || 'revivatech'}`
+        },
+        cache: { 
+          enabled: true, 
+          url: `redis://localhost:${process.env.REDIS_PORT || 6383}`
+        },
+        api: { 
+          enabled: true, 
+          url: `http://localhost:${process.env.PORT || 3011}/health` 
+        },
+        frontend: { 
+          enabled: true, 
+          url: 'http://localhost:3010' 
+        },
         ...config.services
       },
       

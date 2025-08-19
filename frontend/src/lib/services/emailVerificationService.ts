@@ -18,7 +18,7 @@ export interface VerificationResult {
 
 class EmailVerificationService {
   private readonly defaultExpiresIn = 24; // 24 hours
-  private readonly baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3010';
+  private readonly baseUrl = process.env.BETTER_AUTH_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3010';
 
   /**
    * Send email verification to user

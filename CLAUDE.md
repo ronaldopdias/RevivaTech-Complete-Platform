@@ -19,8 +19,8 @@
 ```bash
 # Primary: Use Serena MCP tools for AI-powered discovery
 # Fallback: Manual container exploration
-docker exec revivatech_new_backend find /app -name "*.js" -type f | grep -E "(route|service|controller|api)"
-docker exec revivatech_new_backend ls -la /app/routes/ /app/services/
+docker exec revivatech_backend find /app -name "*.js" -type f | grep -E "(route|service|controller|api)"
+docker exec revivatech_backend ls -la /app/routes/ /app/services/
 ```
 
 #### **STEP 2: VERIFY** 
@@ -29,7 +29,7 @@ docker exec revivatech_new_backend ls -la /app/routes/ /app/services/
 # Test API endpoints
 curl -X GET http://localhost:3011/api/[discovered-endpoint]
 # Verify database tables
-docker exec revivatech_new_database psql -U revivatech -d revivatech -c "\dt"
+docker exec revivatech_database psql -U revivatech -d revivatech -c "\dt"
 ```
 
 #### **STEP 3: ANALYZE**
@@ -131,8 +131,8 @@ const getApiBaseUrl = () => {
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep revivatech
 
 # Restart services
-docker restart revivatech_new_frontend  # Port 3010
-docker restart revivatech_new_backend   # Port 3011
+docker restart revivatech_frontend  # Port 3010
+docker restart revivatech_backend   # Port 3011
 
 # Check health
 curl http://localhost:3010/health
@@ -146,17 +146,17 @@ curl -I http://localhost:3011/api/auth/health       # Local
 
 # AFTER changes, test all access methods
 curl -X POST -H "Content-Type: application/json" \
-     -d '{"email":"admin@revivatech.co.uk","password":"admin123"}' \
+     -d '{"email":"admin@revivatech.co.uk","password":"AdminPass123"}' \
      http://localhost:3011/api/auth/login
 ```
 
 ### **Code Change Protocol:**
 ```bash
 # MANDATORY after ANY code change:
-docker restart revivatech_new_frontend  # For frontend changes
-docker exec revivatech_new_frontend rm -rf /app/.next /app/node_modules/.cache
+docker restart revivatech_frontend  # For frontend changes
+docker exec revivatech_frontend rm -rf /app/.next /app/node_modules/.cache
 curl -I http://localhost:3010  # Verify live
-docker logs revivatech_new_frontend --tail 10  # Check errors
+docker logs revivatech_frontend --tail 10  # Check errors
 ```
 
 ### **CSS/Styling (Modular Architecture):**
@@ -168,7 +168,7 @@ Read /opt/webapps/revivatech/frontend/src/styles/modules/utilities.css
 Read /opt/webapps/revivatech/frontend/src/styles/modules/responsive.css
 
 # Trigger recompilation
-docker exec revivatech_new_frontend touch /app/src/app/globals.css
+docker exec revivatech_frontend touch /app/src/app/globals.css
 ```
 
 ## 🎨 BRAND THEME & DESIGN
@@ -226,10 +226,10 @@ export const Button = ({ variant, size, className, ...props }) => (
 ## 🏗️ INFRASTRUCTURE OVERVIEW
 
 **Container Structure:**
-- `revivatech_new_frontend` (3010) - English site
-- `revivatech_new_backend` (3011) - API backend  
-- `revivatech_new_database` (5435) - PostgreSQL
-- `revivatech_new_redis` (6383) - Cache
+- `revivatech_frontend` (3010) - English site
+- `revivatech_backend` (3011) - API backend  
+- `revivatech_database` (5435) - PostgreSQL
+- `revivatech_redis` (6383) - Cache
 
 **Domain Routing:**
 - `revivatech.co.uk` → port 3010 (English)

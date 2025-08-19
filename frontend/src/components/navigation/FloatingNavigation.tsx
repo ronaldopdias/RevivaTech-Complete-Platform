@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 import { useUserRole } from '@/lib/auth/useUserRole';
 import { getNavigationForRole } from '@/lib/navigation/roleBasedNavigation';
 import { UserRoleType } from '@/types/roles';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 
 // Types
 interface NavigationItem {
@@ -99,7 +99,7 @@ const convertRoleNavigation = (roleNavigation: any[]): NavigationItem[] => {
 const FloatingNavigation: React.FC = () => {
   const pathname = usePathname();
   const { currentRole, switchRole, availableRoles, isLoading } = useUserRole();
-  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, signOut } = useAuth();
 
   // Enhanced state management with proper typing
   const [navigationState, setNavigationState] = useState<NavigationState>({
@@ -348,7 +348,7 @@ const FloatingNavigation: React.FC = () => {
                       Profile
                     </Link>
                     <button 
-                      onClick={() => logout()}
+                      onClick={() => signOut()}
                       className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                     >
                       Sign out
@@ -442,7 +442,7 @@ const FloatingNavigation: React.FC = () => {
                       )}
                       
                       <button 
-                        onClick={() => logout()}
+                        onClick={() => signOut()}
                         className="w-full border border-red-500 text-red-600 px-6 py-3 rounded-xl font-semibold hover:bg-red-50 transition-all duration-300 block text-center"
                       >
                         Sign out

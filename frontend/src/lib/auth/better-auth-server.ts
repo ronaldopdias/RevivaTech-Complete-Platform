@@ -26,7 +26,7 @@ function getDatabaseURL(): string {
   }
 
   // Default container connection - use container name for internal connection
-  const defaultURL = 'postgresql://revivatech:revivatech_password@revivatech_database:5435/revivatech'
+  const defaultURL = 'postgresql://revivatech:revivatech_password@revivatech_database:5432/revivatech'
   console.log('[Better Auth] Using default database connection (container)')
   return defaultURL
 }
@@ -47,6 +47,19 @@ const db = drizzle(client, { schema })
 // Better Auth configuration
 export const auth = betterAuth({
   basePath: "/api/auth", // This tells Better Auth what base path to expect
+  
+  // Custom error handling configuration
+  onAPIError: {
+    errorURL: "/auth/error",
+  },
+  
+  // Cookie security configuration
+  ...(process.env.BETTER_AUTH_SECURE_COOKIES === 'false' && {
+    advanced: {
+      useSecureCookies: false
+    }
+  }),
+  
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -63,6 +76,16 @@ export const auth = betterAuth({
   
   secret: process.env.BETTER_AUTH_SECRET || 'dev-secret-key-change-in-production',
   
+  // Development environment configuration
+  ...(process.env.NODE_ENV === 'development' && {
+    rateLimit: {
+      enabled: false // Disable rate limiting in development
+    },
+    logger: {
+      level: "debug" // Enable debug logging in development
+    }
+  }),
+  
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false, // Simplified for development
@@ -71,6 +94,48 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // Update every 24 hours
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60, // 5 minutes - Better Auth recommended
+    },
+  },
+  
+  
+  callbacks: {
+    signIn: {
+      after: async (ctx) => {
+        const { user } = ctx
+        console.log('[Better Auth] User signed in:', { userId: user.id, role: user.role })
+        
+        // Just log the event - let client handle redirect
+        // Removing redirect to prevent conflicts with client-side login handling
+        return {
+          headers: {
+            'X-Auth-Role': user.role as string,
+          }
+        }
+      }
+    },
+    session: {
+      jwt: async ({ token, user }) => {
+        if (user) {
+          token.role = user.role;
+          token.firstName = user.firstName;
+          token.lastName = user.lastName;
+          token.isActive = user.isActive;
+        }
+        return token;
+      },
+      session: async ({ session, token }) => {
+        if (token) {
+          session.user.role = token.role;
+          session.user.firstName = token.firstName;
+          session.user.lastName = token.lastName;
+          session.user.isActive = token.isActive;
+        }
+        return session;
+      }
+    }
   },
   
   user: {
@@ -127,11 +192,15 @@ export const auth = betterAuth({
   
   trustedOrigins: [
     "http://localhost:3010",
-    "https://localhost:3010",
+    "https://localhost:3010", 
     "https://revivatech.co.uk",
-    "https://100.122.130.67:3010",
-    "http://100.122.130.67:3010",
+    "http://localhost:3010", // Dynamic private IP support
   ],
+  
+  // Explicitly configure for HTTP development
+  ...(process.env.NODE_ENV === 'development' && {
+    trustHost: true, // Trust host in development
+  }),
 })
 
 // Export types for client use
@@ -181,4 +250,21 @@ export function checkPermission(userRole: string, resource: string, action: stri
   }
   
   return false
+}
+
+/**
+ * Get redirect URL based on user role
+ * Used by Better Auth callbacks for role-based redirection
+ */
+function getRedirectUrlForRole(role: string): string {
+  switch (role) {
+    case 'ADMIN':
+    case 'SUPER_ADMIN':
+      return '/admin'
+    case 'TECHNICIAN':
+      return '/technician'
+    case 'CUSTOMER':
+    default:
+      return '/dashboard'
+  }
 }

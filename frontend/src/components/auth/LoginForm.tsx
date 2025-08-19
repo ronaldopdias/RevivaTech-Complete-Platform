@@ -6,9 +6,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Checkbox from '@/components/ui/Checkbox';
-import { useAuth } from '@/lib/auth/client';
-import { ErrorAlert } from '@/components/ui/ErrorAlert';
-import { LoginRequest } from '@/lib/auth/apiClient';
+import { useAuth, signIn } from '@/lib/auth';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -16,18 +14,26 @@ interface LoginFormProps {
   className?: string;
 }
 
+interface LoginCredentials {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
 export const LoginForm: React.FC<LoginFormProps> = ({
   onSuccess,
   redirectUrl,
   className,
 }) => {
-  const { login, isLoading, authError, clearError, isRetrying } = useAuth();
-  const [credentials, setCredentials] = useState<LoginRequest>({
+  const { signIn, isLoading } = useAuth();
+  
+  const [credentials, setCredentials] = useState<LoginCredentials>({
     email: '',
     password: '',
     rememberMe: false,
   });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
 
   const validateForm = (): boolean => {
@@ -54,15 +60,25 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     
     if (!validateForm()) return;
 
+    setGeneralError('');
+    
     try {
-      await login(credentials);
+      await signIn({
+        email: credentials.email,
+        password: credentials.password,
+      });
+      
+      // Clear any previous errors
+      setValidationErrors({});
+      setGeneralError('');
       onSuccess?.();
     } catch (error) {
-      // Error is handled by the auth context
+      console.error('Login error:', error);
+      setGeneralError('Invalid email or password. Please try again.');
     }
   };
 
-  const handleInputChange = (field: keyof LoginRequest, value: string | boolean) => {
+  const handleInputChange = (field: keyof LoginCredentials, value: string | boolean) => {
     setCredentials(prev => ({ ...prev, [field]: value }));
     
     // Clear validation error when user starts typing
@@ -74,15 +90,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       });
     }
     
-    // Clear auth error when user starts typing
-    if (authError) {
-      clearError();
+    // Clear general error when user starts typing
+    if (generalError) {
+      setGeneralError('');
     }
-  };
-
-  const handleRetry = () => {
-    clearError();
-    setValidationErrors({});
   };
 
   return (
@@ -96,14 +107,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           </p>
         </div>
 
-        {/* Professional Error Message */}
-        {authError && (
-          <ErrorAlert
-            error={authError}
-            onDismiss={clearError}
-            onRetry={authError.recoverable ? handleRetry : undefined}
-            className="mb-4"
-          />
+        {/* General Error Message */}
+        {generalError && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <span className="text-red-400">⚠️</span>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Authentication Error</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{generalError}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Form */}
@@ -186,17 +204,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             type="submit"
             className="w-full bg-blue-600 text-white hover:bg-blue-700 border-0"
             size="lg"
-            disabled={isLoading || isRetrying}
+            disabled={isLoading}
           >
             {isLoading ? (
               <>
                 <span className="mr-2">⏳</span>
                 Signing in...
-              </>
-            ) : isRetrying ? (
-              <>
-                <span className="mr-2">🔄</span>
-                Retrying...
               </>
             ) : (
               'Sign In'
@@ -255,11 +268,20 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         {/* Demo Accounts */}
         {process.env.NODE_ENV === 'development' && (
           <div className="border border-gray-300 rounded-md p-4 bg-gray-50">
-            <p className="text-xs font-bold mb-2" style={{ color: '#000000' }}>Demo Accounts:</p>
+            <p className="text-xs font-bold mb-2" style={{ color: '#000000' }}>✅ Working Demo Accounts:</p>
             <div className="space-y-1 text-xs" style={{ color: '#000000' }}>
-              <div>Admin: admin@revivatech.com / admin123</div>
-              <div>Tech: tech@revivatech.com / tech123</div>
-              <div>Customer: john@example.com / john123</div>
+              <div className="flex justify-between items-center">
+                <span>Super Admin: admin@revivatech.co.uk / AdminPass123</span>
+                <span className="text-purple-600 text-xs">SUPER_ADMIN</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Technician: tech@revivatech.co.uk / TechPass123</span>
+                <span className="text-green-600 text-xs">TECHNICIAN</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Customer: customer@revivatech.co.uk / CustomerPass123</span>
+                <span className="text-blue-600 text-xs">CUSTOMER</span>
+              </div>
             </div>
           </div>
         )}

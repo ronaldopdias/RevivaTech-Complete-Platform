@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { io, Socket } from 'socket.io-client';
 import dynamic from 'next/dynamic';

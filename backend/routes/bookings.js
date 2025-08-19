@@ -1,6 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
-const { authenticateToken, optionalAuth, requireRole } = require('../middleware/authentication');
+const { authenticateSession: authenticateToken, optionalAuth, requireRole } = require('../middleware/better-auth-middleware');
+const { authenticateHybrid, requireRole: requireHybridRole } = require('../middleware/hybrid-authentication');
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
@@ -651,7 +652,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Get booking statistics (admin only)
-router.get('/stats/overview', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), async (req, res) => {
+router.get('/stats/overview', authenticateHybrid, requireHybridRole(['ADMIN', 'SUPER_ADMIN']), async (req, res) => {
   try {
     // Get comprehensive booking statistics
     const statsQuery = `
@@ -697,26 +698,19 @@ router.get('/stats/overview', authenticateToken, requireRole(['ADMIN', 'SUPER_AD
     const additionalStats = additionalResult.rows[0];
     const userStats = userResult.rows[0];
 
-    // Convert and enhance stats
+    // Convert and enhance stats to match frontend BookingStats interface
     const stats = {
       total_bookings: parseInt(bookingStats.total_bookings),
+      active_customers: parseInt(additionalStats.total_customers) || 0,
+      new_customers_today: parseInt(userStats.new_users_today),
       pending_bookings: parseInt(bookingStats.pending_bookings),
       in_progress_bookings: parseInt(bookingStats.in_progress_bookings),
       completed_bookings: parseInt(bookingStats.completed_bookings),
-      completed_today: parseInt(bookingStats.completed_today),
-      average_price: parseFloat(bookingStats.average_price) || 0,
+      cancelled_bookings: 0, // TODO: Add cancelled bookings count when available
+      avg_completion_time: parseFloat(additionalStats.avg_completion_days) || 0,
       total_revenue: parseFloat(bookingStats.total_revenue) || 0,
-      revenue_today: parseFloat(bookingStats.revenue_today) || 0,
-      total_customers: parseInt(additionalStats.total_customers) || 0,
-      avg_completion_days: parseFloat(additionalStats.avg_completion_days) || 0,
-      total_users: parseInt(userStats.total_users),
-      new_users_today: parseInt(userStats.new_users_today),
-      active_users_week: parseInt(userStats.active_users_week),
-      // Additional calculated metrics
-      customer_satisfaction: 96, // TODO: Calculate from reviews/feedback when available
-      avg_repair_time: additionalStats.avg_completion_days ? 
-        `${Math.round(additionalStats.avg_completion_days * 10) / 10} days` : 'N/A',
-      conversion_rate: bookingStats.total_bookings > 0 ? 
+      avg_order_value: parseFloat(bookingStats.average_price) || 0,
+      completion_rate: bookingStats.total_bookings > 0 ? 
         Math.round((bookingStats.completed_bookings / bookingStats.total_bookings) * 100) : 0,
       low_stock_items: 3 // TODO: Connect to inventory system when available
     };

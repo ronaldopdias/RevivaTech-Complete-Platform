@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { io, Socket } from 'socket.io-client';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';

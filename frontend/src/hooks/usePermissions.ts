@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 import { useRBAC } from '@/lib/auth/rbac-context';
 import { UserRole } from '@/lib/auth/types';
 

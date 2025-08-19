@@ -56,13 +56,9 @@ function DashboardContent() {
         setError(null);
         hasFetchedRef.current = true;
         
-        // Add a small delay to ensure auth tokens are properly set
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Check if we have auth tokens in localStorage
-        const tokens = localStorage.getItem('revivatech_auth_tokens');
-        if (!tokens) {
-          console.warn('No auth tokens found in localStorage, waiting for auth to complete...');
+        // Check if user is authenticated and session is ready
+        if (!isAuthenticated || !user) {
+          console.warn('No active session found, waiting for auth to complete...');
           hasFetchedRef.current = false; // Allow retry
           return;
         }

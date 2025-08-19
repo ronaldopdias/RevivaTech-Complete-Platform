@@ -2,7 +2,7 @@
 // Phase 6: Mobile & PWA Optimization
 // Provides intelligent offline functionality, component caching, and background sync
 
-const CACHE_VERSION = 'revivatech-v2-mobile-pwa-auth-fix-26jul';
+const CACHE_VERSION = 'revivatech-v2-mobile-pwa-defensive-cache-19aug';
 const COMPONENT_CACHE = 'components-v2';
 const DESIGN_SYSTEM_CACHE = 'design-system-v2';
 const ADMIN_CACHE = 'admin-v2';
@@ -13,14 +13,18 @@ const STATIC_CACHE_URLS = [
   '/',
   '/offline',
   '/book-repair',
-  '/services',
-  '/contact',
   '/dashboard',
   '/admin',
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/icon-144x144.png'
+];
+
+// URLs that require validation before caching
+const CONDITIONAL_CACHE_URLS = [
+  '/services',
+  '/contact'
 ];
 
 // Component and design system specific URLs
@@ -45,6 +49,90 @@ const API_CACHE_URLS = [
   '/api/health'
 ];
 
+// Defensive caching function - caches URLs individually with error handling
+async function cacheUrlsDefensively(cache, urls, category = 'unknown') {
+  let successCount = 0;
+  let failureCount = 0;
+  const failures = [];
+  
+  console.log(`📋 SW: Starting ${category} cache process for ${urls.length} URLs`);
+  
+  for (const url of urls) {
+    try {
+      console.log(`🔍 SW: Attempting to cache ${category} URL: ${url}`);
+      
+      const startTime = performance.now();
+      const response = await fetch(url, { 
+        cache: 'no-cache',
+        credentials: 'same-origin',
+        method: 'GET'
+      });
+      const fetchTime = Math.round(performance.now() - startTime);
+      
+      console.log(`📡 SW: Fetch completed for ${url} in ${fetchTime}ms (status: ${response.status})`);
+      
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || 'unknown';
+        const contentLength = response.headers.get('content-length') || 'unknown';
+        
+        await cache.put(url, response.clone());
+        successCount++;
+        console.log(`✅ SW: Successfully cached ${category}: ${url} (${contentType}, ${contentLength} bytes)`);
+      } else {
+        failureCount++;
+        const errorInfo = {
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        };
+        failures.push(errorInfo);
+        console.warn(`⚠️ SW: Failed to cache ${category} (${response.status} ${response.statusText}): ${url}`, errorInfo);
+        
+        // Try to read response text for more details
+        try {
+          const responseText = await response.text();
+          if (responseText.length < 200) {
+            console.warn(`⚠️ SW: Response body for ${url}:`, responseText);
+          }
+        } catch (readError) {
+          console.warn(`⚠️ SW: Could not read response body for ${url}:`, readError.message);
+        }
+      }
+    } catch (error) {
+      failureCount++;
+      const errorInfo = {
+        url,
+        error: error.message,
+        type: error.name,
+        stack: error.stack
+      };
+      failures.push(errorInfo);
+      console.error(`❌ SW: Network error caching ${category}: ${url}`, errorInfo);
+    }
+  }
+  
+  // Comprehensive logging
+  console.log(`📊 SW: ${category} caching summary:`);
+  console.log(`   ✅ Successful: ${successCount}/${urls.length}`);
+  console.log(`   ❌ Failed: ${failureCount}/${urls.length}`);
+  
+  if (failures.length > 0) {
+    console.group(`❌ SW: ${category} caching failures details:`);
+    failures.forEach((failure, index) => {
+      console.warn(`Failure ${index + 1}:`, failure);
+    });
+    console.groupEnd();
+  }
+  
+  // Don't throw error - allow installation to continue
+  if (successCount === 0 && failureCount > 0) {
+    console.warn(`⚠️ SW: No ${category} URLs could be cached, but continuing installation`);
+  }
+  
+  return { successCount, failureCount, failures };
+}
+
 // Enhanced install event with intelligent caching
 self.addEventListener('install', (event) => {
   console.log('🔧 Service Worker v2.0: Installing with mobile PWA optimizations...');
@@ -59,41 +147,29 @@ self.addEventListener('install', (event) => {
         const adminCache = await caches.open(ADMIN_CACHE);
         
         console.log('📦 Service Worker: Caching static resources');
-        await staticCache.addAll(STATIC_CACHE_URLS);
+        const staticResults = await cacheUrlsDefensively(staticCache, STATIC_CACHE_URLS, 'static');
         
         console.log('🎨 Service Worker: Caching design system assets');
-        for (const url of DESIGN_SYSTEM_URLS) {
-          try {
-            const response = await fetch(url);
-            if (response.ok) {
-              await designSystemCache.put(url, response.clone());
-            }
-          } catch (error) {
-            console.warn(`Failed to cache design system asset: ${url}`, error);
-          }
-        }
+        const designResults = await cacheUrlsDefensively(designSystemCache, DESIGN_SYSTEM_URLS, 'design-system');
         
         console.log('🔧 Service Worker: Caching admin dashboard');
         try {
-          const adminResponse = await fetch('/admin');
+          const adminResponse = await fetch('/admin', { 
+            cache: 'no-cache',
+            credentials: 'same-origin'
+          });
           if (adminResponse.ok) {
             await adminCache.put('/admin', adminResponse.clone());
+            console.log('✅ SW: Admin dashboard cached successfully');
+          } else {
+            console.warn(`⚠️ SW: Admin dashboard returned ${adminResponse.status}: ${adminResponse.statusText}`);
           }
         } catch (error) {
-          console.warn('Failed to cache admin dashboard:', error);
+          console.warn('❌ SW: Failed to cache admin dashboard:', error.message);
         }
         
         console.log('📡 Service Worker: Caching API endpoints');
-        for (const url of API_CACHE_URLS) {
-          try {
-            const response = await fetch(url);
-            if (response.ok) {
-              await staticCache.put(url, response.clone());
-            }
-          } catch (error) {
-            console.warn(`Failed to cache API endpoint: ${url}`, error);
-          }
-        }
+        const apiResults = await cacheUrlsDefensively(staticCache, API_CACHE_URLS, 'API');
         
         // Cache component showcase data
         console.log('📋 Service Worker: Caching component library data');
@@ -136,9 +212,29 @@ self.addEventListener('install', (event) => {
           console.warn('Failed to cache component data:', error);
         }
         
-        console.log('✅ Service Worker v2.0: Installation complete with enhanced caching');
+        // Installation summary
+        const totalSuccess = staticResults.successCount + designResults.successCount + apiResults.successCount;
+        const totalFailures = staticResults.failureCount + designResults.failureCount + apiResults.failureCount;
+        const totalAttempted = totalSuccess + totalFailures;
+        
+        console.log('📊 SW: Installation Summary:');
+        console.log(`   📦 Static resources: ${staticResults.successCount}/${staticResults.successCount + staticResults.failureCount} cached`);
+        console.log(`   🎨 Design system: ${designResults.successCount}/${designResults.successCount + designResults.failureCount} cached`);
+        console.log(`   📡 API endpoints: ${apiResults.successCount}/${apiResults.successCount + apiResults.failureCount} cached`);
+        console.log(`   📋 Overall: ${totalSuccess}/${totalAttempted} URLs successfully cached (${Math.round(totalSuccess/totalAttempted*100)}% success rate)`);
+        
+        if (totalFailures > 0) {
+          console.warn(`⚠️ SW: ${totalFailures} URLs failed to cache, but service worker installed successfully`);
+        }
+        
+        console.log('✅ Service Worker v2.0: Installation complete with enhanced caching and detailed logging');
       } catch (error) {
         console.error('❌ Service Worker: Installation failed', error);
+        console.error('❌ SW: Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
       }
     })()
   );

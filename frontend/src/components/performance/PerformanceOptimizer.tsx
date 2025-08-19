@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, TrendingUp, AlertTriangle, CheckCircle, X, Settings } from 'lucide-react';
 import { usePerformanceMonitoring, performanceUtils, webVitalsMonitor } from '@/lib/performance/coreWebVitals';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 
 interface PerformanceOptimizerProps {
   showDebugPanel?: boolean;
@@ -22,6 +22,19 @@ export function PerformanceOptimizer({
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationResults, setOptimizationResults] = useState<string[]>([]);
   const [showPanel, setShowPanel] = useState(showDebugPanel);
+  const [isClient, setIsClient] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+
+  // Handle client-side hydration
+  useEffect(() => {
+    setIsClient(true);
+    try {
+      setIsAdminUser(isAdmin);
+    } catch (error) {
+      console.warn('Failed to check admin status:', error);
+      setIsAdminUser(false);
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     if (enableAutoOptimizations) {
@@ -35,8 +48,9 @@ export function PerformanceOptimizer({
 
     try {
       // 1. Preload critical resources (skip local fonts - using Google Fonts)
-      performanceUtils.preloadResource('/icons/icon-192x192.png', 'image');
-      results.push('✅ Preloaded critical resources');
+      // Skip icon preload - not immediately used and causes warnings
+      // performanceUtils.preloadResource('/icons/icon-192x192.png', 'image');
+      results.push('✅ Skipped unnecessary resource preloads');
 
       // 2. Optimize images
       performanceUtils.lazyLoadImages();
@@ -140,8 +154,12 @@ export function PerformanceOptimizer({
     }
   };
 
-  // Admin-only debug panel (replaces NODE_ENV check)
-  if (isAdmin() && showPanel) {
+  // Admin-only debug panel (client-side only to avoid hydration mismatch)
+  if (!isClient) {
+    return null; // Prevent hydration mismatch
+  }
+
+  if (isAdminUser && showPanel) {
     return (
       <div className={`fixed bottom-4 right-4 z-50 ${className}`}>
         <AnimatePresence>

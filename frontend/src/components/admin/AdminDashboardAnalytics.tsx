@@ -14,7 +14,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import useEventTracking from '@/hooks/useEventTracking';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 
 interface AdminDashboardAnalyticsProps {
   children: React.ReactNode;

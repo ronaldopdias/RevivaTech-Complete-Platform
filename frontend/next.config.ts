@@ -31,11 +31,9 @@ const nextConfig: NextConfig = {
   // Cross-origin configuration for dual domain setup
   allowedDevOrigins: [
     'revivatech.co.uk',
-    'revivatech.com.br',
+    'revivatech.com.br', 
     'localhost:3010',
-    'localhost:3000',
-    '100.122.130.67:3010',
-    '100.122.130.67'
+    'localhost:3000'
   ],
   
   // PWA Configuration with aggressive cache busting for auth changes

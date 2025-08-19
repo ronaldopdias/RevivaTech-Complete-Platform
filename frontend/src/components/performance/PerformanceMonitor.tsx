@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth';
 
 interface PerformanceMetrics {
   // Core Web Vitals
@@ -39,46 +39,66 @@ export default function PerformanceMonitor() {
   const { isAdmin } = useAuth();
   const [metrics, setMetrics] = useState<PerformanceMetrics>({});
   const [isVisible, setIsVisible] = useState(false);
+  const [adminStatus, setAdminStatus] = useState(false);
+
+  // Memoize the collectMetrics function to prevent recreating on every render
+  const collectMetrics = useCallback(() => {
+    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    const paint = performance.getEntriesByType('paint');
+    
+    const newMetrics: PerformanceMetrics = {};
+
+    // Core Web Vitals
+    if (navigation) {
+      newMetrics.ttfb = navigation.responseStart - navigation.fetchStart;
+      newMetrics.pageLoadTime = navigation.loadEventEnd - navigation.fetchStart;
+    }
+
+    // Paint metrics
+    paint.forEach((entry) => {
+      if (entry.name === 'first-contentful-paint') {
+        newMetrics.fcp = entry.startTime;
+      }
+    });
+
+    // Memory usage (if available)
+    if ('memory' in performance) {
+      const memory = (performance as any).memory;
+      newMetrics.memoryUsage = memory.usedJSHeapSize / 1024 / 1024; // MB
+    }
+
+    setMetrics(newMetrics);
+  }, []);
+
+  // Check admin status and cache it
+  useEffect(() => {
+    const checkAdmin = () => {
+      try {
+        setAdminStatus(isAdmin);
+      } catch (error) {
+        console.warn('[PerformanceMonitor] Admin check failed:', error);
+        setAdminStatus(false);
+      }
+    };
+    checkAdmin();
+  }, [isAdmin]);
 
   useEffect(() => {
     // Only run for admin users
-    if (!isAdmin()) return;
+    if (!adminStatus) return;
 
     let observer: PerformanceObserver;
-    
-    const collectMetrics = () => {
-      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-      const paint = performance.getEntriesByType('paint');
-      
-      const newMetrics: PerformanceMetrics = {};
-
-      // Core Web Vitals
-      if (navigation) {
-        newMetrics.ttfb = navigation.responseStart - navigation.fetchStart;
-        newMetrics.pageLoadTime = navigation.loadEventEnd - navigation.fetchStart;
-      }
-
-      // Paint metrics
-      paint.forEach((entry) => {
-        if (entry.name === 'first-contentful-paint') {
-          newMetrics.fcp = entry.startTime;
-        }
-      });
-
-      // Memory usage (if available)
-      if ('memory' in performance) {
-        const memory = (performance as any).memory;
-        newMetrics.memoryUsage = memory.usedJSHeapSize / 1024 / 1024; // MB
-      }
-
-      setMetrics(newMetrics);
-    };
+    let cleanupFunctions: (() => void)[] = [];
 
     // Collect initial metrics
     if (document.readyState === 'complete') {
       collectMetrics();
     } else {
-      window.addEventListener('load', collectMetrics);
+      const loadHandler = () => {
+        collectMetrics();
+      };
+      window.addEventListener('load', loadHandler);
+      cleanupFunctions.push(() => window.removeEventListener('load', loadHandler));
     }
 
     // Set up performance observer for LCP and FID
@@ -129,13 +149,13 @@ export default function PerformanceMonitor() {
 
     // Report metrics after page is fully loaded
     const timer = setTimeout(reportMetrics, 3000);
+    cleanupFunctions.push(() => clearTimeout(timer));
 
     return () => {
       if (observer) observer.disconnect();
-      if (timer) clearTimeout(timer);
-      window.removeEventListener('load', collectMetrics);
+      cleanupFunctions.forEach(cleanup => cleanup());
     };
-  }, [isAdmin]);
+  }, [adminStatus, collectMetrics]);
 
   // Toggle visibility with keyboard shortcut
   useEffect(() => {
@@ -150,7 +170,7 @@ export default function PerformanceMonitor() {
   }, [isVisible]);
 
   // Only show for admin users
-  if (!isAdmin() || !isVisible) {
+  if (!isAdmin || !isVisible) {
     return null;
   }
 
