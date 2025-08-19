@@ -1,43 +1,15 @@
 const express = require('express');
 const WebSocket = require('ws');
-const jwt = require('jsonwebtoken');
 const AnalyticsService = require('../services/AnalyticsService');
+
+// Import Better Auth middleware
+const { authenticateBetterAuth, requireAdmin } = require('../middleware/better-auth-db-direct');
 
 const router = express.Router();
 
-// Admin authentication middleware
-function authenticateAdmin(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '') || 
-                req.cookies?.token || 
-                req.session?.token;
-
-  if (!token) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Authentication required' 
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    
-    // Check if user has admin privileges
-    if (decoded.role !== 'ADMIN' && decoded.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Admin privileges required' 
-      });
-    }
-
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Invalid or expired token' 
-    });
-  }
-}
+// Apply Better Auth authentication and admin authorization to all routes
+router.use(authenticateBetterAuth);
+router.use(requireAdmin);
 
 // Initialize Analytics Service (deferred to avoid blocking route loading)
 let analyticsService = null;
@@ -80,7 +52,7 @@ router.get('/simple-test', (req, res) => {
 
 // 🆕 BASIC ANALYTICS ROUTES - REQUIRED BY ADMIN DASHBOARD
 // Revenue Analytics
-router.get('/revenue', authenticateAdmin, async (req, res) => {
+router.get('/revenue', async (req, res) => {
   try {
     if (!analyticsService) {
       return res.status(503).json({ 
@@ -104,7 +76,7 @@ router.get('/revenue', authenticateAdmin, async (req, res) => {
 });
 
 // Performance Analytics
-router.get('/performance', authenticateAdmin, async (req, res) => {
+router.get('/performance', async (req, res) => {
   try {
     if (!analyticsService) {
       return res.status(503).json({ 
@@ -128,7 +100,7 @@ router.get('/performance', authenticateAdmin, async (req, res) => {
 });
 
 // Real-time Analytics
-router.get('/realtime', authenticateAdmin, async (req, res) => {
+router.get('/realtime', async (req, res) => {
   try {
     if (!analyticsService) {
       return res.status(503).json({ 
@@ -152,7 +124,7 @@ router.get('/realtime', authenticateAdmin, async (req, res) => {
 });
 
 // Customer Analytics
-router.get('/customers', authenticateAdmin, async (req, res) => {
+router.get('/customers', async (req, res) => {
   try {
     if (!analyticsService) {
       return res.status(503).json({ 
@@ -177,7 +149,7 @@ router.get('/customers', authenticateAdmin, async (req, res) => {
 
 // 🆕 CRITICAL: ML ADVANCED ROUTES MOVED TO TOP TO AVOID WEBSOCKET BLOCKING
 // Advanced ML - Predictive Maintenance
-router.post('/ml-advanced/predictive-maintenance', authenticateAdmin, async (req, res) => {
+router.post('/ml-advanced/predictive-maintenance', async (req, res) => {
   try {
     const { enable, threshold = 85 } = req.body;
     
@@ -212,7 +184,7 @@ router.post('/ml-advanced/predictive-maintenance', authenticateAdmin, async (req
 });
 
 // Advanced ML - Auto Model Selection  
-router.post('/ml-advanced/auto-model-selection', authenticateAdmin, async (req, res) => {
+router.post('/ml-advanced/auto-model-selection', async (req, res) => {
   try {
     const { optimize = true, criteriaWeight = { accuracy: 0.4, speed: 0.3, memory: 0.3 } } = req.body;
     
@@ -367,7 +339,7 @@ router.post('/events/batch', async (req, res) => {
  * GET /api/analytics/realtime
  * Get real-time analytics metrics
  */
-router.get('/realtime', authenticateAdmin, async (req, res) => {
+router.get('/realtime', async (req, res) => {
   try {
     if (!analyticsService) {
       return res.status(503).json({ error: 'Analytics service not initialized' });
@@ -391,7 +363,7 @@ router.get('/realtime', authenticateAdmin, async (req, res) => {
  * GET /api/analytics/insights/:fingerprint
  * Get customer insights for specific user
  */
-router.get('/insights/:fingerprint', authenticateAdmin, async (req, res) => {
+router.get('/insights/:fingerprint', async (req, res) => {
   try {
     const { fingerprint } = req.params;
     const insights = await analyticsService.getCustomerInsights(fingerprint);
@@ -417,7 +389,7 @@ router.get('/insights/:fingerprint', authenticateAdmin, async (req, res) => {
  * GET /api/analytics/funnel
  * Get conversion funnel analysis
  */
-router.get('/funnel', authenticateAdmin, async (req, res) => {
+router.get('/funnel', async (req, res) => {
   try {
     const { funnel_name, timeframe = '7 days' } = req.query;
     
@@ -443,7 +415,7 @@ router.get('/funnel', authenticateAdmin, async (req, res) => {
  * GET /api/analytics/dashboard
  * Get comprehensive dashboard data
  */
-router.get('/dashboard', authenticateAdmin, async (req, res) => {
+router.get('/dashboard', async (req, res) => {
   try {
     const { timeframe = '24 hours' } = req.query;
 
@@ -571,7 +543,7 @@ router.post('/track/journey', validateEventData, async (req, res) => {
  * GET /api/analytics/journey/:fingerprint
  * Get customer journey for specific user
  */
-router.get('/journey/:fingerprint', authenticateAdmin, async (req, res) => {
+router.get('/journey/:fingerprint', async (req, res) => {
   try {
     const { fingerprint } = req.params;
     const { limit = 50 } = req.query;
@@ -913,7 +885,7 @@ async function startMLModelTraining(modelType) {
 // Advanced ML features: predictive maintenance, auto model selection, feature engineering
 
 // Advanced ML - Predictive Maintenance
-router.post('/ml-advanced/predictive-maintenance', authenticateAdmin, async (req, res) => {
+router.post('/ml-advanced/predictive-maintenance', async (req, res) => {
   try {
     const { enable, threshold = 85 } = req.body;
     
@@ -948,7 +920,7 @@ router.post('/ml-advanced/predictive-maintenance', authenticateAdmin, async (req
 });
 
 // Advanced ML - Auto Model Selection
-router.post('/ml-advanced/auto-model-selection', authenticateAdmin, async (req, res) => {
+router.post('/ml-advanced/auto-model-selection', async (req, res) => {
   try {
     const { optimize = true, criteriaWeight = { accuracy: 0.4, speed: 0.3, memory: 0.3 } } = req.body;
     
@@ -987,7 +959,7 @@ router.post('/ml-advanced/auto-model-selection', authenticateAdmin, async (req, 
 });
 
 // Advanced ML - Feature Engineering
-router.post('/ml-advanced/feature-engineering', authenticateAdmin, async (req, res) => {
+router.post('/ml-advanced/feature-engineering', async (req, res) => {
   try {
     const { autoGenerate = true, optimization = 'aggressive', featureSelection = true } = req.body;
     

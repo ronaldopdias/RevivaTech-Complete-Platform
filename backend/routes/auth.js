@@ -8,15 +8,18 @@ const {
   generateTokens,
   hashPassword,
   verifyPassword,
-  storeRefreshToken,
-  validateRefreshToken,
-  revokeRefreshToken,
-  revokeAllUserSessions,
-  generateVerificationToken,
-  generatePasswordResetToken,
-  authenticateToken,
+  authenticateBetterAuth: authenticateToken,
   optionalAuth
-} = require('../middleware/authentication');
+} = require('../middleware/better-auth-db-direct');
+
+// JWT-specific functions that are deprecated with Better Auth
+// These are stubs for compatibility - Better Auth handles these internally
+const storeRefreshToken = async () => console.warn('storeRefreshToken deprecated - Better Auth handles sessions');
+const validateRefreshToken = async () => console.warn('validateRefreshToken deprecated - Better Auth handles sessions');
+const revokeRefreshToken = async () => console.warn('revokeRefreshToken deprecated - Better Auth handles sessions');
+const revokeAllUserSessions = async () => console.warn('revokeAllUserSessions deprecated - Better Auth handles sessions');
+const generateVerificationToken = () => console.warn('generateVerificationToken deprecated - Better Auth handles verification');
+const generatePasswordResetToken = () => console.warn('generatePasswordResetToken deprecated - Better Auth handles password reset');
 
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
@@ -801,107 +804,6 @@ router.get('/test-permissions', (req, res) => {
     message: 'Test route working',
     timestamp: new Date().toISOString()
   });
-});
-
-// Get user permissions
-router.get('/permissions', authenticateToken, async (req, res) => {
-  try {
-    const userRole = req.user.role;
-    
-    // Define role-based permissions
-    const rolePermissions = {
-      'CUSTOMER': [
-        { resource: 'bookings', actions: ['create', 'read:own', 'update:own', 'cancel:own'] },
-        { resource: 'profile', actions: ['read:own', 'update:own'] },
-        { resource: 'quotes', actions: ['read:own', 'accept:own', 'reject:own'] },
-        { resource: 'messages', actions: ['create', 'read:own'] },
-        { resource: 'invoices', actions: ['read:own'] },
-      ],
-      'TECHNICIAN': [
-        { resource: 'repairs', actions: ['read', 'update', 'complete'] },
-        { resource: 'inventory', actions: ['read', 'request'] },
-        { resource: 'customers', actions: ['read'] },
-        { resource: 'messages', actions: ['create', 'read'] },
-        { resource: 'schedule', actions: ['read:own', 'update:own'] },
-      ],
-      'ADMIN': [
-        { resource: 'repairs', actions: ['create', 'read', 'update', 'delete'] },
-        { resource: 'customers', actions: ['create', 'read', 'update', 'delete'] },
-        { resource: 'inventory', actions: ['create', 'read', 'update', 'delete'] },
-        { resource: 'technicians', actions: ['create', 'read', 'update', 'delete'] },
-        { resource: 'reports', actions: ['create', 'read'] },
-        { resource: 'settings', actions: ['read', 'update'] },
-        { resource: 'quotes', actions: ['create', 'read', 'update', 'delete'] },
-        { resource: 'invoices', actions: ['create', 'read', 'update', 'delete'] },
-        { resource: 'users', actions: ['create', 'read', 'update', 'delete'] },
-        { resource: 'pricing', actions: ['create', 'read', 'update', 'delete'] },
-      ],
-      'SUPER_ADMIN': [
-        { resource: '*', actions: ['*'] }, // Super admin has all permissions
-      ],
-    };
-
-    const permissions = rolePermissions[userRole] || [];
-
-    res.json({
-      success: true,
-      permissions,
-      role: userRole
-    });
-
-  } catch (error) {
-    req.logger.error('Get permissions error:', error);
-    res.status(500).json({
-      error: 'Failed to fetch permissions',
-      code: 'PERMISSIONS_ERROR'
-    });
-  }
-});
-
-// Validate access token
-router.get('/validate', authenticateToken, async (req, res) => {
-  try {
-    // Token is already validated by authenticateToken middleware
-    // Get fresh user data from database
-    const userQuery = `
-      SELECT id, email, "firstName", "lastName", role, "isActive", "isVerified", "lastLoginAt"
-      FROM users 
-      WHERE id = $1 AND "isActive" = true
-    `;
-
-    const userResult = await req.pool.query(userQuery, [req.user.id]);
-
-    if (userResult.rows.length === 0) {
-      return res.status(401).json({
-        error: 'User not found or inactive',
-        code: 'USER_NOT_FOUND'
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    res.json({
-      success: true,
-      valid: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role.toUpperCase(), // Normalize role to uppercase for frontend compatibility
-        emailVerified: user.isVerified,
-        lastLogin: user.lastLoginAt
-      }
-    });
-
-  } catch (error) {
-    req.logger.error('Token validation error:', error);
-    res.status(401).json({
-      error: 'Token validation failed',
-      code: 'VALIDATION_ERROR',
-      valid: false
-    });
-  }
 });
 
 // Health check

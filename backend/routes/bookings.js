@@ -1,7 +1,6 @@
 const express = require('express');
 const Joi = require('joi');
-const { authenticateSession: authenticateToken, optionalAuth, requireRole } = require('../middleware/better-auth-middleware');
-const { authenticateHybrid, requireRole: requireHybridRole } = require('../middleware/hybrid-authentication');
+const { authenticateBetterAuth: authenticateToken, optionalAuth, requireRole, requireAdmin } = require('../middleware/better-auth-db-direct');
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
@@ -652,31 +651,31 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Get booking statistics (admin only)
-router.get('/stats/overview', authenticateHybrid, requireHybridRole(['ADMIN', 'SUPER_ADMIN']), async (req, res) => {
+router.get('/stats/overview', authenticateToken, requireAdmin, async (req, res) => {
   try {
     // Get comprehensive booking statistics
     const statsQuery = `
       SELECT 
         COUNT(*) as total_bookings,
-        COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_bookings,
-        COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as in_progress_bookings,
-        COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_bookings,
-        COUNT(CASE WHEN "createdAt"::date = CURRENT_DATE AND status = 'COMPLETED' THEN 1 END) as completed_today,
-        AVG("finalPrice") as average_price,
-        SUM(CASE WHEN status = 'COMPLETED' THEN "finalPrice" ELSE 0 END) as total_revenue,
-        SUM(CASE WHEN "createdAt"::date = CURRENT_DATE AND status = 'COMPLETED' THEN "finalPrice" ELSE 0 END) as revenue_today
+        COUNT(CASE WHEN booking_status = 'pending' THEN 1 END) as pending_bookings,
+        COUNT(CASE WHEN booking_status = 'in_progress' THEN 1 END) as in_progress_bookings,
+        COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) as completed_bookings,
+        COUNT(CASE WHEN created_at::date = CURRENT_DATE AND booking_status = 'completed' THEN 1 END) as completed_today,
+        AVG(quote_total_price) as average_price,
+        SUM(CASE WHEN booking_status = 'completed' THEN quote_total_price ELSE 0 END) as total_revenue,
+        SUM(CASE WHEN created_at::date = CURRENT_DATE AND booking_status = 'completed' THEN quote_total_price ELSE 0 END) as revenue_today
       FROM bookings
-      WHERE "createdAt" >= NOW() - INTERVAL '30 days'
+      WHERE created_at >= NOW() - INTERVAL '30 days'
     `;
 
     // Get additional metrics (customer satisfaction, avg repair time)
     const additionalStatsQuery = `
       SELECT 
-        COUNT(DISTINCT "customerId") as total_customers,
-        AVG(EXTRACT(EPOCH FROM ("updatedAt" - "createdAt")) / 86400) as avg_completion_days
+        COUNT(DISTINCT customer_id) as total_customers,
+        AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_completion_days
       FROM bookings 
-      WHERE status = 'COMPLETED' 
-        AND "createdAt" >= NOW() - INTERVAL '30 days'
+      WHERE booking_status = 'completed' 
+        AND created_at >= NOW() - INTERVAL '30 days'
     `;
 
     // Get user count statistics  
@@ -684,8 +683,8 @@ router.get('/stats/overview', authenticateHybrid, requireHybridRole(['ADMIN', 'S
       SELECT 
         COUNT(*) as total_users,
         COUNT(CASE WHEN "createdAt"::date = CURRENT_DATE THEN 1 END) as new_users_today,
-        COUNT(CASE WHEN "lastLoginAt" >= NOW() - INTERVAL '7 days' THEN 1 END) as active_users_week
-      FROM users
+        COUNT(CASE WHEN "updatedAt" >= NOW() - INTERVAL '7 days' THEN 1 END) as active_users_week
+      FROM "user"
     `;
 
     const [bookingResult, additionalResult, userResult] = await Promise.all([
@@ -726,10 +725,17 @@ router.get('/stats/overview', authenticateHybrid, requireHybridRole(['ADMIN', 'S
     });
 
   } catch (error) {
-    req.logger.error('Get booking stats error:', error);
+    console.error('🔥 BOOKING STATS ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    req.logger?.error('Get booking stats error:', error);
+    
     res.status(500).json({
       error: 'Failed to fetch booking statistics',
-      code: 'FETCH_STATS_ERROR'
+      code: 'FETCH_STATS_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Database query failed'
     });
   }
 });

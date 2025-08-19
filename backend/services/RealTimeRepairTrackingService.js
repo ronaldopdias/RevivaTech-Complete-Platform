@@ -14,8 +14,20 @@
  */
 
 const { Server } = require('socket.io');
-const jwt = require('jsonwebtoken');
 const EventEmitter = require('events');
+const { Pool } = require('pg');
+
+// Database connection for session validation
+const pool = new Pool({
+  user: process.env.DB_USER || 'revivatech',
+  host: process.env.DB_HOST || 'localhost', 
+  database: process.env.DB_NAME || 'revivatech',
+  password: process.env.DB_PASSWORD || 'revivatech_password',
+  port: process.env.DB_PORT || 5435,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
 
 class RealTimeRepairTrackingService extends EventEmitter {
   constructor(httpServer) {
@@ -63,6 +75,44 @@ class RealTimeRepairTrackingService extends EventEmitter {
     console.log('🚀 Real-Time Repair Tracking Service initialized');
   }
 
+  /**
+   * Validate Better Auth session token
+   */
+  async validateBetterAuthSession(sessionToken) {
+    try {
+      if (!sessionToken) return null;
+
+      // Query the Better Auth session table
+      const sessionQuery = `
+        SELECT s.*, u.id as user_id, u.email, u."firstName", u."lastName", u.role, u."isActive"
+        FROM "session" s
+        JOIN "user" u ON s."userId" = u.id  
+        WHERE s.token = $1 
+        AND s."expiresAt" > NOW()
+        AND u."isActive" = true
+      `;
+
+      const result = await pool.query(sessionQuery, [sessionToken]);
+      
+      if (result.rows.length > 0) {
+        const row = result.rows[0];
+        return {
+          id: row.user_id,
+          email: row.email,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          role: row.role,
+          isActive: row.isActive
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Better Auth session validation error:', error);
+      return null;
+    }
+  }
+
   setupEventHandlers() {
     this.io.on('connection', (socket) => {
       this.metrics.connectionsCount++;
@@ -71,13 +121,19 @@ class RealTimeRepairTrackingService extends EventEmitter {
       // Authentication handler
       socket.on('authenticate', async (data) => {
         try {
-          const { token, userType = 'customer' } = data;
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'revivatech-secret');
+          const { sessionToken, userType = 'customer' } = data;
+          
+          // Validate Better Auth session
+          const user = await this.validateBetterAuthSession(sessionToken);
+          if (!user) {
+            socket.emit('auth_error', { error: 'Invalid or expired session' });
+            return;
+          }
           
           const userInfo = {
-            id: decoded.userId || decoded.id,
-            email: decoded.email,
-            role: decoded.role || userType,
+            id: user.id,
+            email: user.email,
+            role: user.role || userType,
             socketId: socket.id,
             connectedAt: new Date(),
             lastActivity: new Date()

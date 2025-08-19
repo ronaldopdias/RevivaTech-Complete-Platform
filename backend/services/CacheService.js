@@ -69,9 +69,7 @@ class CacheService extends EventEmitter {
     try {
       // Create Redis client with connection pooling
       const clientConfig = {
-        host: this.config.host,
-        port: this.config.port,
-        db: this.config.db,
+        url: process.env.REDIS_URL || process.env.REDIS_INTERNAL_URL || `redis://${this.config.host}:${this.config.port}/${this.config.db}`
       };
       // Only add password if it's defined and not null
       if (this.config.password) {

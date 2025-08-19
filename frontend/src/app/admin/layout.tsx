@@ -277,7 +277,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
           {/* Navigation */}
           <nav 
-            className="flex-1 px-4 py-6 overflow-y-auto"
+            className="flex-1 px-4 py-6 overflow-y-auto admin-nav-scroll mobile-scroll"
+            style={{ height: 'calc(100vh - 8rem)' }}
             onWheel={handleNavWheel}
           >
             <div className="space-y-1">

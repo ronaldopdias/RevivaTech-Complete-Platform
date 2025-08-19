@@ -1,0 +1,534 @@
+# CLAUDE.md - RevivaTech Project Configuration
+
+## 🚨 CRITICAL: ALWAYS READ FIRST
+
+**BEFORE making ANY changes to RevivaTech:**
+1. `/opt/webapps/CLAUDE_INFRASTRUCTURE_SETUP.md` - Complete server infrastructure
+2. `/opt/webapps/revivatech/Docs/PRD_RevivaTech_Brand_Theme.md` - **CRITICAL: Brand theme & design**
+3. `/opt/webapps/revivatech/Docs/Implementation.md` - Current implementation stage
+
+## 🔥 MANDATORY DEVELOPMENT RULES
+
+### **🚨 RULE 1 METHODOLOGY: 6-STEP SYSTEMATIC PROCESS**
+**MANDATORY FOR EVERY TASK - NEVER SKIP ANY STEP**
+
+*This methodology saved 16-24 weeks by discovering 90% of backend services already implemented.*
+
+#### **STEP 1: IDENTIFY**
+**Discover existing services BEFORE building new ones:**
+```bash
+# Primary: Use Serena MCP tools for AI-powered discovery
+# Fallback: Manual container exploration
+docker exec revivatech_new_backend find /app -name "*.js" -type f | grep -E "(route|service|controller|api)"
+docker exec revivatech_new_backend ls -la /app/routes/ /app/services/
+```
+
+#### **STEP 2: VERIFY** 
+**Test discovered functionality:**
+```bash
+# Test API endpoints
+curl -X GET http://localhost:3011/api/[discovered-endpoint]
+# Verify database tables
+docker exec revivatech_new_database psql -U revivatech -d revivatech -c "\dt"
+```
+
+#### **STEP 3: ANALYZE**
+**Compare existing vs required functionality:**
+- [ ] Core functionality exists (≥70% of requirements)
+- [ ] Database schema and data present
+- [ ] API endpoints implemented
+- [ ] Service can be mounted/connected
+- [ ] Authentication framework exists
+
+#### **STEP 4: DECISION**
+**Choose integration over recreation:**
+- **INTEGRATE** when ≥3 analysis criteria met
+- **CREATE NEW** only when no existing functionality found
+
+#### **STEP 5: TEST**
+**End-to-end integration verification:**
+- [ ] Service properly mounted in server.js
+- [ ] API endpoints respond correctly
+- [ ] Database queries execute successfully
+- [ ] Frontend integration working
+- [ ] Authentication/authorization functional
+
+#### **STEP 6: DOCUMENT**
+**Create completion report:**
+```markdown
+## RULE 1 COMPLETION REPORT
+**Task:** [Description]
+**Date:** [YYYY-MM-DD]
+**Time Saved:** [Estimated weeks]
+**Services Found:** [List discovered services]
+**Integration Status:** [Success/Issues]
+**Next Steps:** [Action items]
+```
+
+#### **❌ VIOLATIONS RESULT IN:**
+- Duplicate work and wasted development time
+- Missing existing functionality
+- Incomplete integration breaking systems
+
+### **🚨 RULE 2: KIRO SPECIFICATION METHODOLOGY**
+**MANDATORY FOR COMPLEX FEATURES - SYSTEMATIC PLANNING APPROACH**
+
+*Based on successful Kiro IDE specification system that enables comprehensive planning before implementation.*
+
+#### **TRIGGER CONDITIONS:**
+- Features requiring >5 files or components
+- Major architectural changes or system integrations
+- Cross-service dependencies or complex workflows
+- High-risk implementations with business impact
+- User-requested comprehensive planning and documentation
+
+#### **3-DOCUMENT SPECIFICATION SYSTEM:**
+
+**📋 DOCUMENT 1: Requirements (requirements.md)**
+- **User Story Format**: "As a [role], I want [goal] so that [benefit]"
+- **Acceptance Criteria**: WHEN/THEN conditions with specific outcomes
+- **Requirement Numbering**: Hierarchical system (1.1, 1.2, 2.1, etc.)
+- **Success Metrics**: Quantifiable validation criteria
+- **Risk Assessment**: High/Medium/Low risk items with mitigation
+- **Dependencies**: Internal and external requirements
+
+**🎨 DOCUMENT 2: Design (design.md)**
+- **System Architecture**: Mermaid diagrams for flows and components
+- **Interface Definitions**: Complete TypeScript interfaces
+- **Data Models**: Database schema and API contracts
+- **Security Considerations**: Authentication, authorization, data protection
+- **Performance Requirements**: Response times, scalability targets
+- **Error Handling**: Comprehensive error scenarios and recovery
+- **Testing Strategy**: Unit, integration, and E2E testing approach
+
+**✅ DOCUMENT 3: Tasks (tasks.md)**
+- **Granular Implementation**: Step-by-step checklist with effort estimates
+- **Requirement Traceability**: Each task maps to specific requirements
+- **Completion Tracking**: Checkbox system with status updates
+- **Quality Gates**: Phase completion criteria and validation
+- **Risk Mitigation**: Specific tasks to address identified risks
+- **Dependencies**: Task sequencing and prerequisite management
+
+#### **INTEGRATION WITH RULE 1:**
+```mermaid
+flowchart TD
+    A[Complex Feature Request] --> B[RULE 2: Create 3-Document Spec]
+    B --> C[RULE 1: IDENTIFY Existing Services]
+    C --> D[RULE 1: VERIFY & ANALYZE]
+    D --> E[Update Design Based on Findings]
+    E --> F[RULE 1: INTEGRATE or CREATE]
+    F --> G[RULE 1: TEST & DOCUMENT]
+    G --> H[RULE 2: Implementation Complete]
+```
+
+#### **SPECIFICATION TEMPLATES:**
+```bash
+# Create new specification
+cp -r /opt/webapps/revivatech/.claude/templates /opt/webapps/revivatech/.claude/specs/[feature-name]
+cd /opt/webapps/revivatech/.claude/specs/[feature-name]
+
+# Edit templates with specific feature details
+# requirements.md - Define user stories and acceptance criteria
+# design.md - Create architecture and interfaces
+# tasks.md - Break down implementation steps
+```
+
+#### **VALIDATION WORKFLOW:**
+1. **Specification Review**: All 3 documents complete and consistent
+2. **Stakeholder Approval**: Requirements validated by business stakeholders
+3. **Technical Review**: Design approved by technical lead
+4. **Implementation Ready**: Tasks broken down with clear deliverables
+5. **RULE 1 Integration**: Existing service discovery incorporated
+
+#### **QUALITY CHECKPOINTS:**
+- [ ] All user stories have measurable acceptance criteria
+- [ ] Architecture diagrams show complete system flow
+- [ ] All interfaces defined with TypeScript contracts
+- [ ] Security and performance requirements specified
+- [ ] Tasks have requirement traceability and effort estimates
+- [ ] Risk mitigation strategies documented
+- [ ] Testing approach covers all user workflows
+
+### **🚨 RULE 3: CONFIGURATION FILE SAFETY**
+**BEFORE deleting/reducing ANY configuration:**
+1. Read ENTIRE file to understand purpose
+2. Check if lines are placeholders for API keys/tokens
+3. Verify sections support existing services
+4. ASK USER before removing anything
+
+### **🚨 RULE 4: CONNECTION OVER CREATION**
+**Always prefer:**
+1. Mount/connect existing services vs building new
+2. Fix configuration issues in existing implementations
+3. Update service connections in server.js/providers
+
+## 🚫 PROJECT BOUNDARIES - ABSOLUTE RESTRICTIONS
+
+### **FORBIDDEN DIRECTORIES:**
+❌ **NEVER touch:** `/opt/webapps/website/`, `/opt/webapps/CRM/`, any `/opt/webapps/` except `revivatech/`
+
+### **FORBIDDEN PORTS:**
+❌ **NEVER use:** 3000, 3001, 5000, 5001, 3308, 5433, 6380, 6381 (other projects)
+✅ **ONLY use:** 3010, 3011, 5435, 6383, 8080-8099 (RevivaTech only)
+
+### **FORBIDDEN NETWORK ADDRESSES:**
+❌ **NEVER use Tailscale IPs:** Any IP in 100.x.x.x range (e.g., 100.122.130.67)
+❌ **NEVER hardcode Tailscale endpoints** in configuration files
+❌ **NEVER reference Tailscale hostnames** in production code
+✅ **ONLY use:** localhost, domain names (revivatech.co.uk), or environment variables
+
+### **CRITICAL API CONFIGURATION:**
+❌ **NEVER:** Use empty string ("") as API base URL - breaks hostname detection
+❌ **NEVER:** Use static API endpoint URLs - breaks hostname detection
+❌ **NEVER:** Use Tailscale IP addresses (100.x.x.x range) in code or configuration
+✅ **ALWAYS:** Use dynamic URL detection with hostname-based routing
+
+```typescript
+// ✅ CORRECT
+const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') return 'http://localhost:3011';
+  const hostname = window.location.hostname;
+  if (hostname === '100.122.130.67') return 'http://100.122.130.67:3011';
+  if (hostname.includes('revivatech.co.uk')) return 'https://api.revivatech.co.uk';
+  return 'http://localhost:3011';
+};
+```
+
+### **VALIDATION CHECKLIST:**
+- [ ] Working in `/opt/webapps/revivatech/` only
+- [ ] Using allowed ports only (3010, 3011, 5435, 6383, 8080-8099)
+- [ ] No references to other projects
+- [ ] Dynamic API configuration
+- [ ] **NO Tailscale IPs (100.x.x.x range) in any code or configuration**
+- [ ] No hardcoded network addresses except localhost
+
+## 🔧 ESSENTIAL COMMANDS
+
+### **Container Management:**
+```bash
+# Check RevivaTech containers
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep revivatech
+
+# Restart services
+docker restart revivatech_new_frontend  # Port 3010
+docker restart revivatech_new_backend   # Port 3011
+
+# Check health
+curl http://localhost:3010/health
+curl http://localhost:3011/health
+```
+
+### **API Validation Protocol:**
+```bash
+# BEFORE API changes, test current endpoints
+curl -I http://localhost:3011/api/auth/health       # Local
+
+# AFTER changes, test all access methods
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"email":"admin@revivatech.co.uk","password":"admin123"}' \
+     http://localhost:3011/api/auth/login
+```
+
+### **Development Hot Reload Protocol:**
+```bash
+# 🔥 HOT RELOAD ACTIVE - Changes auto-detected!
+# Frontend: File changes trigger automatic reload
+# Backend: Nodemon restarts on file changes
+
+# Manual restart if needed:
+docker restart revivatech_new_frontend  # For frontend issues
+docker restart revivatech_new_backend   # For backend issues
+
+# Health checks:
+curl -I http://localhost:3010           # Frontend health
+curl http://localhost:3011/health       # Backend health
+https://localhost:3010                  # HTTPS access
+
+# Debug logs:
+docker logs revivatech_new_frontend --tail 20
+docker logs revivatech_new_backend --tail 20
+```
+
+### **CSS/Styling (Modular Architecture):**
+```bash
+# Edit specific CSS modules (prevents token limits)
+Read /opt/webapps/revivatech/frontend/src/styles/modules/design-tokens.css
+Read /opt/webapps/revivatech/frontend/src/styles/modules/animations.css
+Read /opt/webapps/revivatech/frontend/src/styles/modules/utilities.css
+Read /opt/webapps/revivatech/frontend/src/styles/modules/responsive.css
+
+# Trigger recompilation
+docker exec revivatech_new_frontend touch /app/src/app/globals.css
+```
+
+## 🐛 DEBUG LOG CAPTURE SYSTEM
+
+### **CRITICAL: System for AI Debug Analysis**
+**When users ask: "Read the latest debug errors from the log files" - USE THIS SYSTEM**
+
+The Debug Log Capture System automatically captures console logs, network requests, auth events, and performance data for AI analysis.
+
+### **Quick AI Analysis Commands:**
+```bash
+# Get recent errors for analysis
+curl -s 'http://localhost:3011/api/debug/logs?severity=error&limit=20' | jq .
+
+# Get debug summary dashboard
+curl -s http://localhost:3011/api/debug/logs/summary | jq .
+
+# Export all debug data for analysis
+curl -s http://localhost:3011/api/debug/export | jq .
+
+# Get network failures only
+curl -s 'http://localhost:3011/api/debug/logs?type=network&severity=high' | jq .
+```
+
+### **Available CLI Commands:**
+```bash
+npm run debug:help          # Show all debug commands
+npm run debug:logs:errors   # View error events only
+npm run debug:logs:recent   # View 10 most recent logs
+npm run debug:summary       # Get debug dashboard summary
+npm run debug:export        # Export logs as JSON
+npm run debug:capture       # Test event capture
+```
+
+### **User Request Patterns that Trigger Debug Analysis:**
+- **"Read the latest debug errors from the log files"**
+- **"Check what errors are in the debug capture logs"**
+- **"Analyze recent network failures from the backend logs"**
+- **"Show me the debug summary from today"**
+- **"What console errors happened recently?"**
+- **"Find all authentication errors in the debug logs"**
+
+### **System Components:**
+- **Backend API:** `/api/debug/*` endpoints for log storage/retrieval
+- **Frontend Auto-Upload:** Console Manager, Network Interceptor auto-upload events
+- **Log Storage:** Daily-rotated files in `/tmp/debug-capture/`
+- **Integration:** Connected to existing Enhanced Error & Console Management System
+
+### **Data Sources:**
+- Console logs (errors, warnings, info)
+- Network requests (failures, timeouts, slow responses)
+- Authentication events (login, logout, session issues)  
+- Performance data (memory, timing, Core Web Vitals)
+- Error correlations (cross-system event patterns)
+
+## 🎨 BRAND THEME & DESIGN
+
+### **CRITICAL:** Always reference `/Docs/PRD_RevivaTech_Brand_Theme.md` before creating pages/components
+
+### **Primary Brand Colors:**
+```scss
+// Trust Blue (Primary)
+--trust-500: #ADD8E6   // Main CTAs
+--trust-700: #4A9FCC   // Text/accents
+--trust-900: #1A5266   // Headers
+
+// Professional Teal (Secondary)  
+--professional-500: #008080  // Secondary CTAs
+--professional-700: #0F766E  // Professional accents
+
+// Neutral Grey (Foundation)
+--neutral-700: #36454F  // Body text
+--neutral-600: #4B5563  // Secondary text
+--neutral-300: #D1D5DB  // Borders
+```
+
+### **Trust-Building Requirements:**
+- Include trust elements above the fold
+- Transparent pricing without hidden fees
+- Authentic customer photos (no generic stock)
+- Clear repair process explanation
+
+## ⚙️ CONFIGURATION PATTERNS
+
+### **Component Variants Pattern:**
+```typescript
+// Define variants with cva
+const buttonVariants = cva(
+  "inline-flex items-center justify-center font-medium transition-colors",
+  {
+    variants: {
+      variant: {
+        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+      },
+      size: { sm: "h-8 px-3", md: "h-9 px-4", lg: "h-10 px-6" }
+    },
+    defaultVariants: { variant: "primary", size: "md" }
+  }
+);
+
+// Use in components
+export const Button = ({ variant, size, className, ...props }) => (
+  <button className={cn(buttonVariants({ variant, size }), className)} {...props} />
+);
+```
+
+## 🏗️ DEVELOPMENT INFRASTRUCTURE OVERVIEW
+
+**⚠️ DEVELOPMENT MODE ACTIVE - HOT RELOAD ENABLED**
+
+**Container Structure (Development):**
+- `revivatech_new_frontend` (3010) - English site **[DEV + HOT RELOAD]**
+- `revivatech_new_backend` (3011) - API backend **[DEV + NODEMON]**
+- `revivatech_new_database` (5435) - PostgreSQL
+- `revivatech_new_redis` (6383) - Cache
+
+**Development Access Methods:**
+- HTTP: `http://localhost`, `http://100.122.130.67` 
+- HTTPS: `https://localhost:3010`, `https://100.122.130.67:3010`
+- Direct: `http://localhost:3010` (frontend), `http://localhost:3011` (backend)
+
+**⚠️ PRODUCTION DEPLOYMENT:**
+- Containers MUST be rebuilt with production Dockerfiles before production launch
+- Remove development CORS headers and debug settings
+- Switch to production SSL certificates
+
+## 📂 PROJECT STRUCTURE
+
+```
+/opt/webapps/revivatech/
+├── frontend/                 # Next.js frontend
+│   ├── src/
+│   │   ├── app/             # Next.js app router
+│   │   ├── components/      # React components
+│   │   │   ├── ui/         # Base UI (Button, Card, Input)
+│   │   │   ├── sections/   # Page sections
+│   │   │   └── layout/     # Layout components
+│   │   ├── lib/            # Utilities
+│   │   └── styles/         # Modular CSS architecture
+│   │       └── modules/    # design-tokens, animations, utilities, responsive
+│   ├── config/             # Configuration files
+│   └── package.json
+├── backend/                 # Node.js API
+├── Docs/                   # Documentation
+└── scripts/                # Infrastructure scripts
+```
+
+## 🚨 CRITICAL DEVELOPMENT RULES
+
+### **🔧 DEVELOPMENT MODE STATUS**
+**✅ ACTIVE: Development environment with hot reload**
+- Frontend: Next.js dev server with fast refresh
+- Backend: Node.js with nodemon auto-restart
+- Database: Development data (safe to modify)
+- CORS: Open for development (all origins allowed)
+- SSL: Self-signed certificates on port 3010
+
+### **NEVER DO:**
+❌ Skip RULE 1 METHODOLOGY (all 6 steps mandatory)
+❌ Build new services without IDENTIFY step
+❌ Complete tasks without DOCUMENT step
+❌ Modify `/opt/webapps/website/` or `/opt/webapps/CRM/`
+❌ Use forbidden ports or touch other project containers
+❌ Complete work without updating documentation
+
+### **ALWAYS DO:**
+✅ Execute complete RULE 1 METHODOLOGY for ANY development task
+✅ Read `/Docs/Implementation.md` before starting
+✅ Use configuration-driven development patterns
+✅ Follow TypeScript strict mode and Nordic design system
+✅ Restart containers and clear cache after code changes
+✅ Update documentation and create completion reports
+✅ Test all API access methods before/after changes
+
+## 📋 TASK EXECUTION PROTOCOL
+
+### **Before Starting ANY Task:**
+1. Read infrastructure and implementation docs
+2. Check infrastructure health: `curl http://localhost:3010/health`
+3. Verify containers: `docker ps | grep revivatech`
+4. **DETERMINE APPROACH** (RULE 1 or RULE 1+2):
+   - **Simple Task**: Execute RULE 1 METHODOLOGY only
+   - **Complex Feature**: Execute RULE 2 + RULE 1 combined workflow
+5. Create todo list for complex tasks
+
+#### **RULE 1 + RULE 2 COMBINED WORKFLOW:**
+```mermaid
+sequenceDiagram
+    participant U as User Request
+    participant R2 as RULE 2 Spec
+    participant R1 as RULE 1 Process
+    participant I as Implementation
+    
+    U->>R2: Complex Feature Request
+    R2->>R2: Create 3-Document Spec
+    R2->>R1: IDENTIFY Existing Services
+    R1->>R1: VERIFY & ANALYZE Found Services
+    R1->>R2: Update Design with Findings
+    R2->>R1: INTEGRATE or CREATE Decision
+    R1->>I: Execute Implementation
+    I->>R1: TEST & VALIDATE
+    R1->>R2: Complete Documentation
+```
+
+#### **DECISION MATRIX:**
+| Task Complexity | Files Affected | Approach | Documentation |
+|-----------------|----------------|----------|---------------|
+| Simple (1-2 files) | <3 files | RULE 1 Only | Completion report |
+| Moderate (3-5 files) | 3-5 files | RULE 1 + Light Planning | Enhanced report |
+| Complex (>5 files) | >5 files | RULE 2 + RULE 1 | Full 3-document spec |
+| System Integration | Cross-service | RULE 2 + RULE 1 | Full 3-document spec |
+
+### **Completion Criteria:**
+
+#### **RULE 1 Only Tasks:**
+✅ RULE 1 METHODOLOGY completed and documented
+✅ Code follows TypeScript strict mode
+✅ Components use proper variant patterns
+✅ Container restarted and cache cleared
+✅ Changes verified live at http://localhost:3010
+✅ Documentation updated with progress
+
+#### **RULE 2 + RULE 1 Tasks:**
+✅ Complete 3-document specification created
+✅ Existing service discovery integrated into design
+✅ All requirements mapped to implementation tasks
+✅ Architecture validated through implementation
+✅ Full testing coverage as specified
+✅ Comprehensive documentation updated
+
+## 📚 DOCUMENTATION HIERARCHY
+
+### **Priority 1 - Must Read:**
+1. `/opt/webapps/CLAUDE_INFRASTRUCTURE_SETUP.md` - Infrastructure
+2. `/Docs/PRD_RevivaTech_Brand_Theme.md` - Brand theme
+3. `/Docs/Implementation.md` - Current stage/tasks
+
+### **Priority 2 - Core:**
+4. `/Docs/Configuration_Standards.md` - Patterns
+5. `/Docs/project_structure.md` - Structure
+6. `/Docs/Bug_tracking.md` - Issues
+
+## 🚀 CURRENT PROJECT STATUS
+
+### **Phase 3 Complete - Production Backend Operational**
+**Progress:** 65% Complete
+**Achievement:** Mock-to-Real API transformation (saved 16-24 weeks)
+
+**Ready for Integration:**
+✅ Device database API (27 brands, 135 models)
+✅ Customer management API 
+✅ Booking system API
+✅ Pricing engine API
+✅ Authentication API (JWT)
+
+### **Stage 3 Immediate Tasks:**
+1. **Booking Flow Integration** - Connect frontend to real APIs
+2. **Authentication Implementation** - JWT login/logout flows  
+3. **Customer Portal Connection** - Real customer APIs
+4. **Admin Dashboard Integration** - Real management APIs
+
+### **Infrastructure Status:**
+✅ All external domains HTTPS accessible
+✅ Cloudflare tunnel v8 with 4 healthy connections
+✅ Backend API, Database, Redis operational
+✅ Performance <500ms, A+ SSL grade
+
+---
+
+**RevivaTech Platform Status**: 🚀 **STAGE 3 READY - REAL APIS OPERATIONAL**
+
+*Production Backend + Development Frontend | Last Updated: July 24, 2025*

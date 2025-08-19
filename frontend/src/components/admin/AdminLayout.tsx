@@ -13,7 +13,21 @@ import {
   Users,
   Video,
   FileText,
-  Database
+  Database,
+  Shield,
+  Bell,
+  Calendar,
+  CreditCard,
+  Globe,
+  HelpCircle,
+  Mail,
+  Monitor,
+  Package,
+  Search,
+  Star,
+  Truck,
+  Wifi,
+  Zap
 } from 'lucide-react';
 
 const drawerWidth = 260;
@@ -52,6 +66,20 @@ export function AdminLayout({ children, title = 'Admin Dashboard', breadcrumbs =
     { text: 'Users', icon: Users, href: '/admin/users' },
     { text: 'Reports', icon: FileText, href: '/admin/reports' },
     { text: 'Database', icon: Database, href: '/admin/database' },
+    { text: 'Security', icon: Shield, href: '/admin/security' },
+    { text: 'Notifications', icon: Bell, href: '/admin/notifications' },
+    { text: 'Calendar', icon: Calendar, href: '/admin/calendar' },
+    { text: 'Payments', icon: CreditCard, href: '/admin/payments' },
+    { text: 'Network', icon: Globe, href: '/admin/network' },
+    { text: 'Help Center', icon: HelpCircle, href: '/admin/help' },
+    { text: 'Email', icon: Mail, href: '/admin/email' },
+    { text: 'Monitoring', icon: Monitor, href: '/admin/monitoring' },
+    { text: 'Inventory', icon: Package, href: '/admin/inventory' },
+    { text: 'Search Tools', icon: Search, href: '/admin/search' },
+    { text: 'Reviews', icon: Star, href: '/admin/reviews' },
+    { text: 'Shipping', icon: Truck, href: '/admin/shipping' },
+    { text: 'WiFi Config', icon: Wifi, href: '/admin/wifi' },
+    { text: 'Performance', icon: Zap, href: '/admin/performance' },
     { text: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 

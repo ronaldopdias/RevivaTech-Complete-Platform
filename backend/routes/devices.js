@@ -1,6 +1,6 @@
 const express = require('express');
 const Joi = require('joi');
-const { optionalAuth } = require('../middleware/authentication');
+const { optionalAuth } = require('../middleware/better-auth-db-direct');
 const router = express.Router();
 
 // Validation schemas

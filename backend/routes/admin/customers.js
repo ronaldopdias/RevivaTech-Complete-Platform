@@ -1,7 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const rateLimit = require('express-rate-limit');
-const { authenticateHybrid: authenticateToken, requireRole } = require('../../middleware/hybrid-authentication');
+const { authenticateBetterAuth: authenticateToken, requireRole } = require('../../middleware/better-auth-db-direct');
 const router = express.Router();
 
 // Rate limiting for admin endpoints

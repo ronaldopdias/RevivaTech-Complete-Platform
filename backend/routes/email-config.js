@@ -1,7 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const bcrypt = require('bcryptjs');
-const { authenticateToken, requireRole } = require('../middleware/authentication');
+const { authenticateBetterAuth: authenticateToken, requireRole } = require('../middleware/better-auth-db-direct');
 const router = express.Router();
 
 // Validation schemas
@@ -106,7 +106,7 @@ router.put('/settings', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN'])
       value.provider, value.smtp_host, value.smtp_port, value.smtp_secure,
       value.smtp_user, encryptedPassword, value.from_email, value.from_name,
       value.reply_to_email, value.test_email, value.backup_provider,
-      value.retry_attempts, value.queue_enabled, req.user.userId
+      value.retry_attempts, value.queue_enabled, req.user.id
     ]);
 
     await client.query('COMMIT');
@@ -215,7 +215,7 @@ router.post('/test', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), a
     await req.pool.query(`
       INSERT INTO email_logs (to_email, from_email, subject, provider, status, message_id, sent_at, user_id)
       VALUES ($1, $2, $3, $4, 'sent', $5, NOW(), $6)
-    `, [value.to_email, settings.from_email, value.subject, settings.provider, info.messageId, req.user.userId]);
+    `, [value.to_email, settings.from_email, value.subject, settings.provider, info.messageId, req.user.id]);
 
     req.logger.info(`Test email sent successfully to: ${value.to_email} by: ${req.user.email}`);
 
@@ -245,7 +245,7 @@ router.post('/test', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), a
         req.body.subject || 'Test Email',
         'unknown',
         error.message,
-        req.user.userId
+        req.user.id
       ]);
     } catch (logError) {
       req.logger.error('Failed to log email error:', logError);

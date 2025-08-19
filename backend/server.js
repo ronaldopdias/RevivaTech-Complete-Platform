@@ -356,7 +356,7 @@ try {
 }
 
 // Import hybrid authentication middleware (supports both JWT and Better Auth)
-const { authenticateHybrid: authenticateToken, requireRole } = require('./middleware/hybrid-authentication');
+const { authenticateBetterAuth: authenticateToken, requireRole } = require('./middleware/better-auth-db-direct');
 
 // Import and mount users routes (CRITICAL - user management system)
 try {

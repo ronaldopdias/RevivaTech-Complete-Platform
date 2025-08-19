@@ -1,43 +1,15 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
+
+// Import Better Auth middleware
+const { authenticateBetterAuth, requireAdmin } = require('../middleware/better-auth-db-direct');
 
 const router = express.Router();
 
 console.log('🚀 Analytics clean router loaded');
 
-// Admin authentication middleware
-function authenticateAdmin(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '') || 
-                req.cookies?.token || 
-                req.session?.token;
-
-  if (!token) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Authentication required' 
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    
-    // Check if user has admin privileges
-    if (decoded.role !== 'ADMIN' && decoded.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Admin privileges required' 
-      });
-    }
-
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Invalid or expired token' 
-    });
-  }
-}
+// Apply Better Auth authentication and admin authorization to all routes
+router.use(authenticateBetterAuth);
+router.use(requireAdmin);
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -215,7 +187,7 @@ async function getCustomerAnalytics(db) {
 }
 
 // Revenue Analytics Route
-router.get('/revenue', authenticateAdmin, async (req, res) => {
+router.get('/revenue', async (req, res) => {
   try {
     if (!req.pool) {
       return res.status(503).json({ 
@@ -238,7 +210,7 @@ router.get('/revenue', authenticateAdmin, async (req, res) => {
 });
 
 // Performance Analytics Route
-router.get('/performance', authenticateAdmin, async (req, res) => {
+router.get('/performance', async (req, res) => {
   try {
     if (!req.pool) {
       return res.status(503).json({ 
@@ -261,7 +233,7 @@ router.get('/performance', authenticateAdmin, async (req, res) => {
 });
 
 // Customer Analytics Route
-router.get('/customers', authenticateAdmin, async (req, res) => {
+router.get('/customers', async (req, res) => {
   try {
     if (!req.pool) {
       return res.status(503).json({ 
@@ -357,7 +329,7 @@ router.post('/events', async (req, res) => {
 });
 
 // Real-time Analytics Route (simplified)
-router.get('/realtime', authenticateAdmin, async (req, res) => {
+router.get('/realtime', async (req, res) => {
   try {
     if (!req.pool) {
       return res.status(503).json({ 

@@ -1,8 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const router = express.Router();
-const { authenticateToken, requireRole } = require('../middleware/authentication');
-const { hashPassword } = require('../middleware/authentication');
+const { authenticateBetterAuth: authenticateToken, requireRole, requireAdmin, hashPassword } = require('../middleware/better-auth-db-direct');
 
 // Validation schemas
 const createUserSchema = Joi.object({
@@ -32,7 +31,7 @@ const changePasswordSchema = Joi.object({
 });
 
 // GET /api/users - List all users (Admin only)
-router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '', role = '', status = '' } = req.query;
     const offset = (page - 1) * limit;
@@ -136,7 +135,7 @@ router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
 });
 
 // GET /api/users/:id - Get single user (Admin only)
-router.get('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -174,7 +173,7 @@ router.get('/:id', authenticateToken, requireRole(['admin']), async (req, res) =
 });
 
 // POST /api/users - Create new user (Admin only)
-router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   const client = await req.pool.connect();
 
   try {
@@ -249,7 +248,7 @@ router.post('/', authenticateToken, requireRole(['admin']), async (req, res) => 
 });
 
 // PUT /api/users/:id - Update user (Admin only)
-router.put('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   const client = await req.pool.connect();
 
   try {
@@ -370,7 +369,7 @@ router.put('/:id', authenticateToken, requireRole(['admin']), async (req, res) =
 });
 
 // DELETE /api/users/:id - Delete user (Admin only)
-router.delete('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   const client = await req.pool.connect();
 
   try {
@@ -410,7 +409,7 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), async (req, res
 });
 
 // POST /api/users/:id/change-password - Change user password (Admin only)
-router.post('/:id/change-password', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/:id/change-password', authenticateToken, requireAdmin, async (req, res) => {
   const client = await req.pool.connect();
 
   try {
@@ -468,7 +467,7 @@ router.post('/:id/change-password', authenticateToken, requireRole(['admin']), a
 });
 
 // GET /api/users/stats - Get user statistics (Admin only)
-router.get('/stats/overview', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/stats/overview', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const statsQuery = `
       SELECT 

@@ -1,0 +1,130 @@
+version: '3.8'
+
+# RevivaTech Development Environment with Hot Reload
+# ⚠️  DEVELOPMENT MODE - DO NOT USE IN PRODUCTION
+# Use docker-compose.production.yml for production deployment
+
+services:
+  # RevivaTech Frontend (Development with Hot Reload)
+  revivatech_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: revivatech_frontend
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+    environment:
+      - NODE_ENV=development
+      # Internal container communication
+      - BACKEND_INTERNAL_URL=http://revivatech_backend:3011
+      # External client access (development)
+      - NEXT_PUBLIC_API_URL=http://localhost:3011
+      - NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:3011
+      - NEXT_PUBLIC_DOMAIN=localhost
+      # Development configuration
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - revivatech_network
+    depends_on:
+      - revivatech_backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # RevivaTech Backend API (Development)
+  revivatech_backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: revivatech_backend
+    restart: unless-stopped
+    ports:
+      - "3011:3011"
+    environment:
+      - NODE_ENV=development
+      - PORT=3011
+      # Internal service communication
+      - DATABASE_INTERNAL_HOST=revivatech_database
+      - DATABASE_INTERNAL_PORT=5432
+      - REDIS_INTERNAL_URL=redis://revivatech_redis:6379
+      # Legacy compatibility (maintain existing variables)
+      - DB_HOST=revivatech_database
+      - DB_PORT=5432
+      - DB_USER=revivatech
+      - DB_PASSWORD=revivatech_password
+      - DB_NAME=revivatech
+      - REDIS_URL=redis://revivatech_redis:6379
+      # Application configuration
+      - JWT_SECRET=your-super-secret-jwt-key-for-development
+      - CORS_ORIGIN=http://localhost:3010,https://revivatech.co.uk
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - revivatech_network
+    depends_on:
+      - revivatech_database
+      - revivatech_redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database
+  revivatech_database:
+    image: postgres:15
+    container_name: revivatech_database
+    restart: unless-stopped
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_DB=revivatech
+      - POSTGRES_USER=revivatech
+      - POSTGRES_PASSWORD=revivatech_password
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - revivatech_db_data:/var/lib/postgresql/data/pgdata
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql
+      - ./backend/database/002_seed_data.sql:/docker-entrypoint-initdb.d/002-seed.sql
+    networks:
+      - revivatech_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revivatech -d revivatech"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis Cache
+  revivatech_redis:
+    image: redis:7-alpine
+    container_name: revivatech_redis
+    restart: unless-stopped
+    ports:
+      - "6383:6379"
+    volumes:
+      - revivatech_redis_data:/data
+    networks:
+      - revivatech_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  revivatech_db_data:
+  revivatech_redis_data:
+
+networks:
+  revivatech_network:
+    driver: bridge

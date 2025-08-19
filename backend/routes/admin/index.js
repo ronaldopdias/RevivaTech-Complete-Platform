@@ -17,7 +17,7 @@ const repairsRoutes = require('../repairs');
 const bookingsRoutes = require('../bookings');
 
 // Import hybrid authentication middleware (supports both JWT and Better Auth)
-const { authenticateHybrid, requireAdmin } = require('../../middleware/hybrid-authentication');
+const { authenticateBetterAuth: authenticateHybrid, requireAdmin } = require('../../middleware/better-auth-db-direct');
 
 // Debug authentication middleware to understand what's happening
 const debugAuth = (req, res, next) => {

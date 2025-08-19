@@ -6,26 +6,15 @@
  */
 
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const { body, param, validationResult } = require('express-validator');
+
+// Import Better Auth middleware
+const { authenticateBetterAuth, requireRole } = require('../middleware/better-auth-db-direct');
+
 const router = express.Router();
 
-// Middleware to validate JWT and extract user info
-const authenticateUser = (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Authentication token required' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'revivatech-secret');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid authentication token' });
-  }
-};
+// Apply Better Auth authentication to all routes
+router.use(authenticateBetterAuth);
 
 // Middleware to check admin/technician role
 const requireStaffRole = (req, res, next) => {
@@ -79,7 +68,6 @@ const requireStaffRole = (req, res, next) => {
  *               $ref: '#/components/schemas/RepairStatus'
  */
 router.get('/repairs/:repairId/status', 
-  authenticateUser,
   param('repairId').isUUID(),
   async (req, res) => {
     try {
@@ -101,7 +89,7 @@ router.get('/repairs/:repairId/status',
           JOIN customers c ON rb.customer_id = c.id 
           WHERE rb.id = $1 AND c.id = $2
         `;
-        accessParams = [repairId, req.user.userId];
+        accessParams = [repairId, req.user.id];
       } else {
         // Staff can access all repairs
         accessQuery = `
@@ -175,7 +163,6 @@ router.get('/repairs/:repairId/status',
  *           type: string
  */
 router.post('/repairs/:repairId/status',
-  authenticateUser,
   requireStaffRole,
   [
     param('repairId').isUUID(),
@@ -232,7 +219,7 @@ router.post('/repairs/:repairId/status',
         message,
         estimatedCompletion || null,
         JSON.stringify(photos || []),
-        req.user.userId
+        req.user.id
       ]);
 
       const statusUpdate = statusUpdateResult.rows[0];
@@ -250,7 +237,7 @@ router.post('/repairs/:repairId/status',
           photos: photos || [],
           customerId,
           updatedBy: {
-            id: req.user.userId,
+            id: req.user.id,
             email: req.user.email,
             role: req.user.role
           }
@@ -283,7 +270,6 @@ router.post('/repairs/:repairId/status',
  *     tags: [Repair Tracking]
  */
 router.post('/repairs/:repairId/progress',
-  authenticateUser,
   requireStaffRole,
   [
     param('repairId').isUUID(),
@@ -342,7 +328,7 @@ router.post('/repairs/:repairId/progress',
         notes || null,
         timeSpent || null,
         nextSteps || null,
-        req.user.userId
+        req.user.id
       ]);
 
       const progressUpdate = progressResult.rows[0];
@@ -360,7 +346,7 @@ router.post('/repairs/:repairId/progress',
           timeSpent,
           nextSteps
         }, {
-          id: req.user.userId,
+          id: req.user.id,
           email: req.user.email,
           role: req.user.role
         });
@@ -392,7 +378,6 @@ router.post('/repairs/:repairId/progress',
  *     tags: [Repair Tracking]
  */
 router.post('/repairs/:repairId/notes',
-  authenticateUser,
   [
     param('repairId').isUUID(),
     body('note').isString().isLength({ min: 1, max: 1000 }),
@@ -427,7 +412,7 @@ router.post('/repairs/:repairId/notes',
           JOIN customers c ON rb.customer_id = c.id 
           WHERE rb.id = $1 AND c.id = $2
         `;
-        accessParams = [repairId, req.user.userId];
+        accessParams = [repairId, req.user.id];
       } else {
         accessQuery = 'SELECT id FROM repair_bookings WHERE id = $1';
         accessParams = [repairId];
@@ -455,7 +440,7 @@ router.post('/repairs/:repairId/notes',
         note,
         priority,
         isPrivate,
-        req.user.userId
+        req.user.id
       ]);
 
       const newNote = noteResult.rows[0];
@@ -471,7 +456,7 @@ router.post('/repairs/:repairId/notes',
           priority,
           isPrivate
         }, {
-          id: req.user.userId,
+          id: req.user.id,
           email: req.user.email,
           role: req.user.role
         });
@@ -503,7 +488,6 @@ router.post('/repairs/:repairId/notes',
  *     tags: [Repair Tracking]
  */
 router.post('/repairs/:repairId/photos',
-  authenticateUser,
   [
     param('repairId').isUUID(),
     body('photoUrl').isURL(),
@@ -552,7 +536,7 @@ router.post('/repairs/:repairId/photos',
         photoUrl,
         description || null,
         category,
-        req.user.userId
+        req.user.id
       ]);
 
       const newPhoto = photoResult.rows[0];
@@ -568,7 +552,7 @@ router.post('/repairs/:repairId/photos',
           description,
           category
         }, {
-          id: req.user.userId,
+          id: req.user.id,
           email: req.user.email,
           role: req.user.role
         });
@@ -600,7 +584,6 @@ router.post('/repairs/:repairId/photos',
  *     tags: [Repair Tracking]
  */
 router.post('/repairs/:repairId/quality-check',
-  authenticateUser,
   requireStaffRole,
   [
     param('repairId').isUUID(),
@@ -647,7 +630,7 @@ router.post('/repairs/:repairId/quality-check',
         score,
         JSON.stringify(issues),
         JSON.stringify(recommendations),
-        req.user.userId
+        req.user.id
       ]);
 
       const qualityCheck = qualityResult.rows[0];
@@ -664,7 +647,7 @@ router.post('/repairs/:repairId/quality-check',
           issues,
           recommendations
         }, {
-          id: req.user.userId,
+          id: req.user.id,
           email: req.user.email,
           role: req.user.role
         });
@@ -696,7 +679,6 @@ router.post('/repairs/:repairId/quality-check',
  *     tags: [Repair Tracking]
  */
 router.get('/stats',
-  authenticateUser,
   async (req, res) => {
     try {
       if (req.user.role !== 'admin') {

@@ -1,7 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const bcrypt = require('bcryptjs');
-const { authenticateToken, requireRole } = require('../middleware/authentication');
+const { authenticateBetterAuth: authenticateToken, requireRole } = require('../middleware/better-auth-db-direct');
 const router = express.Router();
 
 // Validation schemas
@@ -155,7 +155,7 @@ router.post('/',  async (req, res) => {
       value.smtp_host, value.smtp_port, value.smtp_secure,
       value.smtp_user, encryptedPassword, value.from_name, value.reply_to_email,
       value.is_active, value.is_primary, value.priority,
-      value.daily_limit, value.hourly_limit, req.user.userId
+      value.daily_limit, value.hourly_limit, req.user.id
     ]);
 
     await client.query('COMMIT');
@@ -255,7 +255,7 @@ router.put('/:id',  async (req, res) => {
     // Add updated_by and updated_at
     updateFields.push(`updated_by = $${paramIndex++}`);
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-    updateValues.push(req.user.userId);
+    updateValues.push(req.user.id);
     updateValues.push(id); // for WHERE clause
 
     const updateQuery = `
@@ -452,7 +452,7 @@ router.post('/:id/test',  async (req, res) => {
     await req.pool.query(`
       INSERT INTO email_logs (to_email, from_email, subject, provider, status, message_id, sent_at, user_id)
       VALUES ($1, $2, $3, $4, 'sent', $5, NOW(), $6)
-    `, [to_email, account.email, mailOptions.subject, account.provider, info.messageId, req.user.userId]);
+    `, [to_email, account.email, mailOptions.subject, account.provider, info.messageId, req.user.id]);
 
     // Update account usage stats
     await req.pool.query(`
@@ -489,7 +489,7 @@ router.post('/:id/test',  async (req, res) => {
         'Email Account Test',
         'unknown',
         error.message,
-        req.user.userId
+        req.user.id
       ]);
     } catch (logError) {
       req.logger.error('Failed to log test email error:', logError);

@@ -46,10 +46,10 @@ class NotificationService extends EventEmitter {
       // Handle user authentication and registration
       socket.on('authenticate', async (data) => {
         try {
-          const { userId, token, userType = 'customer' } = data;
+          const { userId, sessionToken, userType = 'customer' } = data;
           
-          // Verify token (implement your JWT verification here)
-          const isValid = await this.verifyUserToken(userId, token);
+          // Verify Better Auth session token
+          const isValid = await this.verifyUserToken(userId, sessionToken);
           
           if (isValid) {
             socket.userId = userId;
@@ -138,15 +138,37 @@ class NotificationService extends EventEmitter {
     });
   }
 
-  async verifyUserToken(userId, token) {
-    // Implement JWT verification here
-    // For now, return true (replace with actual verification)
+  async verifyUserToken(userId, sessionToken) {
+    // Better Auth session validation using database query
     try {
-      // const jwt = require('jsonwebtoken');
-      // const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      // return decoded.userId === userId;
-      return true; // Placeholder
+      if (!sessionToken) return false;
+
+      // Connect to database (assumes req.pool pattern, adjust as needed)
+      const { Pool } = require('pg');
+      const pool = new Pool({
+        user: process.env.DB_USER || 'revivatech',
+        host: process.env.DB_HOST || 'localhost',
+        database: process.env.DB_NAME || 'revivatech',
+        password: process.env.DB_PASSWORD || 'revivatech_password',
+        port: process.env.DB_PORT || 5435,
+      });
+
+      const sessionQuery = `
+        SELECT s.*, u.id as user_id, u.email, u."firstName", u."lastName", u.role, u."isActive"
+        FROM "session" s
+        JOIN "user" u ON s."userId" = u.id  
+        WHERE s.token = $1 
+        AND s."expiresAt" > NOW()
+        AND u."isActive" = true
+        AND u.id = $2
+      `;
+
+      const result = await pool.query(sessionQuery, [sessionToken, userId]);
+      await pool.end();
+      
+      return result.rows.length > 0;
     } catch (error) {
+      console.error('Better Auth session validation error:', error);
       return false;
     }
   }

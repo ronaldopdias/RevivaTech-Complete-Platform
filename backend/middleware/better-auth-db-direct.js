@@ -49,7 +49,11 @@ function extractBetterAuthSessionToken(req) {
   // First try known cookie names
   for (const cookieName of sessionCookieNames) {
     if (cookieMap[cookieName]) {
-      return cookieMap[cookieName];
+      const cookieValue = cookieMap[cookieName];
+      // Better Auth tokens are in format: token.signature
+      // We need just the token part before the dot
+      const tokenPart = cookieValue.split('.')[0];
+      return tokenPart;
     }
   }
 
@@ -262,6 +266,33 @@ const requireRole = (allowedRoles) => {
   };
 };
 
+/**
+ * Password hashing functions for compatibility
+ */
+const bcrypt = require('bcrypt');
+
+async function hashPassword(password) {
+  const saltRounds = 12;
+  return await bcrypt.hash(password, saltRounds);
+}
+
+async function verifyPassword(password, hash) {
+  return await bcrypt.compare(password, hash);
+}
+
+/**
+ * Token generation stub - Better Auth handles tokens internally
+ */
+function generateTokens(user) {
+  // Better Auth handles session tokens internally
+  // This is a compatibility stub for legacy code
+  console.warn('generateTokens called - Better Auth handles tokens internally');
+  return {
+    accessToken: 'better_auth_handles_sessions',
+    refreshToken: 'better_auth_handles_sessions'
+  };
+}
+
 // Convenience middleware for common roles
 const requireAdmin = requireRole(['admin', 'ADMIN', 'SUPER_ADMIN']);
 const requireStaff = requireRole(['admin', 'ADMIN', 'technician', 'TECHNICIAN']);
@@ -274,6 +305,10 @@ module.exports = {
   requireAdmin,
   requireStaff,
   requireCustomer,
+  // Password functions for compatibility
+  hashPassword,
+  verifyPassword,
+  generateTokens,
   // Aliases for compatibility during migration
   authenticateToken: authenticateBetterAuth,
   authenticateHybrid: authenticateBetterAuth

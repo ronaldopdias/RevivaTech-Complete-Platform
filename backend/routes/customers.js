@@ -1,7 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const rateLimit = require('express-rate-limit');
-const { authenticateToken } = require('../middleware/authentication');
+const { authenticateBetterAuth: authenticateToken } = require('../middleware/better-auth-db-direct');
 const router = express.Router();
 
 // Rate limiting for customer endpoints

@@ -22,7 +22,7 @@ class AnalyticsService {
 
     // Initialize Redis connection for caching
     const redisConfig = {
-      url: `redis://localhost:${process.env.REDIS_PORT || 6383}`
+      url: process.env.REDIS_URL || process.env.REDIS_INTERNAL_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
     };
     this.redis = Redis.createClient(redisConfig);
 
