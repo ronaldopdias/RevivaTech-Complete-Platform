@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import UserProfileDropdown from '@/components/admin/UserProfileDropdown';
 import {
   Menu as MenuIcon,
   LayoutDashboard,
@@ -180,8 +181,8 @@ export function AdminLayout({ children, title = 'Admin Dashboard', breadcrumbs =
             )}
           </div>
 
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2">
+          {/* Quick Actions and User Profile */}
+          <div className="flex items-center gap-4">
             <Badge
               variant="outline"
               className="bg-[#008080] text-white flex items-center gap-1"
@@ -189,6 +190,9 @@ export function AdminLayout({ children, title = 'Admin Dashboard', breadcrumbs =
               <FileText className="w-3 h-3" />
               Live
             </Badge>
+            
+            {/* User Profile Dropdown */}
+            <UserProfileDropdown />
           </div>
         </div>
       </header>

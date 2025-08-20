@@ -113,22 +113,38 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Check role requirements - redirect to login if role mismatch suggests authentication issue
+  // Check role requirements with hierarchy support
   if (requiredRole) {
     const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    
+    // Role hierarchy check: SUPER_ADMIN > ADMIN > TECHNICIAN > CUSTOMER
+    const getRoleLevel = (role: UserRole): number => {
+      switch (role) {
+        case UserRole.SUPER_ADMIN: return 4;
+        case UserRole.ADMIN: return 3;
+        case UserRole.TECHNICIAN: return 2;
+        case UserRole.CUSTOMER: return 1;
+        default: return 0;
+      }
+    };
+    
+    const userRoleLevel = getRoleLevel(user.role as UserRole);
+    const hasRequiredRole = roles.some(requiredRole => 
+      userRoleLevel >= getRoleLevel(requiredRole)
+    );
     
     // DEBUG: Log role comparison details
     console.log('🔐 ProtectedRoute Role Check:', {
       userRole: user.role,
-      userRoleType: typeof user.role,
+      userRoleLevel,
       requiredRoles: roles,
-      requiredRolesTypes: roles.map(r => typeof r),
-      includesCheck: roles.includes(user.role),
-      stringComparison: roles.some(r => String(r) === String(user.role)),
+      requiredRoleLevels: roles.map(r => getRoleLevel(r)),
+      hasRequiredRole: hasRequiredRole,
+      hierarchyCheck: true,
       UserRoleEnum: UserRole
     });
     
-    if (!roles.includes(user.role)) {
+    if (!hasRequiredRole) {
       if (fallback) {
         return <>{fallback}</>;
       }

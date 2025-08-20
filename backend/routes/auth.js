@@ -84,7 +84,7 @@ router.post('/register', authLimiter, async (req, res) => {
 
     // Check if user already exists
     const existingUser = await client.query(
-      'SELECT id FROM users WHERE email = $1',
+      'SELECT id FROM "user" WHERE email = $1',
       [email.toLowerCase()]
     );
 
@@ -106,17 +106,16 @@ router.post('/register', authLimiter, async (req, res) => {
     const crypto = require('crypto');
     const userId = crypto.randomBytes(12).toString('base64url');
 
-    // Create user
+    // Create user (without password_hash - that goes in account table)
     const userQuery = `
-      INSERT INTO users (id, email, password_hash, "firstName", "lastName", phone, role, "isVerified", "updatedAt")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      INSERT INTO "user" (id, email, "firstName", "lastName", phone, role, "emailVerified", "updatedAt")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       RETURNING id, email, "firstName", "lastName", role, "createdAt"
     `;
 
     const userResult = await client.query(userQuery, [
       userId,
       email.toLowerCase(),
-      passwordHash,
       firstName,
       lastName,
       phone || null,
@@ -125,6 +124,21 @@ router.post('/register', authLimiter, async (req, res) => {
     ]);
 
     const user = userResult.rows[0];
+
+    // Create account record with password (Better Auth pattern)
+    const accountId = crypto.randomBytes(12).toString('base64url');
+    const accountQuery = `
+      INSERT INTO account (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+    `;
+
+    await client.query(accountQuery, [
+      accountId,
+      email.toLowerCase(), // accountId is email for credential provider
+      'credential',        // providerId for email/password auth
+      userId,
+      passwordHash
+    ]);
 
     // Generate tokens
     const { accessToken, refreshToken } = generateTokens(user);
@@ -198,8 +212,8 @@ router.post('/login', authLimiter, async (req, res) => {
 
     // Get user from database
     const userQuery = `
-      SELECT id, email, password_hash, "firstName", "lastName", role, "isActive", "isVerified", "lastLoginAt"
-      FROM users 
+      SELECT id, email, "firstName", "lastName", role, "isActive", "emailVerified", "createdAt"
+      FROM "user" 
       WHERE email = $1
     `;
 
@@ -222,8 +236,23 @@ router.post('/login', authLimiter, async (req, res) => {
       });
     }
 
+    // Get password from account table (Better Auth pattern)
+    const accountQuery = `
+      SELECT password 
+      FROM account 
+      WHERE "userId" = $1 AND "providerId" = 'credential'
+    `;
+    const accountResult = await req.pool.query(accountQuery, [user.id]);
+    
+    if (accountResult.rows.length === 0) {
+      return res.status(401).json({
+        error: 'Invalid email or password',
+        code: 'INVALID_CREDENTIALS'
+      });
+    }
+    
     // Verify password
-    const isValidPassword = await verifyPassword(password, user.password_hash);
+    const isValidPassword = await verifyPassword(password, accountResult.rows[0].password);
     if (!isValidPassword) {
       return res.status(401).json({
         error: 'Invalid email or password',
@@ -244,7 +273,7 @@ router.post('/login', authLimiter, async (req, res) => {
 
     // Update last login
     await req.pool.query(
-      'UPDATE users SET "lastLoginAt" = NOW() WHERE id = $1',
+      'UPDATE "user" SET "updatedAt" = NOW() WHERE id = $1',
       [user.id]
     );
 
@@ -268,7 +297,7 @@ router.post('/login', authLimiter, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role.toUpperCase(), // Normalize role to uppercase for frontend compatibility
-        emailVerified: user.isVerified
+        emailVerified: user.emailVerified
       },
       tokens: {
         accessToken,
@@ -321,7 +350,7 @@ router.post('/refresh', generalLimiter, async (req, res) => {
 
     // Update refresh token in database
     await req.pool.query(
-      'UPDATE user_sessions SET refresh_token = $1, last_used = NOW() WHERE refresh_token = $2',
+      'UPDATE user_sessions SET token = $1, "expiresAt" = NOW() + INTERVAL \'7 days\' WHERE token = $2',
       [newRefreshToken, refreshToken]
     );
 
@@ -414,8 +443,8 @@ router.post('/logout-all', authenticateToken, async (req, res) => {
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const userQuery = `
-      SELECT id, email, "firstName", "lastName", phone, role, "isActive", "isVerified", "createdAt", "lastLoginAt"
-      FROM users 
+      SELECT id, email, "firstName", "lastName", phone, role, "isActive", "emailVerified", "createdAt", "updatedAt"
+      FROM "user" 
       WHERE id = $1
     `;
 
@@ -432,9 +461,9 @@ router.get('/me', authenticateToken, async (req, res) => {
         phone: user.phone,
         role: user.role.toUpperCase(), // Normalize role to uppercase for frontend compatibility
         "isActive": user.isActive,
-        emailVerified: user.isVerified,
+        emailVerified: user.emailVerified,
         createdAt: user.createdAt,
-        lastLogin: user.lastLoginAt
+        lastLogin: user.updatedAt
       }
     });
 
@@ -491,7 +520,7 @@ router.put('/me', authenticateToken, async (req, res) => {
     values.push(req.user.id);
 
     const query = `
-      UPDATE users 
+      UPDATE "user" 
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING id, email, "firstName", "lastName", phone, role, "updatedAt"
@@ -536,9 +565,9 @@ router.post('/verify-email', generalLimiter, async (req, res) => {
     }
 
     const userQuery = `
-      UPDATE users 
-      SET "isVerified" = TRUE, verification_token = NULL, "updatedAt" = NOW()
-      WHERE verification_token = $1 AND "isVerified" = FALSE
+      UPDATE "user" 
+      SET "emailVerified" = TRUE, verification_token = NULL, "updatedAt" = NOW()
+      WHERE verification_token = $1 AND "emailVerified" = FALSE
       RETURNING id, email, "firstName", "lastName"
     `;
 
@@ -588,7 +617,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
     const { email } = value;
 
     // Check if user exists
-    const userQuery = 'SELECT id, email, "firstName" FROM users WHERE email = $1 AND "isActive" = $2';
+    const userQuery = 'SELECT id, email, "firstName" FROM "user" WHERE email = $1 AND "isActive" = $2';
     const userResult = await req.pool.query(userQuery, [email.toLowerCase(), true]);
 
     // Always return success to prevent email enumeration
@@ -604,7 +633,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
 
     // Store reset token
     await req.pool.query(
-      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      'UPDATE "user" SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
       [token, expires, user.id]
     );
 
@@ -643,7 +672,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
     // Find user with valid reset token
     const userQuery = `
       SELECT id, email 
-      FROM users 
+      FROM "user" 
       WHERE reset_token = $1 AND reset_token_expires > NOW() AND "isActive" = true
     `;
 
@@ -661,12 +690,20 @@ router.post('/reset-password', authLimiter, async (req, res) => {
     // Hash new password
     const passwordHash = await hashPassword(password);
 
-    // Update password and clear reset token
+    // Update password in account table and clear reset token (Better Auth pattern)
     await req.pool.query(
-      `UPDATE users 
-       SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL, "updatedAt" = NOW()
-       WHERE id = $2`,
+      `UPDATE account 
+       SET password = $1, "updatedAt" = NOW()
+       WHERE "userId" = $2 AND "providerId" = 'credential'`,
       [passwordHash, user.id]
+    );
+    
+    // Update user table to clear reset token
+    await req.pool.query(
+      `UPDATE "user" 
+       SET reset_token = NULL, reset_token_expires = NULL, "updatedAt" = NOW()
+       WHERE id = $1`,
+      [user.id]
     );
 
     // Revoke all existing sessions for security
@@ -749,8 +786,8 @@ router.get('/validate', authenticateToken, async (req, res) => {
     // Token is already validated by authenticateToken middleware
     // Get fresh user data from database
     const userQuery = `
-      SELECT id, email, "firstName", "lastName", role, "isActive", "isVerified", "lastLoginAt"
-      FROM users 
+      SELECT id, email, "firstName", "lastName", role, "isActive", "emailVerified", "updatedAt"
+      FROM "user" 
       WHERE id = $1 AND "isActive" = true
     `;
 
@@ -774,8 +811,8 @@ router.get('/validate', authenticateToken, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role.toUpperCase(), // Normalize role to uppercase for frontend compatibility
-        emailVerified: user.isVerified,
-        lastLogin: user.lastLoginAt
+        emailVerified: user.emailVerified,
+        lastLogin: user.updatedAt
       }
     });
 

@@ -9,7 +9,7 @@ const { body, validationResult } = require('express-validator');
 
 // Simple pricing calculation with WebSocket notifications
 router.post('/simple', [
-  body('deviceModelId').notEmpty().withMessage('Device model ID is required'),
+  body('deviceId').notEmpty().withMessage('Device ID is required'),
   body('repairType').notEmpty().withMessage('Repair type is required'),
   body('urgencyLevel').optional().isIn(['LOW', 'STANDARD', 'HIGH', 'URGENT', 'EMERGENCY']),
 ], async (req, res) => {
@@ -19,41 +19,36 @@ router.post('/simple', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { deviceModelId, repairType, urgencyLevel = 'STANDARD' } = req.body;
+    const { deviceId, repairType, urgencyLevel = 'STANDARD' } = req.body;
 
-    // Get device model info from database
+    // Get device info from database
     const deviceQuery = `
-      SELECT dm.*, db.name as brand_name, dc.name as category_name
-      FROM device_models dm
-      LEFT JOIN device_brands db ON dm."brandId" = db.id
-      LEFT JOIN device_categories dc ON db."categoryId" = dc.id
-      WHERE dm.id = $1
+      SELECT d.*, db.name as brand_name, dc.name as category_name
+      FROM devices d
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      LEFT JOIN device_categories dc ON d.category_id = dc.id
+      WHERE d.id = $1
     `;
 
-    const deviceResult = await req.pool.query(deviceQuery, [deviceModelId]);
+    const deviceResult = await req.pool.query(deviceQuery, [deviceId]);
     if (deviceResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Device model not found' });
+      return res.status(404).json({ error: 'Device not found' });
     }
 
     const device = deviceResult.rows[0];
 
-    // Get pricing rule
+    // Get pricing rule (using new schema structure)
     const pricingQuery = `
       SELECT 
-        "basePrice",
-        "urgencyMultiplier", 
-        "complexityMultiplier",
-        "marketDemand",
-        "seasonalFactor"
+        effects
       FROM pricing_rules 
-      WHERE ("deviceModelId" = $1 OR "deviceModelId" IS NULL)
-        AND "repairType" = $2 
-        AND "isActive" = true
-      ORDER BY "deviceModelId" DESC NULLS LAST, "createdAt" DESC
+      WHERE is_enabled = true
+        AND (conditions->>'repairType' = $2 OR conditions->>'repairType' IS NULL)
+      ORDER BY priority DESC, created_at DESC
       LIMIT 1
     `;
 
-    const pricingResult = await req.pool.query(pricingQuery, [deviceModelId, repairType]);
+    const pricingResult = await req.pool.query(pricingQuery, [repairType]);
     if (pricingResult.rows.length === 0) {
       return res.status(404).json({ error: `No pricing rule found for ${repairType}` });
     }
@@ -144,7 +139,7 @@ router.post('/simple', [
     // Emit real-time pricing update via WebSocket
     if (req.app.locals.websocket) {
       const pricingUpdateData = {
-        deviceModelId,
+        deviceId,
         repairType,
         urgencyLevel,
         oldPrice: basePrice,
@@ -219,12 +214,12 @@ router.post('/calculate', [
 
     // Get device information
     const deviceQuery = `
-      SELECT dm.*, dc.name as category_name, dc.slug as category_slug, 
+      SELECT d.*, dc.name as category_name, dc.slug as category_slug, 
              db.name as brand_name, db.slug as brand_slug
-      FROM device_models dm
-      JOIN device_brands db ON dm."brandId" = db.id
-      JOIN device_categories dc ON db."categoryId" = dc.id
-      WHERE dm.id = $1 AND dm."isActive" = TRUE
+      FROM devices d
+      JOIN device_brands db ON d.brand_id = db.id
+      JOIN device_categories dc ON d.category_id = dc.id
+      WHERE d.id = $1 AND d.is_active = TRUE
     `;
 
     const deviceResult = await req.pool.query(deviceQuery, [device_id]);

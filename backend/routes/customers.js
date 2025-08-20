@@ -45,11 +45,12 @@ router.get('/my-bookings', async (req, res) => {
         u."firstName" as technician_first_name,
         u."lastName" as technician_last_name
       FROM bookings b
-      LEFT JOIN device_models dm ON b."deviceModelId" = dm.id
-      LEFT JOIN device_brands db ON dm."brandId" = db.id
-      LEFT JOIN device_categories dc ON db."categoryId" = dc.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      LEFT JOIN device_categories dc ON d.category_id = dc.id
       LEFT JOIN users u ON b."assignedTechnicianId" = u.id
-      WHERE b."customerId" = $1
+      WHERE b.customer_id = $1
       ORDER BY b."createdAt" DESC
     `;
     
@@ -162,7 +163,8 @@ router.get('/recent-activity', async (req, res) => {
         u."firstName" as technician_first_name,
         u."lastName" as technician_last_name
       FROM bookings b
-      LEFT JOIN device_models dm ON b."deviceModelId" = dm.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
       LEFT JOIN device_brands db ON dm."brandId" = db.id
       LEFT JOIN users u ON b."assignedTechnicianId" = u.id
       WHERE b."customerId" = $1 

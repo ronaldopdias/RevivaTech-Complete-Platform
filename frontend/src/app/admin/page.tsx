@@ -18,8 +18,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminDashboardAnalytics from '@/components/admin/AdminDashboardAnalytics';
 import AnalyticsOverview from '@/components/admin/AnalyticsOverview';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { UserRole } from '@/lib/auth/types';
 import { adminService } from '@/services/admin.service';
 import { useAuth } from '@/lib/auth';
+import { AnalyticsWebSocketService, RealTimeMetric } from '@/lib/realtime/analytics-websocket';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -37,7 +40,9 @@ function DashboardContent() {
   const [bookingStats, setBookingStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [realtimeMetrics, setRealtimeMetrics] = useState<RealTimeMetric[]>([]);
   const hasFetchedRef = useRef(false);
+  const wsServiceRef = useRef<AnalyticsWebSocketService | null>(null);
 
   useEffect(() => {
     // Don't fetch if auth is still loading, user is not authenticated, or we've already fetched
@@ -64,10 +69,17 @@ function DashboardContent() {
         }
         
         // Fetch real data from APIs
-        const [repairData, bookingData] = await Promise.allSettled([
+        const [dashboardData, repairData, bookingData] = await Promise.allSettled([
+          adminService.getDashboardMetrics('24h'),
           adminService.getRepairStats(),
           adminService.getBookingStats()
         ]);
+        
+        if (dashboardData.status === 'fulfilled') {
+          setDashboardData(dashboardData.value);
+        } else {
+          console.error('Failed to fetch dashboard data:', dashboardData.reason);
+        }
         
         if (repairData.status === 'fulfilled') {
           setRepairStats(repairData.value);
@@ -91,6 +103,71 @@ function DashboardContent() {
 
     fetchDashboardData();
   }, [isAuthenticated, user, authLoading]);
+
+  // Set up real-time WebSocket connection for live dashboard updates
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    // Initialize WebSocket service
+    if (!wsServiceRef.current) {
+      wsServiceRef.current = new AnalyticsWebSocketService();
+    }
+
+    const wsService = wsServiceRef.current;
+
+    // Subscribe to real-time metrics updates
+    const handleRealtimeMetric = (metric: RealTimeMetric) => {
+      setRealtimeMetrics(prev => {
+        const updated = prev.filter(m => m.id !== metric.id);
+        return [...updated, metric].sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+      });
+
+      // Update dashboard data with real-time metrics
+      if (metric.category === 'booking' && metric.name === 'new_booking') {
+        setDashboardData(prev => prev ? {
+          ...prev,
+          overview: {
+            ...prev.overview,
+            newBookings: (prev.overview?.newBookings || 0) + 1
+          }
+        } : prev);
+      }
+    };
+
+    const handleRealtimeEvent = (event: any) => {
+      console.log('Real-time event received:', event);
+      
+      // Handle repair status updates
+      if (event.type === 'repair_status_update') {
+        setDashboardData(prev => {
+          if (!prev) return prev;
+          
+          // Update the repair queue with new status
+          const updatedQueue = (prev.repairQueue || []).map(repair => 
+            repair.id === event.bookingId 
+              ? { ...repair, status: event.newStatus, updated: new Date().toISOString() }
+              : repair
+          );
+          
+          return { ...prev, repairQueue: updatedQueue };
+        });
+      }
+    };
+
+    // Connect to real-time events
+    wsService.subscribeToMetrics(handleRealtimeMetric);
+    wsService.subscribeToEvents('admin_dashboard', handleRealtimeEvent);
+
+    // Cleanup on unmount
+    return () => {
+      if (wsServiceRef.current) {
+        wsServiceRef.current.disconnect();
+        wsServiceRef.current = null;
+      }
+    };
+  }, [isAuthenticated, user]);
 
   // Calculate real values (use null/undefined checks, not truthy/falsy)
   // Show loading state while authentication is in progress
@@ -139,10 +216,43 @@ function DashboardContent() {
     );
   }
 
-  const todayRevenue = bookingStats?.total_revenue ?? 0;
-  const activeRepairs = repairStats?.in_progress_repairs ?? 0;
-  const pendingBookings = bookingStats?.pending_bookings ?? 0;
-  const customerSatisfaction = bookingStats?.customer_satisfaction ?? 0;
+  // Use the new dashboard data for metrics (with fallbacks to old API data)
+  const todayRevenue = dashboardData?.overview?.revenue ?? bookingStats?.total_revenue ?? 0;
+  const activeRepairs = dashboardData?.overview?.activeRepairs ?? repairStats?.in_progress_repairs ?? 0;
+  const pendingBookings = dashboardData?.overview?.pendingBookings ?? bookingStats?.pending_bookings ?? 0;
+  const customerSatisfaction = dashboardData?.overview?.customer_satisfaction ?? bookingStats?.customer_satisfaction ?? 0;
+
+  // Show loading indicator while dashboard data is being fetched
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading Dashboard Data...</p>
+          <p className="text-gray-500 text-sm mt-2">Fetching real-time analytics and business metrics</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if data fetch failed
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">⚠️</div>
+          <p className="text-gray-600 text-lg mb-4">Failed to load dashboard data</p>
+          <p className="text-gray-500 text-sm mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -155,9 +265,17 @@ function DashboardContent() {
                 Unified business intelligence with Financial Analytics, CRM, and Template Management
               </p>
               {user && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Welcome back, {user.firstName} {user.lastName} ({user.role})
-                </p>
+                <div className="flex items-center gap-4 mt-1">
+                  <p className="text-sm text-gray-500">
+                    Welcome back, {user.firstName} {user.lastName} ({user.role})
+                  </p>
+                  {realtimeMetrics.length > 0 && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-green-700 font-medium">Live Data</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex items-center space-x-3">
@@ -435,42 +553,29 @@ function DashboardContent() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {[
-                  { id: 'R001', device: 'iPhone 14 Pro', issue: 'Screen replacement', status: 'in-progress', customer: 'Sarah Johnson', priority: 'high', eta: '2 hours' },
-                  { id: 'R002', device: 'MacBook Pro 16"', issue: 'Keyboard repair', status: 'completed', customer: 'Mike Chen', priority: 'medium', eta: 'Completed' },
-                  { id: 'R003', device: 'Samsung Galaxy S23', issue: 'Water damage', status: 'diagnostic', customer: 'Emma Wilson', priority: 'urgent', eta: '1 day' },
-                  { id: 'R004', device: 'iPad Air', issue: 'Battery replacement', status: 'waiting-parts', customer: 'David Brown', priority: 'low', eta: '3 days' }
-                ].map((repair) => (
+                {(dashboardData?.repairQueue || []).map((repair) => (
                   <tr key={repair.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{repair.id}</td>
                     <td className="px-4 py-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900">{repair.device}</p>
-                        <p className="text-xs text-gray-500">{repair.issue}</p>
+                        <p className="text-xs text-gray-500">Created: {new Date(repair.created).toLocaleDateString()}</p>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">{repair.customer}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        repair.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        repair.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                        repair.status === 'diagnostic' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-orange-100 text-orange-800'
-                      }`}>
-                        {repair.status.replace('-', ' ')}
+                      <span className={repair.statusColor || 'bg-gray-100 text-gray-800'}>
+                        {repair.status?.replace(/_/g, ' ').replace('-', ' ')}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        repair.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                        repair.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                        repair.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
+                      <span className={repair.priorityColor || 'bg-gray-100 text-gray-800'}>
                         {repair.priority}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{repair.eta}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {repair.status === 'COMPLETED' ? 'Completed' : 'In Progress'}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <button className="admin-action repair-view-action p-1 hover:bg-gray-100 rounded text-blue-600" title="View Repair">👁</button>
@@ -489,12 +594,7 @@ function DashboardContent() {
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
           <div className="space-y-3">
-            {[
-              { type: 'booking', message: 'New iPhone 13 screen repair booking', time: '2 min ago', icon: '📱' },
-              { type: 'completion', message: 'MacBook Pro repair completed', time: '5 min ago', icon: '✅' },
-              { type: 'pickup', message: 'Device picked up by customer', time: '8 min ago', icon: '📦' },
-              { type: 'booking', message: 'iPad battery replacement scheduled', time: '12 min ago', icon: '🔋' }
-            ].map((activity, index) => (
+            {(dashboardData?.recentActivities || []).map((activity, index) => (
               <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
                 <div className="text-lg">{activity.icon}</div>
                 <div className="flex-1">
@@ -541,7 +641,7 @@ function DashboardContent() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">£45,231.00</div>
+                  <div className="text-2xl font-bold">£{dashboardData?.financial?.monthlyRevenue?.toFixed(2) || '0.00'}</div>
                   <p className="text-xs text-muted-foreground">
                     <ArrowUpRight className="inline h-3 w-3" /> +20.1% from last month
                   </p>
@@ -554,7 +654,7 @@ function DashboardContent() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">32.5%</div>
+                  <div className="text-2xl font-bold">{dashboardData?.financial?.completionRate?.toFixed(1) || '0.0'}%</div>
                   <p className="text-xs text-muted-foreground">
                     <ArrowUpRight className="inline h-3 w-3" /> +2.3% improvement
                   </p>
@@ -567,7 +667,7 @@ function DashboardContent() {
                   <Target className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">£158.90</div>
+                  <div className="text-2xl font-bold">£{dashboardData?.financial?.averageOrderValue?.toFixed(2) || '0.00'}</div>
                   <p className="text-xs text-muted-foreground">
                     <ArrowUpRight className="inline h-3 w-3" /> +5.2% increase
                   </p>
@@ -616,7 +716,7 @@ function DashboardContent() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">2,847</div>
+                  <div className="text-2xl font-bold">{dashboardData?.customerMetrics?.totalCustomers || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     +12% from last month
                   </p>
@@ -629,7 +729,7 @@ function DashboardContent() {
                   <PieChart className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">10</div>
+                  <div className="text-2xl font-bold">{dashboardData?.customerMetrics?.newCustomers || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     ML-powered segmentation
                   </p>
@@ -642,7 +742,7 @@ function DashboardContent() {
                   <AlertCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">3.2%</div>
+                  <div className="text-2xl font-bold">{(100 - (dashboardData?.customerMetrics?.retentionRate || 0)).toFixed(1)}%</div>
                   <p className="text-xs text-muted-foreground">
                     Low risk customers
                   </p>
@@ -655,7 +755,7 @@ function DashboardContent() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">8.7/10</div>
+                  <div className="text-2xl font-bold">{(dashboardData?.overview?.customer_satisfaction || 0).toFixed(1)}/100</div>
                   <p className="text-xs text-muted-foreground">
                     Excellent engagement
                   </p>
@@ -863,15 +963,16 @@ function DashboardContent() {
 }
 
 export default function AdminDashboardPage() {
-  // FIXED: Removed double ProtectedRoute - admin layout already handles protection
   return (
-    <AdminLayout title="Business Intelligence Dashboard">
-      <AdminDashboardAnalytics 
-        dashboardSection="main_admin_dashboard" 
-        userRole="admin"
-      >
-        <DashboardContent />
-      </AdminDashboardAnalytics>
-    </AdminLayout>
+    <ProtectedRoute requiredRole={[UserRole.SUPER_ADMIN, UserRole.ADMIN]}>
+      <AdminLayout title="Business Intelligence Dashboard">
+        <AdminDashboardAnalytics 
+          dashboardSection="main_admin_dashboard" 
+          userRole="admin"
+        >
+          <DashboardContent />
+        </AdminDashboardAnalytics>
+      </AdminLayout>
+    </ProtectedRoute>
   );
 }

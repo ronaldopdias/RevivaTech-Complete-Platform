@@ -10,7 +10,7 @@ const router = express.Router();
 async function sendBookingConfirmationEmail(emailService, pool, logger, userId, bookingData) {
   try {
     // Get user information
-    const userQuery = 'SELECT email, "firstName", "lastName" FROM users WHERE id = $1';
+    const userQuery = 'SELECT email, "firstName", "lastName" FROM "user" WHERE id = $1';
     const userResult = await pool.query(userQuery, [userId]);
     
     if (userResult.rows.length === 0) {
@@ -127,7 +127,8 @@ function getNestedValue(obj, path) {
 
 // Validation schemas
 const createBookingSchema = Joi.object({
-  deviceModelId: Joi.string().required(),
+  deviceId: Joi.string().required(),
+  deviceVariantId: Joi.string().optional(),
   repairType: Joi.string().valid('SCREEN_REPAIR', 'BATTERY_REPLACEMENT', 'WATER_DAMAGE', 'DATA_RECOVERY', 'SOFTWARE_ISSUE', 'HARDWARE_DIAGNOSTIC', 'MOTHERBOARD_REPAIR', 'CAMERA_REPAIR', 'SPEAKER_REPAIR', 'CHARGING_PORT', 'BUTTON_REPAIR', 'CUSTOM_REPAIR').required(),
   problemDescription: Joi.string().min(10).max(1000).required(),
   urgencyLevel: Joi.string().valid('STANDARD', 'URGENT', 'EMERGENCY').default('STANDARD'),
@@ -183,13 +184,15 @@ router.get('/', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN', 'TECHNIC
         u."firstName" as "customerFirstName",
         u."lastName" as "customerLastName",
         db.name as "deviceBrand",
-        dm.name as "deviceModel",
+        d.name as "deviceModel",
+        dv.name as "deviceVariant",
         dc.name as "deviceCategory"
       FROM bookings b
-      JOIN users u ON b."customerId" = u.id
-      JOIN device_models dm ON b."deviceModelId" = dm.id
-      JOIN device_brands db ON dm."brandId" = db.id
-      JOIN device_categories dc ON db."categoryId" = dc.id
+      JOIN users u ON b.customer_id = u.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      LEFT JOIN device_categories dc ON d.category_id = dc.id
       ${whereClause}
       ORDER BY "${orderBy}" ${order}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -237,12 +240,14 @@ router.get('/my-bookings', authenticateToken, async (req, res) => {
       SELECT 
         b.*,
         db.name as "deviceBrand",
-        dm.name as "deviceModel",
+        d.name as "deviceModel",
+        dv.name as "deviceVariant",
         dc.name as "deviceCategory"
       FROM bookings b
-      JOIN device_models dm ON b."deviceModelId" = dm.id
-      JOIN device_brands db ON dm."brandId" = db.id
-      JOIN device_categories dc ON db."categoryId" = dc.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      LEFT JOIN device_categories dc ON d.category_id = dc.id
       ${whereClause}
       ORDER BY b."createdAt" DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -278,15 +283,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
         u."lastName" as "customerLastName",
         u.phone as "customerPhone",
         db.name as "deviceBrand",
-        dm.name as "deviceModel",
+        d.name as "deviceModel",
+        dv.name as "deviceVariant",
         dc.name as "deviceCategory",
         tech."firstName" as "technicianFirstName",
         tech."lastName" as "technicianLastName"
       FROM bookings b
-      JOIN users u ON b."customerId" = u.id
-      JOIN device_models dm ON b."deviceModelId" = dm.id
-      JOIN device_brands db ON dm."brandId" = db.id
-      JOIN device_categories dc ON db."categoryId" = dc.id
+      JOIN users u ON b.customer_id = u.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      LEFT JOIN device_categories dc ON d.category_id = dc.id
       LEFT JOIN users tech ON b."assignedTechnicianId" = tech.id
       WHERE b.id = $1
     `;
@@ -342,7 +349,8 @@ router.post('/', optionalAuth, async (req, res) => {
     }
 
     const {
-      deviceModelId,
+      deviceId,
+      deviceVariantId,
       repairType,
       problemDescription,
       urgencyLevel,
@@ -354,16 +362,16 @@ router.post('/', optionalAuth, async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Verify device model exists
+    // Verify device exists
     const deviceCheck = await client.query(
-      'SELECT id FROM device_models WHERE id = $1',
-      [deviceModelId]
+      'SELECT id FROM devices WHERE id = $1',
+      [deviceId]
     );
 
     if (deviceCheck.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({
-        error: 'Invalid device model',
+        error: 'Invalid device',
         code: 'INVALID_DEVICE_MODEL'
       });
     }
@@ -405,7 +413,7 @@ router.post('/', optionalAuth, async (req, res) => {
       // Create or find guest customer
       const guestEmail = customerInfo.email.toLowerCase();
       const existingCustomer = await client.query(
-        'SELECT id FROM users WHERE email = $1',
+        'SELECT id FROM "user" WHERE email = $1',
         [guestEmail]
       );
 
@@ -415,7 +423,7 @@ router.post('/', optionalAuth, async (req, res) => {
         // Create new guest customer
         const guestId = crypto.randomBytes(16).toString('hex');
         await client.query(
-          'INSERT INTO users (id, email, "firstName", "lastName", phone, role, "isActive", "isVerified", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())',
+          'INSERT INTO "user" (id, email, "firstName", "lastName", phone, role, "isActive", "emailVerified", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())',
           [
             guestId,
             guestEmail,
@@ -434,26 +442,26 @@ router.post('/', optionalAuth, async (req, res) => {
     // Create booking
     const bookingQuery = `
       INSERT INTO bookings (
-        id, "customerId", "deviceModelId", "repairType", "problemDescription",
-        "urgencyLevel", status, "basePrice", "finalPrice", "preferredDate",
-        "customerInfo", "deviceCondition", "customerNotes", "updatedAt"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+        id, customer_id, device_id, device_variant_id, selected_repairs, issue_description,
+        urgency_level, booking_status, quote_base_price, quote_total_price, preferred_date,
+        device_condition, special_instructions
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
     `;
 
     const bookingResult = await client.query(bookingQuery, [
       bookingId,
       customerId,
-      deviceModelId,
-      repairType,
+      deviceId,
+      deviceVariantId || null,
+      JSON.stringify([repairType]), // selected_repairs is JSON array
       problemDescription,
       urgencyLevel || 'STANDARD',
-      'PENDING',
-      basePrice,
-      basePrice, // Initial final price equals base price
+      'draft',
+      basePrice || 0,
+      basePrice || 0,
       preferredDate || null,
-      JSON.stringify(customerInfo || {}),
-      JSON.stringify(deviceCondition || {}),
+      deviceCondition || 'unknown',
       customerNotes || null
     ]);
 
@@ -464,11 +472,11 @@ router.post('/', optionalAuth, async (req, res) => {
     // Get device information for email
     const deviceQuery = `
       SELECT 
-        dm.name as "deviceModel",
+        d.name as "deviceModel",
         db.name as "deviceBrand"
-      FROM device_models dm
-      JOIN device_brands db ON dm."brandId" = db.id
-      WHERE dm.id = $1
+      FROM devices d
+      JOIN device_brands db ON d.brand_id = db.id
+      WHERE d.id = $1
     `;
     const deviceResult = await req.pool.query(deviceQuery, [deviceModelId]);
     

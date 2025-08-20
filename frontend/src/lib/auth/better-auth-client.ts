@@ -120,9 +120,27 @@ export enum UserRole {
   CUSTOMER = "CUSTOMER"
 }
 
+// Role hierarchy: SUPER_ADMIN > ADMIN > TECHNICIAN > CUSTOMER
+function getRoleLevel(role: UserRole): number {
+  switch (role) {
+    case UserRole.SUPER_ADMIN: return 4;
+    case UserRole.ADMIN: return 3;
+    case UserRole.TECHNICIAN: return 2;
+    case UserRole.CUSTOMER: return 1;
+    default: return 0;
+  }
+}
+
+function isSuperiorOrEqual(userRole: UserRole, requiredRole: UserRole): boolean {
+  return getRoleLevel(userRole) >= getRoleLevel(requiredRole);
+}
+
 export function hasRole(userRole: string, requiredRoles: UserRole | UserRole[]): boolean {
   const roles = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles]
-  return roles.includes(userRole as UserRole)
+  const userRoleEnum = userRole as UserRole
+  
+  // Check if user role is superior or equal to any required role
+  return roles.some(requiredRole => isSuperiorOrEqual(userRoleEnum, requiredRole))
 }
 
 export function checkPermission(userRole: string, resource: string, action: string): boolean {

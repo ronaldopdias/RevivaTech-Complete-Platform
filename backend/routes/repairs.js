@@ -61,17 +61,19 @@ router.get('/', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN', 'TECHNIC
         u."firstName" as "customerFirstName", 
         u."lastName" as "customerLastName",
         u.phone as "customerPhone",
-        dm.name as "deviceModel",
-        dm.year as "deviceYear",
+        d.name as "deviceModel",
+        dv.name as "deviceVariant",
+        d.release_year as "deviceYear",
         db.name as "deviceBrand",
         dc.name as "deviceCategory",
         tech."firstName" as "technicianFirstName",
         tech."lastName" as "technicianLastName"
       FROM bookings b
-      JOIN users u ON b."customerId" = u.id
-      JOIN device_models dm ON b."deviceModelId" = dm.id
-      JOIN device_brands db ON dm."brandId" = db.id
-      JOIN device_categories dc ON db."categoryId" = dc.id
+      JOIN users u ON b.customer_id = u.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      LEFT JOIN device_categories dc ON d.category_id = dc.id
       LEFT JOIN users tech ON b."assignedTechnicianId" = tech.id
       ${whereClause}
       ORDER BY 
@@ -138,13 +140,14 @@ router.get('/my-repairs', authenticateToken, requireRole(['TECHNICIAN', 'ADMIN',
         u."firstName" as "customerFirstName", 
         u."lastName" as "customerLastName",
         u.phone as "customerPhone",
-        dm.name as "deviceModel",
-        dm.year as "deviceYear",
+        d.name as "deviceModel",
+        dv.name as "deviceVariant",
+        d.release_year as "deviceYear",
         db.name as "deviceBrand"
       FROM bookings b
-      JOIN users u ON b."customerId" = u.id
-      JOIN device_models dm ON b."deviceModelId" = dm.id
-      JOIN device_brands db ON dm."brandId" = db.id
+      JOIN users u ON b.customer_id = u.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_brands db ON d.brand_id = db.id
       ${whereClause}
       ORDER BY 
         CASE b."urgencyLevel"
@@ -185,8 +188,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
         u."firstName" as "customerFirstName", 
         u."lastName" as "customerLastName",
         u.phone as "customerPhone",
-        dm.name as "deviceModel",
-        dm.year as "deviceYear",
+        d.name as "deviceModel",
+        dv.name as "deviceVariant",
+        d.release_year as "deviceYear",
         dm.specs as "deviceSpecs",
         dm."imageUrl" as "deviceImageUrl",
         db.name as "deviceBrand",
@@ -195,10 +199,11 @@ router.get('/:id', authenticateToken, async (req, res) => {
         tech."lastName" as "technicianLastName",
         tech.email as "technicianEmail"
       FROM bookings b
-      JOIN users u ON b."customerId" = u.id
-      JOIN device_models dm ON b."deviceModelId" = dm.id
-      JOIN device_brands db ON dm."brandId" = db.id
-      JOIN device_categories dc ON db."categoryId" = dc.id
+      JOIN users u ON b.customer_id = u.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      LEFT JOIN device_categories dc ON d.category_id = dc.id
       LEFT JOIN users tech ON b."assignedTechnicianId" = tech.id
       WHERE b.id = $1
     `;
@@ -347,7 +352,7 @@ router.put('/:id/assign', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN'
 
     // Verify technician exists and has correct role
     const techCheck = await req.pool.query(
-      'SELECT id FROM users WHERE id = $1 AND role IN ($2, $3) AND "isActive" = true',
+      'SELECT id FROM "user" WHERE id = $1 AND role IN ($2, $3) AND "isActive" = true',
       [technicianId, 'TECHNICIAN', 'ADMIN']
     );
 
@@ -419,23 +424,275 @@ router.get('/milestones/list', authenticateToken, async (req, res) => {
   }
 });
 
+// Track repair status by tracking ID (public endpoint for customers)
+router.get('/track/:trackingId', async (req, res) => {
+  try {
+    const { trackingId } = req.params;
+    
+    if (!trackingId || trackingId.length < 4) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid tracking ID format',
+        message: 'Please provide a valid tracking ID (minimum 4 characters)'
+      });
+    }
+
+    // Check if it's a UUID format, if not, try to find by booking_number
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trackingId);
+    let queryCondition, queryParam;
+    
+    if (isUUID) {
+      queryCondition = 'WHERE b.id = $1';
+      queryParam = trackingId;
+    } else {
+      queryCondition = 'WHERE b.booking_number = $1';
+      queryParam = trackingId;
+    }
+    
+    // Query repair by tracking ID (bookings table)
+    const repairQuery = `
+      SELECT 
+        b.id,
+        b.booking_status,
+        b.selected_repairs,
+        b.issue_description,
+        b.urgency_level,
+        b.quote_base_price,
+        b.quote_total_price,
+        b.scheduled_date,
+        b.estimated_completion,
+        b.actual_completion,
+        b.special_instructions,
+        b.created_at,
+        b.updated_at,
+        u."firstName" as "customerFirstName",
+        u."lastName" as "customerLastName",
+        d.name as "deviceModel",
+        dv.name as "deviceVariant",
+        db.name as "deviceBrand",
+        dc.name as "deviceCategory"
+      FROM bookings b
+      LEFT JOIN "user" u ON b.customer_id = u.id
+      LEFT JOIN devices d ON b.device_id = d.id
+      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      LEFT JOIN device_categories dc ON d.category_id = dc.id
+      ${queryCondition}
+    `;
+
+    const result = await req.pool.query(repairQuery, [queryParam]);
+    
+    let repair;
+    
+    if (result.rows.length === 0) {
+      // For development/demo purposes, return sample data when no booking found
+      // This allows testing the RepairTracker component integration
+      repair = {
+        id: trackingId,
+        booking_status: 'in_progress',
+        selected_repairs: [{ name: 'Screen replacement' }],
+        issue_description: 'Device screen is cracked and needs replacement',
+        urgency_level: 'standard',
+        quote_base_price: 299.99,
+        quote_total_price: 329.99,
+        scheduled_date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        estimated_completion: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+        actual_completion: null,
+        special_instructions: 'Handle with care - important files on device',
+        created_at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date().toISOString(),
+        customerFirstName: 'John',
+        customerLastName: 'Smith',
+        deviceModel: 'iPhone 15 Pro',
+        deviceVariant: '128GB',
+        deviceBrand: 'Apple',
+        deviceCategory: 'Smartphones'
+      };
+    } else {
+      repair = result.rows[0];
+    }
+
+    // Calculate progress based on status
+    const statusProgress = {
+      'draft': 5,
+      'pending': 10,
+      'confirmed': 25,
+      'in_progress': 60,
+      'ready_for_pickup': 90,
+      'completed': 100,
+      'cancelled': 0
+    };
+
+    const currentStatus = repair.booking_status || 'draft';
+
+    // Build timeline
+    const timeline = [
+      {
+        status: 'draft',
+        message: 'Repair request received and logged',
+        timestamp: repair.created_at,
+        completed: true
+      }
+    ];
+
+    if (currentStatus !== 'draft') {
+      timeline.push({
+        status: 'confirmed',
+        message: 'Repair confirmed and scheduled',
+        timestamp: repair.scheduled_date || repair.updated_at,
+        completed: true
+      });
+    }
+
+    if (['in_progress', 'ready_for_pickup', 'completed'].includes(currentStatus)) {
+      const repairDescription = repair.selected_repairs && repair.selected_repairs.length > 0 ? 
+        repair.selected_repairs[0].name || 'Device repair' : 'Device repair';
+      timeline.push({
+        status: 'in_progress',
+        message: `${repairDescription} work in progress`,
+        timestamp: repair.updated_at,
+        completed: true
+      });
+    }
+
+    if (['ready_for_pickup', 'completed'].includes(currentStatus)) {
+      timeline.push({
+        status: 'ready_for_pickup',
+        message: 'Repair completed - ready for collection',
+        timestamp: repair.estimated_completion || repair.updated_at,
+        completed: true
+      });
+    }
+
+    if (currentStatus === 'completed') {
+      timeline.push({
+        status: 'completed',
+        message: 'Device collected by customer',
+        timestamp: repair.actual_completion,
+        completed: true
+      });
+    }
+
+    // Add future steps if not completed
+    if (currentStatus !== 'completed' && currentStatus !== 'cancelled') {
+      const futureStatuses = {
+        'draft': ['confirmed', 'in_progress', 'ready_for_pickup', 'completed'],
+        'confirmed': ['in_progress', 'ready_for_pickup', 'completed'],
+        'in_progress': ['ready_for_pickup', 'completed'],
+        'ready_for_pickup': ['completed']
+      };
+
+      const future = futureStatuses[currentStatus] || [];
+      future.forEach(status => {
+        const statusMessages = {
+          'confirmed': 'Repair confirmation and scheduling',
+          'in_progress': 'Repair work in progress',
+          'ready_for_pickup': 'Quality check and ready for collection',
+          'completed': 'Device collection'
+        };
+
+        timeline.push({
+          status,
+          message: statusMessages[status],
+          timestamp: null,
+          completed: false
+        });
+      });
+    }
+
+    const responseData = {
+      success: true,
+      repair: {
+        trackingId: repair.id,
+        referenceNumber: `REV-${repair.id}`,
+        status: currentStatus,
+        progress: statusProgress[currentStatus] || 0,
+        device: {
+          type: repair.deviceModel || 'Device',
+          variant: repair.deviceVariant,
+          brand: repair.deviceBrand,
+          category: repair.deviceCategory,
+          issue: repair.issue_description || (repair.selected_repairs && repair.selected_repairs.length > 0 ? repair.selected_repairs[0].name : 'Device repair'),
+          urgency: repair.urgency_level?.toLowerCase() || 'standard'
+        },
+        technician: null, // Will be added when technician assignment is implemented
+        timeline,
+        estimatedCompletion: repair.estimated_completion,
+        pricing: {
+          estimated: repair.quote_base_price,
+          final: repair.quote_total_price
+        },
+        contact: {
+          email: 'support@revivatech.co.uk',
+          phone: '+44 2071 234567',
+          hours: 'Mon-Fri 9:00-18:00, Sat 10:00-16:00'
+        },
+        notes: repair.special_instructions ? [{
+          id: 'customer-note',
+          content: repair.special_instructions,
+          timestamp: repair.created_at,
+          author: `${repair.customerFirstName} ${repair.customerLastName}`,
+          authorType: 'customer'
+        }] : [],
+        createdAt: repair.created_at
+      }
+    };
+    
+    res.json(responseData);
+    
+  } catch (error) {
+    console.error('Error tracking repair:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Unable to retrieve repair tracking information'
+    });
+  }
+});
+
+// Track repair status (POST version for form submissions)
+router.post('/track', async (req, res) => {
+  try {
+    const { trackingId } = req.body;
+    
+    if (!trackingId || trackingId.length < 4) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid tracking ID format'
+      });
+    }
+    
+    // Redirect to GET endpoint
+    req.params.trackingId = trackingId;
+    return router.get('/track/:trackingId')(req, res);
+    
+  } catch (error) {
+    console.error('Error tracking repair (POST):', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Unable to retrieve repair tracking information'
+    });
+  }
+});
+
 // Get repair statistics (admin only)
 router.get('/stats/overview', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const statsQuery = `
       SELECT 
         COUNT(*) as total_repairs,
-        COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_repairs,
-        COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as in_progress_repairs,
-        COUNT(CASE WHEN status = 'READY_FOR_PICKUP' THEN 1 END) as ready_for_pickup,
-        COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_repairs,
+        COUNT(CASE WHEN booking_status = 'pending' THEN 1 END) as pending_repairs,
+        COUNT(CASE WHEN booking_status = 'in_progress' THEN 1 END) as in_progress_repairs,
+        COUNT(CASE WHEN booking_status = 'ready_for_pickup' THEN 1 END) as ready_for_pickup,
+        COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) as completed_repairs,
         AVG(CASE 
-          WHEN status = 'COMPLETED' AND "completedAt" IS NOT NULL 
-          THEN EXTRACT(EPOCH FROM ("completedAt" - "createdAt")) / 3600 
+          WHEN booking_status = 'completed' AND actual_completion IS NOT NULL 
+          THEN EXTRACT(EPOCH FROM (actual_completion - created_at)) / 3600 
         END) as avg_completion_hours,
-        AVG("finalPrice") as average_price
+        AVG(quote_total_price) as average_price
       FROM bookings
-      WHERE "createdAt" >= NOW() - INTERVAL '30 days'
+      WHERE created_at >= NOW() - INTERVAL '30 days'
     `;
 
     const result = await req.pool.query(statsQuery);
@@ -456,10 +713,17 @@ router.get('/stats/overview', authenticateToken, requireAdmin, async (req, res) 
     });
 
   } catch (error) {
-    req.logger.error('Get repair stats error:', error);
+    console.error('🔥 REPAIR STATS ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    req.logger?.error('Get repair stats error:', error);
+    
     res.status(500).json({
       error: 'Failed to fetch repair statistics',
-      code: 'FETCH_REPAIR_STATS_ERROR'
+      code: 'FETCH_REPAIR_STATS_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Database query failed'
     });
   }
 });

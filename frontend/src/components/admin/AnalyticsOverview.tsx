@@ -83,62 +83,68 @@ export default function AnalyticsOverview({
     return () => clearInterval(interval);
   }, [isTrackingEnabled, refreshInterval]);
 
-  // Generate mock recent events for demo
+  // Fetch real analytics events from backend
   useEffect(() => {
-    const generateRecentEvents = () => {
-      const events = [
-        {
-          type: 'page_view',
-          description: 'Customer viewed iPhone repair page',
-          timestamp: new Date(Date.now() - Math.random() * 300000).toISOString(),
-          platform: 'GA4',
-          value: 0
-        },
-        {
-          type: 'quote_requested',
-          description: 'MacBook repair quote requested',
-          timestamp: new Date(Date.now() - Math.random() * 600000).toISOString(),
-          platform: 'Facebook Pixel',
-          value: 25
-        },
-        {
-          type: 'booking_completed',
-          description: 'iPad screen repair booking completed',
-          timestamp: new Date(Date.now() - Math.random() * 900000).toISOString(),
-          platform: 'PostHog',
-          value: 180
-        },
-        {
-          type: 'contact_interaction',
-          description: 'Customer clicked phone number',
-          timestamp: new Date(Date.now() - Math.random() * 1200000).toISOString(),
-          platform: 'Universal',
-          value: 15
+    const fetchAnalyticsEvents = async () => {
+      try {
+        // This will fetch real events from the admin analytics API
+        const response = await fetch('/api/admin/analytics/activity?limit=10');
+        if (response.ok) {
+          const data = await response.json();
+          const formattedEvents = (data.data?.activities || []).map((activity: any) => ({
+            type: activity.type,
+            description: activity.title,
+            timestamp: activity.timestamp,
+            platform: 'RevivaTech API',
+            value: activity.cost || 0
+          }));
+          setRecentEvents(formattedEvents);
         }
-      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      setRecentEvents(events);
+      } catch (error) {
+        console.error('Failed to fetch analytics events:', error);
+        // Fallback to empty array instead of mock data
+        setRecentEvents([]);
+      }
     };
 
-    generateRecentEvents();
-    const interval = setInterval(generateRecentEvents, refreshInterval);
+    fetchAnalyticsEvents();
+    const interval = setInterval(fetchAnalyticsEvents, refreshInterval);
 
     return () => clearInterval(interval);
   }, [refreshInterval]);
 
-  // Generate mock performance metrics
+  // Fetch real performance metrics from backend
   useEffect(() => {
-    const generateMetrics = () => {
-      setPerformanceMetrics({
-        eventsToday: Math.floor(Math.random() * 500 + 200),
-        pageViews: Math.floor(Math.random() * 300 + 150),
-        uniqueUsers: Math.floor(Math.random() * 100 + 50),
-        conversionRate: Math.random() * 5 + 2
-      });
+    const fetchPerformanceMetrics = async () => {
+      try {
+        // This will fetch real metrics from the admin analytics API
+        const response = await fetch('/api/admin/analytics/stats?timeRange=24h');
+        if (response.ok) {
+          const data = await response.json();
+          const overview = data.data?.overview || {};
+          setPerformanceMetrics({
+            eventsToday: overview.newBookings || 0,
+            pageViews: overview.totalBookings || 0,
+            uniqueUsers: overview.customers || 0,
+            conversionRate: overview.completedBookings > 0 && overview.totalBookings > 0 
+              ? (overview.completedBookings / overview.totalBookings * 100) 
+              : 0
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch performance metrics:', error);
+        // Fallback to zero values instead of random data
+        setPerformanceMetrics({
+          eventsToday: 0,
+          pageViews: 0,
+          uniqueUsers: 0,
+          conversionRate: 0
+        });
+      }
     };
 
-    generateMetrics();
-    const interval = setInterval(generateMetrics, refreshInterval);
+    fetchPerformanceMetrics();
+    const interval = setInterval(fetchPerformanceMetrics, refreshInterval);
 
     return () => clearInterval(interval);
   }, [refreshInterval]);
