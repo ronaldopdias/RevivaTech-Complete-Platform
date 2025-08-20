@@ -65,7 +65,13 @@ export default function UnifiedTemplateManager() {
       
       switch (activeTab) {
         case 'email':
-          result = await adminApiService.getEmailTemplates();
+          // Use frontend API route instead of direct backend call
+          const response = await fetch('/api/email-templates');
+          if (response.ok) {
+            result = await response.json();
+          } else {
+            result = { success: false, error: 'Failed to fetch email templates' };
+          }
           break;
         case 'sms':
           result = await adminApiService.get('/api/export/sms/templates');

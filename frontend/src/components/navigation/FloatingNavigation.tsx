@@ -110,9 +110,38 @@ const FloatingNavigation: React.FC = () => {
   // Memoized navigation items based on user role
   const navigation = useMemo(() => {
     if (isLoading) return [];
+    
+    // Debug logging to help identify navigation issues
+    console.log('FloatingNavigation Debug:', {
+      currentRole,
+      isLoading,
+      isAuthenticated,
+      user: user ? { role: (user as any).role, email: user.email } : null
+    });
+    
     const roleNavigation = getNavigationForRole(currentRole);
-    return convertRoleNavigation(roleNavigation);
-  }, [currentRole, isLoading]);
+    const convertedNavigation = convertRoleNavigation(roleNavigation);
+    
+    console.log('Navigation items:', {
+      roleNavigation,
+      convertedNavigation,
+      count: convertedNavigation.length
+    });
+    
+    // Fallback navigation if role-based navigation fails
+    if (convertedNavigation.length === 0) {
+      console.warn('No navigation items found, using fallback navigation');
+      return [
+        { name: 'Home', href: '/' },
+        { name: 'Apple Repair', href: '/apple' },
+        { name: 'PC Repair', href: '/laptop-pc' },
+        { name: 'Pricing', href: '/pricing' },
+        { name: 'Contact', href: '/contact' }
+      ];
+    }
+    
+    return convertedNavigation;
+  }, [currentRole, isLoading, isAuthenticated, user]);
 
   // Get current role display config
   const currentRoleConfig = ROLE_DISPLAY_CONFIG[currentRole];
@@ -195,11 +224,11 @@ const FloatingNavigation: React.FC = () => {
             href={item.href}
             onClick={handleItemClick}
             className={cn(
-              "relative px-4 py-2 text-sm font-medium transition-all duration-300 block",
+              "relative px-3 py-1.5 text-sm font-medium transition-all duration-300 block",
               isActive(item.href)
                 ? "text-blue-600 font-semibold"
                 : "text-gray-700 hover:text-blue-600",
-              isMobile ? "w-full text-left" : ""
+              isMobile ? "w-full text-left px-4 py-2 text-sm" : ""
             )}
           >
             <span>{item.name}</span>
@@ -216,17 +245,18 @@ const FloatingNavigation: React.FC = () => {
       >
         <button
           className={cn(
-            "px-4 py-2 text-sm font-medium transition-all duration-300 flex items-center space-x-2",
+            "px-3 py-1.5 text-sm font-medium transition-all duration-300 flex items-center space-x-1",
             isActive(item.href)
               ? "text-blue-600 font-semibold"
               : "text-gray-700 hover:text-blue-600",
-            isMobile ? "w-full text-left" : ""
+            isMobile ? "w-full text-left px-4 py-2 text-sm space-x-2" : ""
           )}
         >
           <span>{item.name}</span>
           <ChevronDown className={cn(
-            "w-4 h-4 transition-transform duration-300",
-            isDropdownOpen && "rotate-180"
+            "w-3 h-3 transition-transform duration-300",
+            isDropdownOpen && "rotate-180",
+            isMobile && "w-4 h-4"
           )} />
         </button>
 
@@ -272,8 +302,8 @@ const FloatingNavigation: React.FC = () => {
         {/* Logo Container - Far Left */}
         <div className="flex items-center space-x-4">
           <Link href="/" className="flex items-center space-x-3" aria-label="ReViva Tech home">
-            <span className="text-gray-900 font-bold text-lg">RT</span>
-            <span className="text-gray-900 font-bold text-sm">
+            <span className="text-gray-900 font-bold text-base">RT</span>
+            <span className="text-gray-900 font-bold text-xs">
               ReViva Tech
             </span>
           </Link>
@@ -286,7 +316,7 @@ const FloatingNavigation: React.FC = () => {
           transition={{ duration: 0.3 }}
         >
           <motion.div
-            className="bg-white/95 backdrop-blur-2xl border border-gray-200 rounded-2xl shadow-2xl px-6 py-2"
+            className="bg-white/95 backdrop-blur-2xl border border-gray-200 rounded-2xl shadow-2xl px-6 py-1.5"
             whileHover={{
               scale: 1.02,
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
@@ -296,14 +326,20 @@ const FloatingNavigation: React.FC = () => {
             aria-label="Main navigation menu"
           >
             <NavigationMenu.Root className="relative">
-              <NavigationMenu.List className="flex items-center justify-center space-x-1">
-                {navigation.map((item) => (
-                  <NavigationItemComponent
-                    key={item.name}
-                    item={item}
-                    isActive={isActive}
-                  />
-                ))}
+              <NavigationMenu.List className="flex items-center justify-center space-x-2">
+                {isLoading ? (
+                  <div className="px-4 py-2 text-sm text-gray-500">Loading...</div>
+                ) : navigation.length === 0 ? (
+                  <div className="px-4 py-2 text-sm text-red-500">No navigation items</div>
+                ) : (
+                  navigation.map((item) => (
+                    <NavigationItemComponent
+                      key={item.name}
+                      item={item}
+                      isActive={isActive}
+                    />
+                  ))
+                )}
               </NavigationMenu.List>
             </NavigationMenu.Root>
           </motion.div>
@@ -315,10 +351,10 @@ const FloatingNavigation: React.FC = () => {
             isAuthenticated && user ? (
               /* User Dropdown */
               <div className="relative group">
-                <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 px-4 py-2 rounded-lg font-medium transition-all duration-300">
-                  <User className="w-4 h-4" />
+                <button className="flex items-center space-x-1.5 text-gray-700 hover:text-blue-600 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300">
+                  <User className="w-3 h-3" />
                   <span>{user.firstName || user.email}</span>
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-3 h-3" />
                 </button>
                 
                 {/* Dropdown Menu */}
@@ -329,24 +365,28 @@ const FloatingNavigation: React.FC = () => {
                     <div className="text-xs text-blue-600 font-medium mt-1">{user.role}</div>
                   </div>
                   <div className="py-1">
-                    {user.role === 'ADMIN' && (
+                    {/* Role-based navigation - Admins see only dashboard, others see both dashboard and profile */}
+                    {user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' ? (
                       <Link href="/admin" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                         Admin Dashboard
                       </Link>
+                    ) : (
+                      <>
+                        {user.role === 'CUSTOMER' && (
+                          <Link href="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            Customer Dashboard
+                          </Link>
+                        )}
+                        {user.role === 'TECHNICIAN' && (
+                          <Link href="/technician" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            Technician Dashboard
+                          </Link>
+                        )}
+                        <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                          Profile
+                        </Link>
+                      </>
                     )}
-                    {user.role === 'CUSTOMER' && (
-                      <Link href="/customer-portal" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        Customer Portal
-                      </Link>
-                    )}
-                    {user.role === 'TECHNICIAN' && (
-                      <Link href="/technician" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        Technician Dashboard
-                      </Link>
-                    )}
-                    <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                      Profile
-                    </Link>
                     <button 
                       onClick={() => signOut()}
                       className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
@@ -358,13 +398,13 @@ const FloatingNavigation: React.FC = () => {
               </div>
             ) : (
               /* Login Button */
-              <Link href="/login" className="text-gray-700 hover:text-blue-600 px-4 py-2 rounded-lg font-medium transition-all duration-300">
+              <Link href="/login" className="text-gray-700 hover:text-blue-600 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300">
                 Login
               </Link>
             )
           )}
           
-          <Link href="/book-repair" className="bg-blue-500 text-white px-6 py-2 rounded-xl font-semibold hover:bg-blue-600 hover:text-white transition-all duration-300 block" style={{ color: 'white' }}>
+          <Link href="/book-repair" className="bg-blue-500 text-white px-4 py-1.5 rounded-xl text-sm font-semibold hover:bg-blue-600 hover:text-white transition-all duration-300 block" style={{ color: 'white' }}>
             Book Repair
           </Link>
         </motion.div>
@@ -400,15 +440,21 @@ const FloatingNavigation: React.FC = () => {
             <div className="flex flex-col h-full pt-20 px-6 pb-6 overflow-y-auto">
               <NavigationMenu.Root className="w-full">
                 <NavigationMenu.List className="flex flex-col space-y-4">
-                  {navigation.map((item) => (
-                    <NavigationItemComponent
-                      key={item.name}
-                      item={item}
-                      isMobile={true}
-                      isActive={isActive}
-                      toggleMobileMenu={toggleMobileMenu}
-                    />
-                  ))}
+                  {isLoading ? (
+                    <div className="px-4 py-2 text-sm text-gray-500">Loading navigation...</div>
+                  ) : navigation.length === 0 ? (
+                    <div className="px-4 py-2 text-sm text-red-500">No navigation items available</div>
+                  ) : (
+                    navigation.map((item) => (
+                      <NavigationItemComponent
+                        key={item.name}
+                        item={item}
+                        isMobile={true}
+                        isActive={isActive}
+                        toggleMobileMenu={toggleMobileMenu}
+                      />
+                    ))
+                  )}
                 </NavigationMenu.List>
               </NavigationMenu.Root>
 
@@ -424,21 +470,27 @@ const FloatingNavigation: React.FC = () => {
                         <div className="text-xs text-blue-600 font-medium mt-1">{user.role}</div>
                       </div>
                       
-                      {/* Role-based Dashboard Links */}
-                      {user.role === 'ADMIN' && (
+                      {/* Role-based Dashboard Links - Admins see only dashboard, others see both dashboard and profile */}
+                      {user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' ? (
                         <Link href="/admin" className="w-full border border-blue-500 text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 block text-center">
                           Admin Dashboard
                         </Link>
-                      )}
-                      {user.role === 'CUSTOMER' && (
-                        <Link href="/customer-portal" className="w-full border border-blue-500 text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 block text-center">
-                          Customer Portal
-                        </Link>
-                      )}
-                      {user.role === 'TECHNICIAN' && (
-                        <Link href="/technician" className="w-full border border-blue-500 text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 block text-center">
-                          Technician Dashboard
-                        </Link>
+                      ) : (
+                        <>
+                          {user.role === 'CUSTOMER' && (
+                            <Link href="/dashboard" className="w-full border border-blue-500 text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 block text-center">
+                              Customer Dashboard
+                            </Link>
+                          )}
+                          {user.role === 'TECHNICIAN' && (
+                            <Link href="/technician" className="w-full border border-blue-500 text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 block text-center">
+                              Technician Dashboard
+                            </Link>
+                          )}
+                          <Link href="/profile" className="w-full border border-gray-300 text-gray-600 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 block text-center">
+                            Profile
+                          </Link>
+                        </>
                       )}
                       
                       <button 

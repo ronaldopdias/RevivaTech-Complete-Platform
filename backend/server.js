@@ -177,6 +177,19 @@ app.use('/api/health', (req, res, next) => {
   next();
 }, healthRoutes);
 
+// Public Analytics Routes (temporary for development)
+try {
+  const publicAnalyticsRoutes = require('./routes/public-analytics');
+  app.use('/api/public', (req, res, next) => {
+    req.pool = pool;
+    req.logger = logger;
+    next();
+  }, publicAnalyticsRoutes);
+  logger.info('✅ Public analytics routes mounted successfully');
+} catch (error) {
+  logger.error('❌ Failed to mount public analytics routes:', error);
+}
+
 // API info route
 app.get('/api/info', (req, res) => {
   res.json({
@@ -286,6 +299,19 @@ try {
   logger.info('✅ Customer routes mounted successfully - MockCustomerService can be replaced');
 } catch (error) {
   logger.error('❌ Customer routes not available:', error.message);
+}
+
+// Import and mount inventory management routes (replaces mock inventory data)
+try {
+  const inventoryRoutes = require('./routes/inventory-management');
+  app.use('/api/inventory', (req, res, next) => {
+    req.pool = pool;
+    req.logger = logger;
+    next();
+  }, inventoryRoutes);
+  logger.info('✅ Inventory management routes mounted successfully - Mock inventory data can be replaced');
+} catch (error) {
+  logger.error('❌ Inventory management routes not available:', error.message);
 }
 
 // Import and mount booking routes (replaces MockBookingService)

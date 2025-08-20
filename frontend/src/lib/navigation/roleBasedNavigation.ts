@@ -195,11 +195,7 @@ export const getNavigationForRole = (role: UserRoleType): RoleBasedNavigationIte
       roleSpecificNavigation = ROLE_BASED_NAVIGATION.customerNavigation;
       break;
     case 'ADMIN':
-      roleSpecificNavigation = [
-        ...ROLE_BASED_NAVIGATION.adminNavigation,
-        ...ROLE_BASED_NAVIGATION.customerNavigation,
-        ...ROLE_BASED_NAVIGATION.technicianNavigation,
-      ];
+      roleSpecificNavigation = ROLE_BASED_NAVIGATION.adminNavigation;
       break;
     case 'TECHNICIAN':
       roleSpecificNavigation = ROLE_BASED_NAVIGATION.technicianNavigation;

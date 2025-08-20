@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as fs from 'fs';
-import * as path from 'path';
+import { getApiBaseUrl } from '@/lib/utils/api';
 
 interface EmailTemplate {
   id: string;
@@ -9,17 +8,35 @@ interface EmailTemplate {
   category: string;
   type: string;
   isActive: boolean;
-  usageCount: number;
-  charCount: number;
-  updatedAt: string;
+  usage_count?: number;
+  usageCount?: number;
+  charCount?: number;
+  updatedAt?: string;
+  updated_at?: string;
   template?: string;
   variables?: string[];
+  html_content?: string;
+  text_content?: string;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // Define our existing email templates
-    const templates: EmailTemplate[] = [
+    // Get API base URL for backend connection
+    const baseUrl = getApiBaseUrl();
+    const backendUrl = `${baseUrl}/api/email-templates`;
+    
+    // Forward request to backend API
+    const response = await fetch(backendUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Backend API error:', response.status, response.statusText);
+      // Fallback to mock data if backend fails
+      const templates: EmailTemplate[] = [
       {
         id: 'booking-confirmation',
         name: 'Booking Confirmation',
@@ -140,56 +157,69 @@ export async function GET(request: NextRequest) {
         updatedAt: new Date().toISOString(),
         variables: ['customerName', 'month', 'year', 'articles']
       }
-    ];
-
-    // If a specific template ID is requested, load its content
-    const templateId = request.nextUrl.searchParams.get('id');
-    if (templateId) {
-      const template = templates.find(t => t.id === templateId);
-      if (!template) {
-        return NextResponse.json({
-          success: false,
-          error: 'Template not found'
-        }, { status: 404 });
-      }
-
-      // Try to load the template content
-      try {
-        const templatePath = path.join(
-          process.cwd(),
-          'src/lib/services/emailTemplates',
-          `${templateId}.ts`
-        );
-        
-        if (fs.existsSync(templatePath)) {
-          const content = fs.readFileSync(templatePath, 'utf-8');
-          template.template = content;
-        }
-      } catch (error) {
-        console.error('Error loading template content:', error);
-      }
-
+      ];
+    
+      // Return fallback templates if backend is unavailable
       return NextResponse.json({
         success: true,
-        data: template
+        data: {
+          templates,
+          total: templates.length,
+          active: templates.filter(t => t.isActive).length,
+          categories: [
+            { id: 'transactional', name: 'Transactional', count: templates.filter(t => t.category === 'transactional').length },
+            { id: 'security', name: 'Security', count: templates.filter(t => t.category === 'security').length },
+            { id: 'notification', name: 'Notifications', count: templates.filter(t => t.category === 'notification').length },
+            { id: 'marketing', name: 'Marketing', count: templates.filter(t => t.category === 'marketing').length }
+          ]
+        }
       });
     }
 
-    // Return all templates
+    // Parse backend response
+    const backendData = await response.json();
+    
+    if (backendData.success && backendData.data && backendData.data.templates) {
+      // Transform backend data to match frontend interface
+      const transformedTemplates = backendData.data.templates.map((template: any) => ({
+        id: template.id?.toString() || template.slug,
+        name: template.name,
+        subject: template.subject,
+        category: template.category,
+        type: 'email',
+        isActive: template.is_active ?? true,
+        usageCount: template.usage_count || 0,
+        charCount: template.html_content?.length || 0,
+        updatedAt: template.updated_at,
+        variables: template.variables || [],
+        html_content: template.html_content,
+        text_content: template.text_content
+      }));
+
+      // Calculate categories from real data
+      const categories = [
+        { id: 'system', name: 'System', count: transformedTemplates.filter((t: any) => t.category === 'system').length },
+        { id: 'booking', name: 'Booking', count: transformedTemplates.filter((t: any) => t.category === 'booking').length },
+        { id: 'quote', name: 'Quote', count: transformedTemplates.filter((t: any) => t.category === 'quote').length },
+        { id: 'transactional', name: 'Transactional', count: transformedTemplates.filter((t: any) => t.category === 'transactional').length }
+      ].filter(cat => cat.count > 0);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          templates: transformedTemplates,
+          total: transformedTemplates.length,
+          active: transformedTemplates.filter((t: any) => t.isActive).length,
+          categories
+        }
+      });
+    }
+
+    // If backend response is invalid, return empty result
     return NextResponse.json({
-      success: true,
-      data: {
-        templates,
-        total: templates.length,
-        active: templates.filter(t => t.isActive).length,
-        categories: [
-          { id: 'transactional', name: 'Transactional', count: templates.filter(t => t.category === 'transactional').length },
-          { id: 'security', name: 'Security', count: templates.filter(t => t.category === 'security').length },
-          { id: 'notification', name: 'Notifications', count: templates.filter(t => t.category === 'notification').length },
-          { id: 'marketing', name: 'Marketing', count: templates.filter(t => t.category === 'marketing').length }
-        ]
-      }
-    });
+      success: false,
+      error: 'Invalid backend response'
+    }, { status: 500 });
   } catch (error) {
     console.error('Email templates API error:', error);
     return NextResponse.json({
