@@ -72,6 +72,7 @@ interface UserProperties {
 }
 
 class ThirdPartyAnalyticsService {
+  private static instance: ThirdPartyAnalyticsService | null = null;
   private config: ThirdPartyConfig;
   private isInitialized: boolean = false;
   private consentGiven: boolean = false;
@@ -159,7 +160,8 @@ class ThirdPartyAnalyticsService {
           this.posthog = (window as any).posthog;
           console.log('PostHog: Using official SDK from instrumentation-client.js');
         } else {
-          console.warn('PostHog: Official SDK not found. Make sure instrumentation-client.js is loaded.');
+          // PostHog is disabled in instrumentation.ts - this is expected
+          console.log('PostHog: SDK not loaded (disabled in instrumentation.ts)');
         }
       }
 
@@ -176,7 +178,10 @@ class ThirdPartyAnalyticsService {
       // Flush any queued events
       this.flushEventQueue();
 
-      console.log('ThirdPartyAnalytics: Successfully initialized');
+      // Reduce console noise in production
+      if (process.env.NODE_ENV === 'development') {
+        console.log('ThirdPartyAnalytics: Successfully initialized');
+      }
     } catch (error) {
       console.error('ThirdPartyAnalytics: Initialization failed:', error);
       throw error;
@@ -216,7 +221,10 @@ class ThirdPartyAnalyticsService {
           });
 
           this.ga4 = gtag;
-          console.log('Google Analytics 4 initialized');
+          // Reduce console noise in production
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Google Analytics 4 initialized');
+          }
           resolve();
         };
 
@@ -272,7 +280,10 @@ class ThirdPartyAnalyticsService {
           fbq('track', 'PageView');
 
           this.fbq = fbq;
-          console.log('Facebook Pixel initialized');
+          // Reduce console noise in production
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Facebook Pixel initialized');
+          }
           resolve();
         };
 
@@ -557,12 +568,23 @@ class ThirdPartyAnalyticsService {
   }
 }
 
-// Export singleton instance
+// Export singleton instance with global initialization guard
 let thirdPartyAnalytics: ThirdPartyAnalyticsService;
+let isGloballyInitialized = false;
 
 export function getThirdPartyAnalytics(config?: Partial<ThirdPartyConfig>): ThirdPartyAnalyticsService {
   if (!thirdPartyAnalytics) {
+    // Prevent duplicate initialization in development hot reload
+    if (typeof window !== 'undefined' && (window as any).__thirdPartyAnalytics) {
+      return (window as any).__thirdPartyAnalytics;
+    }
+    
     thirdPartyAnalytics = new ThirdPartyAnalyticsService(config);
+    
+    // Store globally to prevent hot reload duplicates
+    if (typeof window !== 'undefined') {
+      (window as any).__thirdPartyAnalytics = thirdPartyAnalytics;
+    }
   }
   return thirdPartyAnalytics;
 }

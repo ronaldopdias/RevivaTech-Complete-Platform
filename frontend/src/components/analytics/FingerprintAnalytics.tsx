@@ -57,6 +57,54 @@ export const FingerprintAnalytics = ({
   });
 
   const lastTrackedId = useRef<string | null>(null);
+  const cleanupDone = useRef(false);
+
+  // Clean up old analytics data on initialization
+  useEffect(() => {
+    if (!cleanupDone.current && typeof window !== 'undefined') {
+      cleanupDone.current = true;
+      
+      try {
+        // Check and clean oversized analytics data
+        const stored = localStorage.getItem('revivatech-analytics-events');
+        if (stored) {
+          try {
+            const events = JSON.parse(stored);
+            if (events.length > 20) {
+              // Keep only last 20 events
+              const trimmed = events.slice(-20);
+              localStorage.setItem('revivatech-analytics-events', JSON.stringify(trimmed));
+            }
+          } catch (error) {
+            // If corrupt, remove it
+            localStorage.removeItem('revivatech-analytics-events');
+          }
+        }
+        
+        // Clean up any other oversized analytics keys
+        const keysToCheck = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.includes('analytics')) {
+            keysToCheck.push(key);
+          }
+        }
+        
+        keysToCheck.forEach(key => {
+          try {
+            const value = localStorage.getItem(key);
+            if (value && value.length > 10000) { // If value is too large
+              localStorage.removeItem(key);
+            }
+          } catch (error) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (error) {
+        // Ignore initialization errors
+      }
+    }
+  }, []);
 
   /**
    * Track device identification event
@@ -119,19 +167,54 @@ export const FingerprintAnalytics = ({
         (window as any).analyticsWS.send(JSON.stringify(event));
       }
 
-      // Also store in localStorage for offline support
-      const stored = localStorage.getItem('revivatech-analytics-events') || '[]';
-      const events = JSON.parse(stored);
-      events.push(event);
-      
-      // Keep only last 100 events
-      if (events.length > 100) {
-        events.splice(0, events.length - 100);
+      // Try to store in localStorage with quota handling
+      try {
+        const stored = localStorage.getItem('revivatech-analytics-events') || '[]';
+        let events = [];
+        
+        try {
+          events = JSON.parse(stored);
+        } catch (parseError) {
+          // If parse fails, reset events
+          events = [];
+        }
+        
+        events.push(event);
+        
+        // Keep only last 20 events (reduced from 100)
+        if (events.length > 20) {
+          events = events.slice(-20);
+        }
+        
+        localStorage.setItem('revivatech-analytics-events', JSON.stringify(events));
+      } catch (storageError: any) {
+        // Handle quota exceeded error
+        if (storageError.name === 'QuotaExceededError') {
+          // Clear analytics events and try again with just this event
+          try {
+            localStorage.removeItem('revivatech-analytics-events');
+            localStorage.setItem('revivatech-analytics-events', JSON.stringify([event]));
+          } catch (retryError) {
+            // If still fails, clear all localStorage and skip
+            console.warn('Analytics storage quota exceeded, clearing storage');
+            try {
+              // Clear only analytics-related items
+              const keysToRemove = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('analytics') || key.includes('fingerprint'))) {
+                  keysToRemove.push(key);
+                }
+              }
+              keysToRemove.forEach(key => localStorage.removeItem(key));
+            } catch (clearError) {
+              // Ignore clear errors
+            }
+          }
+        }
       }
-      
-      localStorage.setItem('revivatech-analytics-events', JSON.stringify(events));
     } catch (error) {
-      console.warn('Failed to send analytics event:', error);
+      // Silently fail for analytics
     }
   }, []);
 

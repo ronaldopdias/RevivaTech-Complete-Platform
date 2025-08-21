@@ -5,14 +5,15 @@ const nextConfig: NextConfig = {
   /* config options here */
   // Production performance optimization
   poweredByHeader: false,
-  reactStrictMode: process.env.NODE_ENV === 'development',
+  reactStrictMode: false, // Disabled to reduce hot reload cycles in development
   compress: true,
   productionBrowserSourceMaps: false,
   generateEtags: true,
   
-  // WebSocket and HMR configuration
+  // WebSocket and HMR configuration - Optimized for reduced noise
   devIndicators: {
     position: 'bottom-right',
+    // Note: buildActivity option is deprecated in Next.js 15.3+ and removed
   },
   
   // Custom server configuration for WebSocket handling
@@ -33,7 +34,9 @@ const nextConfig: NextConfig = {
     'revivatech.co.uk',
     'revivatech.com.br', 
     'localhost:3010',
-    'localhost:3000'
+    'localhost:3000',
+    '192.168.1.199:3010',
+    '100.122.130.67:3010'
   ],
   
   // PWA Configuration with aggressive cache busting for auth changes
@@ -78,17 +81,24 @@ const nextConfig: NextConfig = {
         },
       ],
     },
-    // Force reload of JavaScript files
+    // Optimize JavaScript file caching for development
     {
       source: '/_next/static/chunks/:path*',
       headers: [
         {
           key: 'Cache-Control',
-          value: 'public, max-age=0, must-revalidate',
+          value: process.env.NODE_ENV === 'development' 
+            ? 'public, max-age=31536000, immutable' 
+            : 'public, max-age=0, must-revalidate',
         },
       ],
     },
   ],
+  
+  // Experimental WebSocket configuration for HMR cross-origin support
+  experimental: {
+    webVitalsAttribution: ['CLS', 'LCP'],
+  },
   
   // API rewrites for external domain access (excluding NextAuth.js routes)
   async rewrites() {

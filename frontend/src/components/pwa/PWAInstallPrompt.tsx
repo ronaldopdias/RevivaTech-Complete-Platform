@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { X, Download, Smartphone, Monitor, Zap, Wifi, Camera } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -58,7 +58,6 @@ export function PWAInstallPrompt({ onInstall, onDismiss, className = '' }: PWAIn
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setShowPrompt(false);
-      console.log('📱 PWA installed successfully');
       onInstall?.();
     };
 
@@ -81,11 +80,9 @@ export function PWAInstallPrompt({ onInstall, onDismiss, className = '' }: PWAIn
       const { outcome } = await deferredPrompt.userChoice;
       
       if (outcome === 'accepted') {
-        console.log('✅ User accepted the install prompt');
         setShowPrompt(false);
         onInstall?.();
       } else {
-        console.log('❌ User dismissed the install prompt');
       }
     } catch (error) {
       console.error('Install prompt failed:', error);

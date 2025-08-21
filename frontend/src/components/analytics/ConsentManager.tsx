@@ -7,10 +7,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/Badge';
 import { 
   Dialog, 
   DialogContent, 
@@ -44,6 +44,8 @@ interface ConsentManagerProps {
   className?: string;
 }
 
+// Note: "Analytics consent not granted" console messages are expected GDPR compliance behavior
+// This ensures analytics only initialize after explicit user consent
 const ConsentManager: React.FC<ConsentManagerProps> = ({
   onConsentUpdate,
   showBanner = true,

@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Shield, Settings, Cookie, Eye, Target, BarChart3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 
 interface ConsentBanner {
   onAcceptAll: () => void;

@@ -20,14 +20,23 @@ interface ThirdPartyAnalyticsWrapperProps {
 const ThirdPartyAnalyticsWrapper: React.FC<ThirdPartyAnalyticsWrapperProps> = ({ children }) => {
   const [analyticsService, setAnalyticsService] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [initializationAttempted, setInitializationAttempted] = useState(false);
   const { hasConsent, consents } = useConsent();
 
-  // Initialize analytics when consent is granted
+  // Initialize analytics when consent is granted - Hot reload resilient
   useEffect(() => {
     const initializeAnalytics = async () => {
+      // Prevent re-initialization on hot reloads
+      if (initializationAttempted && (isInitialized || analyticsService)) {
+        return;
+      }
+
       // Only initialize if analytics consent is granted
       if (!hasConsent('analytics')) {
-        console.log('ThirdPartyAnalytics: Analytics consent not granted, skipping initialization');
+        // Reduce console noise - only log once in development
+        if (!initializationAttempted && process.env.NODE_ENV === 'development') {
+          console.log('ThirdPartyAnalytics: Analytics consent not granted, skipping initialization');
+        }
         return;
       }
 
@@ -35,6 +44,8 @@ const ThirdPartyAnalyticsWrapper: React.FC<ThirdPartyAnalyticsWrapperProps> = ({
       if (typeof window === 'undefined') {
         return;
       }
+
+      setInitializationAttempted(true);
 
       try {
         // Get analytics service instance
@@ -55,14 +66,17 @@ const ThirdPartyAnalyticsWrapper: React.FC<ThirdPartyAnalyticsWrapperProps> = ({
           devicePreference: getDevicePreference(),
         });
 
-        console.log('ThirdPartyAnalytics: Successfully initialized');
+        // Reduce console noise in production
+        if (process.env.NODE_ENV === 'development') {
+          console.log('ThirdPartyAnalytics: Successfully initialized');
+        }
       } catch (error) {
         console.error('ThirdPartyAnalytics: Failed to initialize:', error);
       }
     };
 
     initializeAnalytics();
-  }, [hasConsent, consents.analytics]);
+  }, [hasConsent, consents.analytics, initializationAttempted, isInitialized, analyticsService]);
 
   // Update consent when it changes
   useEffect(() => {

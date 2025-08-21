@@ -39,20 +39,17 @@ class PWAManager {
     // Setup background sync
     this.setupBackgroundSync();
 
-    console.log('🚀 PWA Manager initialized');
   }
 
   // Register service worker
   private async registerServiceWorker(): Promise<void> {
     if ('serviceWorker' in navigator) {
       try {
-        console.log('📱 PWA: Registering service worker...');
         
         this.swRegistration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/'
         });
 
-        console.log('✅ PWA: Service worker registered successfully');
 
         // Handle service worker updates
         this.swRegistration.addEventListener('updatefound', () => {
@@ -81,7 +78,6 @@ class PWAManager {
   // Setup install prompt handling
   private setupInstallPrompt(): void {
     window.addEventListener('beforeinstallprompt', (event) => {
-      console.log('📱 PWA: Install prompt available');
       event.preventDefault();
       this.installPrompt = event as PWAInstallPrompt;
       this.showInstallButton();
@@ -100,13 +96,11 @@ class PWAManager {
     // Check if running in standalone mode (installed)
     if (window.matchMedia('(display-mode: standalone)').matches) {
       this.isInstalled = true;
-      console.log('📱 PWA: Running in standalone mode (installed)');
     }
 
     // Check for iOS standalone mode
     if ((window.navigator as any).standalone === true) {
       this.isInstalled = true;
-      console.log('📱 PWA: Running in iOS standalone mode');
     }
   }
 
@@ -212,7 +206,6 @@ class PWAManager {
       await this.installPrompt.prompt();
       const { outcome } = await this.installPrompt.userChoice;
       
-      console.log(`📱 PWA: Install prompt ${outcome}`);
       
       if (outcome === 'accepted') {
         this.trackInstallation();
@@ -294,7 +287,6 @@ class PWAManager {
   // Setup background sync
   private setupBackgroundSync(): void {
     if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
-      console.log('🔄 PWA: Background sync supported');
     }
   }
 
@@ -313,7 +305,6 @@ class PWAManager {
     if ('storage' in navigator && 'persist' in navigator.storage) {
       try {
         const granted = await navigator.storage.persist();
-        console.log(`📱 PWA: Persistent storage ${granted ? 'granted' : 'denied'}`);
         return granted;
       } catch (error) {
         console.error('❌ PWA: Persistent storage request failed:', error);
@@ -354,7 +345,6 @@ export const pwaManager = new PWAManager();
 // Utility function to initialize PWA features
 export function initializePWA() {
   if (typeof window !== 'undefined') {
-    console.log('🚀 Initializing PWA features...');
     return pwaManager;
   }
   return null;

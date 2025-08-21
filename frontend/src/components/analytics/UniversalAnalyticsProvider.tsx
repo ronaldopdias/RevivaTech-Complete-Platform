@@ -37,10 +37,16 @@ export function UniversalAnalyticsProvider({
   const [isInitialized, setIsInitialized] = useState(false);
   const [tracking, setTracking] = useState(trackingEnabled);
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [initializationAttempted, setInitializationAttempted] = useState(false);
 
-  // Initialize analytics when component mounts
+  // Initialize analytics when component mounts - Hot reload resilient
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    // Prevent re-initialization on hot reloads
+    if (initializationAttempted && isInitialized) {
+      return;
+    }
 
     // Check user consent (GDPR/CCPA compliance)
     const consent = localStorage.getItem('analytics_consent');
@@ -49,17 +55,19 @@ export function UniversalAnalyticsProvider({
       return;
     }
 
+    setInitializationAttempted(true);
+
     // Initialize analytics
     try {
       setIsInitialized(true);
 
-      if (debugMode) {
+      if (debugMode && process.env.NODE_ENV === 'development') {
         console.log('Universal Analytics initialized');
       }
     } catch (error) {
       console.error('Failed to initialize analytics:', error);
     }
-  }, [debugMode]);
+  }, [debugMode, initializationAttempted, isInitialized]);
 
   // Track route changes
   useEffect(() => {

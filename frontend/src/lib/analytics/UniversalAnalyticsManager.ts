@@ -83,7 +83,7 @@ class UniversalAnalyticsManager {
   }
 
   private initialize() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || this.isInitialized) return;
 
     // Initialize performance observer
     this.initializePerformanceObserver();
@@ -485,9 +485,13 @@ class UniversalAnalyticsManager {
 
     try {
       // Send events with required sessionId to analytics backend
+      // Include credentials for authentication
       const response = await fetch('/api/analytics/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify({ 
           sessionId: this.sessionId,
           events,
@@ -496,8 +500,16 @@ class UniversalAnalyticsManager {
       });
 
       if (!response.ok) {
+        // If 401 Unauthorized, silently skip for anonymous users (expected behavior)
+        if (response.status === 401) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Analytics: Anonymous user session, skipping analytics API');
+          }
+          return; // Don't re-queue for auth errors
+        }
+        
         console.error('Analytics API error:', response.status, await response.text());
-        // Re-queue events if failed
+        // Re-queue events if failed (non-auth errors)
         this.eventQueue.unshift(...events);
       }
     } catch (error) {

@@ -9,9 +9,10 @@
     "./src/lib/prisma/client.ts"
   ],
   "scripts": {
-    "dev": "next dev --turbopack -p 3010 -H 0.0.0.0",
+    "dev": "next dev -p 3010 -H 0.0.0.0",
+    "dev:turbo": "next dev --turbopack -p 3010 -H 0.0.0.0",
     "dev:safe": "next dev -p 3010 -H localhost",
-    "dev:debug": "NODE_OPTIONS='--inspect' next dev --turbopack -p 3010",
+    "dev:debug": "NODE_OPTIONS='--inspect' next dev -p 3010",
     "build": "NODE_ENV=production next build",
     "build:prod": "NODE_ENV=production SKIP_LINT=true next build",
     "build:analyze": "ANALYZE=true next build",

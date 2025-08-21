@@ -42,13 +42,20 @@ export class AnalyticsWebSocketService {
 
   private initializeConnection() {
     try {
+      // Temporarily disable WebSocket in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📡 WebSocket disabled in development mode');
+        this.connected = false;
+        return;
+      }
+
       // Use the backend port for WebSocket connection
       const socketUrl = process.env.NODE_ENV === 'production' 
         ? window.location.origin 
         : 'http://localhost:3011';
 
-      this.socket = io(socketUrl, {
-        path: '/analytics/socket.io',
+      this.socket = io(`${socketUrl}/analytics`, {
+        path: '/analytics/socket.io/',
         transports: ['websocket', 'polling'],
         timeout: 20000,
         autoConnect: true,
@@ -123,6 +130,33 @@ export class AnalyticsWebSocketService {
     });
 
     console.log('📊 Subscribed to real-time analytics');
+  }
+
+  // Subscribe to real-time metrics (alias for subscribeToAnalytics)
+  public subscribeToMetrics(callback?: (metric: RealTimeMetric) => void) {
+    if (callback) {
+      this.on('metric_update', callback);
+    }
+    this.subscribeToAnalytics('admin_dashboard');
+  }
+
+  // Subscribe to real-time events
+  public subscribeToEvents(eventType: string, callback?: (event: RealTimeEvent) => void) {
+    if (callback) {
+      this.on('live_event', callback);
+    }
+    
+    if (!this.connected || !this.socket) {
+      console.warn('WebSocket not connected, cannot subscribe to events');
+      return;
+    }
+
+    this.socket.emit('subscribe_events', {
+      eventType,
+      timestamp: new Date(),
+    });
+
+    console.log(`📊 Subscribed to events: ${eventType}`);
   }
 
   // Unsubscribe from analytics

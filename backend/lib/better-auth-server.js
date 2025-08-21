@@ -2,22 +2,48 @@
  * Better Auth Server Configuration
  * 
  * Official Better Auth server setup for RevivaTech backend
+ * Following Better Auth official documentation patterns
  */
 
 const { betterAuth } = require("better-auth");
-const { memoryAdapter } = require("better-auth/adapters/memory");
-const { organization, twoFactor } = require("better-auth/plugins");
+const { Pool } = require("pg");
+const { organization, twoFactor, customSession } = require("better-auth/plugins");
+
+// PostgreSQL connection using official Better Auth pattern
+const pool = new Pool({
+  user: process.env.DB_USER || 'revivatech',
+  host: process.env.DB_HOST || 'revivatech_database',
+  database: process.env.DB_NAME || 'revivatech',
+  password: process.env.DB_PASSWORD || 'revivatech_password',
+  port: process.env.DB_PORT || 5432,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
 
 /**
- * Better Auth Server Instance
+ * Better Auth Server Instance - Official Configuration with Origin Fix
  */
 const auth = betterAuth({
-  database: memoryAdapter(),
+  // Official PostgreSQL database adapter
+  database: pool,
   
   // Email and password authentication
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false, // Disable for development
+  },
+  
+  // User schema with role field
+  user: {
+    additionalFields: {
+      role: {
+        type: 'string',
+        required: false,
+        defaultValue: 'CUSTOMER',
+        input: true // allows user to set role during signup
+      }
+    }
   },
   
   // Session configuration
@@ -26,13 +52,28 @@ const auth = betterAuth({
     updateAge: 60 * 60 * 24, // 1 day
   },
   
-  // Security settings
-  secret: process.env.SESSION_SECRET || "your-secret-key-here",
+  // Security settings - using official Better Auth environment variables
+  secret: process.env.BETTER_AUTH_SECRET || process.env.JWT_SECRET || "your-secret-key-here",
   
-  // Base URL configuration
-  baseURL: process.env.AUTH_BASE_URL || "http://localhost:3011",
+  // Base URL configuration - FIXED: Frontend expects backend to accept requests from localhost:3010
+  // The baseURL should match where the backend is running, but we need trusted origins for frontend
+  baseURL: "http://localhost:3011",
   
-  // Plugins
+  // FIXED: Add trusted origins to accept requests from frontend
+  trustedOrigins: [
+    "http://localhost:3010",  // Frontend development server
+    "http://localhost:3011",  // Backend server  
+    "https://localhost:3010", // HTTPS frontend (if used)
+    "https://revivatech.co.uk", // Production frontend
+    "https://www.revivatech.co.uk" // Production frontend with www
+  ],
+  
+  // FIXED: Trust host in development to prevent origin validation issues
+  ...(process.env.NODE_ENV !== 'production' && {
+    trustHost: true
+  }),
+  
+  // Plugins - Better Auth official plugins
   plugins: [
     organization({
       allowUserToCreateOrganization: true,
@@ -40,19 +81,19 @@ const auth = betterAuth({
     }),
     twoFactor({
       issuer: "RevivaTech"
+    }),
+    // Custom session plugin to include role data in session
+    customSession(async ({ user, session }) => {
+      // Include user role in session data
+      return {
+        user: {
+          ...user,
+          role: user.role || 'CUSTOMER' // Ensure role is always present
+        },
+        session
+      };
     })
   ],
-  
-  // User schema
-  user: {
-    fields: {
-      email: "email",
-      emailVerified: "emailVerified", 
-      name: "name",
-      image: "image",
-      role: "role"
-    }
-  },
   
   // Advanced configuration
   advanced: {

@@ -4,7 +4,6 @@ import "./globals.css";
 import { SimpleThemeProvider } from "@/providers/SimpleThemeProvider";
 import { ServiceProvider } from "@/providers/ServiceProvider";
 import { OnboardingProvider } from "@/providers/OnboardingProvider";
-import PWAInitializer from "@/components/PWAInitializer";
 import FingerprintAnalytics from "@/components/analytics/FingerprintAnalytics";
 import PerformanceOptimizer from "@/components/performance/PerformanceOptimizer";
 import { UniversalAnalyticsProvider } from "@/components/analytics/UniversalAnalyticsProvider";
@@ -312,7 +311,6 @@ export default function RootLayout({
                       >
                         {/* WebSocket temporarily disabled to prevent connection errors */}
                         {children}
-                      <PWAInitializer />
                       <FingerprintAnalytics />
                       <PerformanceOptimizer 
                         showDebugPanel={process.env.NODE_ENV === 'development'}

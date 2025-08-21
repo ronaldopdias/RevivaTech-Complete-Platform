@@ -157,11 +157,19 @@ class AdminService {
    */
   async getDashboardMetrics(period: string = '7d'): Promise<DashboardMetrics> {
     try {
-      const apiUrl = getApiBaseUrl();
-      const response = await this.makeAuthenticatedRequest(
-        `${apiUrl}/api/admin/analytics/dashboard?period=${period}`,
-        { method: 'GET' }
-      );
+      // Force development mode detection and use localhost backend
+      const isDevelopment = process.env.NODE_ENV === 'development' || 
+                           window.location.hostname === 'localhost' ||
+                           window.location.hostname === '127.0.0.1';
+      
+      // Always use direct localhost connection in development
+      const baseUrl = isDevelopment ? 'http://localhost:3011' : getApiBaseUrl();
+      const endpoint = isDevelopment 
+        ? `${baseUrl}/api/dev/admin/analytics/dashboard?period=${period}`
+        : `${baseUrl}/api/admin/analytics/dashboard?period=${period}`;
+        
+      console.log(`🔍 Admin Service: Using endpoint ${endpoint} (dev=${isDevelopment})`);
+      const response = await fetch(endpoint, { method: 'GET' });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch dashboard metrics: ${response.status}`);

@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Shield, Save, RefreshCw, Download, Trash2, Eye, AlertCircle, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import MainLayout from '@/components/layout/MainLayout';
 import { useConsent } from '@/components/privacy/ConsentManager';
 

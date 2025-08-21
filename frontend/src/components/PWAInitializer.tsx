@@ -17,7 +17,6 @@ export default function PWAInitializer() {
     setIsInstalled(isRunningAsPWA());
 
     if (!isPWASupported()) {
-      console.log('📱 PWA: Not supported on this device');
       return;
     }
 
@@ -25,8 +24,10 @@ export default function PWAInitializer() {
     const pwaManager = initializePWA();
 
     // Listen for install prompt
+    // Note: Preventing default on beforeinstallprompt is expected PWA behavior
+    // to control when the install prompt is shown to users
     const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
+      e.preventDefault(); // Expected: This causes the "Banner not shown" console message
       setShowInstallPrompt(true);
     };
 

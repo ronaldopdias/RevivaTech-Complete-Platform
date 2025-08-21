@@ -160,9 +160,44 @@ class CoreWebVitalsMonitor {
 
     this.reportCallback?.(report);
 
-    // Store in localStorage for debugging
+    // Store in localStorage for debugging with quota handling
     if (typeof window !== 'undefined') {
-      localStorage.setItem('webvitals-report', JSON.stringify(report));
+      try {
+        const reportData = JSON.stringify(report);
+        localStorage.setItem('webvitals-report', reportData);
+      } catch (error: any) {
+        // Handle quota exceeded error
+        if (error.name === 'QuotaExceededError') {
+          try {
+            // Clear old reports and try again
+            localStorage.removeItem('webvitals-report');
+            
+            // Try to store a minimal report
+            const minimalReport = {
+              score: report.score,
+              timestamp: report.timestamp,
+              metricsCount: metrics.length
+            };
+            localStorage.setItem('webvitals-report', JSON.stringify(minimalReport));
+          } catch (retryError) {
+            // If still fails, clear all webvitals data
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && key.includes('webvitals')) {
+                keysToRemove.push(key);
+              }
+            }
+            keysToRemove.forEach(key => {
+              try {
+                localStorage.removeItem(key);
+              } catch (clearError) {
+                // Ignore clear errors
+              }
+            });
+          }
+        }
+      }
     }
   }
 

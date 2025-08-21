@@ -9,10 +9,10 @@ const { Pool } = require('pg');
 // Database connection for session validation
 const pool = new Pool({
   user: process.env.DB_USER || 'revivatech',
-  host: process.env.DB_HOST || 'localhost', 
+  host: process.env.DB_HOST || 'revivatech_database', 
   database: process.env.DB_NAME || 'revivatech',
   password: process.env.DB_PASSWORD || 'revivatech_password',
-  port: process.env.DB_PORT || 5435,
+  port: process.env.DB_PORT || 5432,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
