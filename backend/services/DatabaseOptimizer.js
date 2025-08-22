@@ -91,7 +91,6 @@ class DatabaseOptimizer extends EventEmitter {
 
   async init() {
     try {
-      console.log('Initializing DatabaseOptimizer...');
       
       // Create optimized connection pool
       await this.createConnectionPool();

@@ -87,7 +87,6 @@ router.post('/ml-chat', async (req, res) => {
             }
         };
         
-        console.log(`✅ ML chat completed in ${responseTime}ms`);
         res.json(enhancedResponse);
         
     } catch (error) {
@@ -151,7 +150,6 @@ router.post('/recommendations', async (req, res) => {
             timestamp: new Date().toISOString()
         };
         
-        console.log(`✅ ML recommendations completed in ${responseTime}ms`);
         res.json(response);
         
     } catch (error) {
@@ -240,45 +238,6 @@ router.get('/metrics', (req, res) => {
 /**
  * Test Endpoint with Sample Data
  */
-router.get('/test', (req, res) => {
-    res.json({
-        message: 'Phase 4 Advanced AI Test Endpoint',
-        test_scenarios: {
-            ml_enhanced_chat: {
-                endpoint: 'POST /api/ai-advanced/ml-chat',
-                sample_request: {
-                    message: 'iPhone 15 Pro screen broken',
-                    user_context: {
-                        skill_level: 'intermediate',
-                        preferences: {
-                            quick_repairs: true,
-                            detailed_guides: false
-                        }
-                    }
-                }
-            },
-            direct_recommendations: {
-                endpoint: 'POST /api/ai-advanced/recommendations',
-                sample_request: {
-                    device: 'iPhone 15 Pro',
-                    problem: 'screen damage',
-                    user_context: {
-                        skill_level: 'expert'
-                    }
-                }
-            }
-        },
-        ml_features: [
-            'Personalized procedure recommendations',
-            'User skill level adaptation',
-            'Success probability calculation',
-            'Multi-factor scoring algorithm',
-            'Confidence optimization'
-        ],
-        phase: '4_test',
-        timestamp: new Date().toISOString()
-    });
-});
 
 /**
  * Call Python ML Service

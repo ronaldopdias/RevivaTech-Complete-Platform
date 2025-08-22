@@ -62,7 +62,6 @@ exports.up = async function(knex) {
       }
     ]).returning('*');
     
-    console.log(`✅ Inserted ${brands.length} device brands`);
     
     // ===================================
     // DEVICE CATEGORIES
@@ -119,7 +118,6 @@ exports.up = async function(knex) {
       }
     ]).returning('*');
     
-    console.log(`✅ Inserted ${categories.length} device categories`);
     
     // ===================================
     // REPAIR CATEGORIES
@@ -194,7 +192,6 @@ exports.up = async function(knex) {
       }
     ]).returning('*');
     
-    console.log(`✅ Inserted ${repairCategories.length} repair categories`);
     
     // ===================================
     // SAMPLE DEVICES (Popular models)
@@ -348,7 +345,6 @@ exports.up = async function(knex) {
       }
     ]).returning('*');
     
-    console.log(`✅ Inserted ${devices.length} sample devices`);
     
     // ===================================
     // REPAIR TYPES (Key services)
@@ -595,7 +591,6 @@ exports.up = async function(knex) {
       }
     ]).returning('*');
     
-    console.log(`✅ Inserted ${repairTypes.length} repair types`);
     
     // ===================================
     // PRICING FACTORS
@@ -680,7 +675,6 @@ exports.up = async function(knex) {
       }
     ]).returning('*');
     
-    console.log(`✅ Inserted ${pricingFactors.length} pricing factors`);
     
     // ===================================
     // PRICING RULES
@@ -775,14 +769,12 @@ exports.up = async function(knex) {
       }
     ]).returning('*');
     
-    console.log(`✅ Inserted ${pricingRules.length} pricing rules`);
     
     // ===================================
     // SUMMARY
     // ===================================
     
     console.log('🎉 Database seeding completed successfully!');
-    console.log('📊 Seeded data summary:');
     console.log(`   - ${brands.length} device brands (Apple, Samsung, Google, etc.)`);
     console.log(`   - ${categories.length} device categories (Smartphone, Tablet, Laptop, etc.)`);
     console.log(`   - ${repairCategories.length} repair categories (Screen, Battery, Hardware, etc.)`);
@@ -791,7 +783,6 @@ exports.up = async function(knex) {
     console.log(`   - ${pricingFactors.length} pricing factors (Device age, Damage severity, etc.)`);
     console.log(`   - ${pricingRules.length} pricing rules (Minimum charge, Discounts, etc.)`);
     console.log('');
-    console.log('🚀 The database is now ready for production use!');
     
   } catch (error) {
     console.error('❌ Seeding failed:', error.message);
@@ -800,7 +791,6 @@ exports.up = async function(knex) {
 };
 
 exports.down = async function(knex) {
-  console.log('🔄 Rolling back seed data...');
   
   try {
     // Clear all data in reverse dependency order
@@ -813,7 +803,6 @@ exports.down = async function(knex) {
     await knex('device_categories').del();
     await knex('device_brands').del();
     
-    console.log('✅ Seed data rollback completed');
     
   } catch (error) {
     console.error('❌ Seed rollback failed:', error.message);

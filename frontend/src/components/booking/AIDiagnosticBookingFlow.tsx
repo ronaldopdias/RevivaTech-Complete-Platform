@@ -199,7 +199,6 @@ export default function AIDiagnosticBookingFlow() {
         }
       });
 
-      console.log('🚀 Starting comprehensive AI analysis...');
 
       const response = await fetch('/api/ai-diagnostics/analyze', {
         method: 'POST',
@@ -212,7 +211,6 @@ export default function AIDiagnosticBookingFlow() {
       if (data.success) {
         setDiagnosticResult(data.results);
         nextStep(); // Move to results step
-        console.log('✅ AI analysis completed successfully');
       } else {
         throw new Error(data.message || 'Analysis failed');
       }

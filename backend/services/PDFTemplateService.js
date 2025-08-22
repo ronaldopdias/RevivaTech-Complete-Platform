@@ -144,11 +144,9 @@ class PDFTemplateService {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing PDF Template Service...');
       
       // Initialize dependencies
       await this.emailEngine.initialize();
-      console.log('✅ EmailTemplateEngine initialized');
       
       // Launch puppeteer browser
       this.browser = await puppeteer.launch({
@@ -164,10 +162,8 @@ class PDFTemplateService {
           '--disable-gpu'
         ]
       });
-      console.log('✅ Puppeteer browser launched');
       
       this.isInitialized = true;
-      console.log('✅ PDF Template Service initialized successfully');
       
       return true;
     } catch (error) {
@@ -210,7 +206,6 @@ class PDFTemplateService {
       const pdf = await page.pdf(pdfOptions);
       await page.close();
 
-      console.log('✅ Invoice PDF generated successfully');
       return pdf;
 
     } catch (error) {
@@ -349,7 +344,6 @@ class PDFTemplateService {
       const pdf = await page.pdf(pdfOptions);
       await page.close();
 
-      console.log('✅ Diagnostic PDF generated successfully');
       return pdf;
 
     } catch (error) {
@@ -401,7 +395,6 @@ class PDFTemplateService {
   async cleanup() {
     if (this.browser) {
       await this.browser.close();
-      console.log('✅ PDF browser closed');
     }
   }
 }

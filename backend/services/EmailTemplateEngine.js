@@ -24,14 +24,12 @@ class EmailTemplateEngine extends EventEmitter {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing Email Template Engine...');
       
       // Load templates into cache if enabled
       if (this.options.cacheTemplates) {
         await this.preloadTemplates();
       }
       
-      console.log('✅ Email Template Engine initialized');
       return true;
     } catch (error) {
       console.error('❌ Email Template Engine initialization failed:', error);

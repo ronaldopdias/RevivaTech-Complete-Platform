@@ -198,7 +198,6 @@ class EmailVerificationService {
   async markEmailAsVerified(email: string, userId?: string): Promise<boolean> {
     try {
       // In production, update user record in database
-      console.log(`✅ Email verified: ${email} (User ID: ${userId})`);
       
       // Update user verification status
       // await userRepository.updateEmailVerification(email, true);

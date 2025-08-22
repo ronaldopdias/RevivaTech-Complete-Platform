@@ -58,7 +58,6 @@ class MLRepairCostEstimationService {
    */
   async initialize() {
     try {
-      console.log('💰 Initializing ML Repair Cost Estimation Service...');
       
       // Initialize ML models
       await this.initializeCostModels();
@@ -73,7 +72,6 @@ class MLRepairCostEstimationService {
       await this.initializeCompetitorAnalysis();
       
       this.isInitialized = true;
-      console.log('✅ ML Cost Estimation Service ready - Enterprise pricing intelligence active');
       
       return {
         status: 'initialized',
@@ -172,7 +170,6 @@ class MLRepairCostEstimationService {
       // Update performance metrics
       this.updateMetrics(costEstimation);
       
-      console.log(`✅ Cost estimation completed in ${costEstimation.processingTime}ms with ${Math.round(costEstimation.confidence * 100)}% confidence`);
       
       return costEstimation;
 
@@ -798,19 +795,15 @@ class MLRepairCostEstimationService {
 
   // Placeholder methods for full implementation
   async initializeCostModels() {
-    console.log('🧠 Loading cost prediction models...');
   }
 
   async loadMarketIntelligence() {
-    console.log('📊 Loading market intelligence data...');
   }
 
   async loadHistoricalData() {
-    console.log('📈 Loading historical repair data...');
   }
 
   async initializeCompetitorAnalysis() {
-    console.log('🎯 Initializing competitor analysis...');
   }
 
   // Additional placeholder methods for complete implementation

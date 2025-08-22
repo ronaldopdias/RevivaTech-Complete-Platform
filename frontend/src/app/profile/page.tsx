@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { UserRole } from '@/lib/auth/types';
-import { User, Mail, Phone, MapPin, Shield, Camera } from 'lucide-react';
+import { useAuth } from '@/lib/auth/useAuthCompat';
+import { User, Mail, Phone, MapPin, Shield, Camera, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -36,26 +37,29 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
-    // Fetch user profile from API
-    const fetchProfile = async () => {
-      try {
-        const response = await fetch('/api/customer/profile');
-        if (response.ok) {
-          const data = await response.json();
-          setProfile(data);
+    // Initialize profile from auth user data
+    if (user && isAuthenticated) {
+      const fetchProfile = async () => {
+        try {
+          const response = await fetch('/api/customer/profile');
+          if (response.ok) {
+            const data = await response.json();
+            setProfile(data);
         } else {
-          // Fallback to mock data for development
+          // Initialize from auth user data as fallback
           setProfile({
-            id: 'user-123',
-            firstName: 'Sarah',
-            lastName: 'Thompson',
-            email: 'sarah.thompson@email.com',
+            id: user.id,
+            firstName: user.name?.split(' ')[0] || '',
+            lastName: user.name?.split(' ').slice(1).join(' ') || '',
+            email: user.email,
             phone: '+44 7700 900123',
             address: {
               street: '123 High Street',
@@ -85,7 +89,8 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, []);
+    }
+  }, [user, isAuthenticated]);
 
   const handleSave = async () => {
     if (!profile) return;
@@ -102,13 +107,16 @@ export default function ProfilePage() {
 
       if (response.ok) {
         setIsEditing(false);
-        // Show success message
+        setSaveMessage({ type: 'success', text: 'Profile updated successfully!' });
+        setTimeout(() => setSaveMessage(null), 3000);
       } else {
-        // Handle error
-        console.error('Failed to update profile');
+        setSaveMessage({ type: 'error', text: 'Failed to update profile. Please try again.' });
+        setTimeout(() => setSaveMessage(null), 5000);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
+      setSaveMessage({ type: 'error', text: 'Network error. Please check your connection.' });
+      setTimeout(() => setSaveMessage(null), 5000);
     } finally {
       setIsSaving(false);
     }
@@ -171,6 +179,22 @@ export default function ProfilePage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
           <p className="text-gray-600">Manage your account information and preferences</p>
         </div>
+
+        {/* Save Message */}
+        {saveMessage && (
+          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
+            saveMessage.type === 'success' 
+              ? 'bg-green-50 text-green-800 border border-green-200' 
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            {saveMessage.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
+            <span>{saveMessage.text}</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Overview */}

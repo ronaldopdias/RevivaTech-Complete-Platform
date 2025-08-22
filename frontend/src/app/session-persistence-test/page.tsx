@@ -55,7 +55,6 @@ export default function SessionPersistenceTestPage() {
 
         <SessionPersistenceTestRunner 
           onTestComplete={(results) => {
-            console.log('Session persistence tests completed:', results)
           }}
         />
 

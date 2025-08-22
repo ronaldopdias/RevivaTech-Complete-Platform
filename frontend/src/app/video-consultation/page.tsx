@@ -5,6 +5,8 @@ import { useFeature } from '@/lib/services/featureService';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Video, Calendar, Clock, Users, Phone } from 'lucide-react';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { UserRole } from '@/lib/auth/types';
 
 interface ConsultationSlot {
   id: string;
@@ -66,21 +68,24 @@ export default function VideoConsultationPage() {
 
   if (!isEnabled) {
     return (
-      <div className="container mx-auto px-6 py-8">
-        <Card className="p-8 text-center">
-          <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            Video Consultations Not Available
-          </h3>
-          <p className="text-gray-600">
-            This feature is currently disabled or not available for your account.
-          </p>
-        </Card>
-      </div>
+      <ProtectedRoute requiredRole={[UserRole.CUSTOMER]}>
+        <div className="container mx-auto px-6 py-8">
+          <Card className="p-8 text-center">
+            <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Video Consultations Not Available
+            </h3>
+            <p className="text-gray-600">
+              This feature is currently disabled or not available for your account.
+            </p>
+          </Card>
+        </div>
+      </ProtectedRoute>
     );
   }
 
   return (
+    <ProtectedRoute requiredRole={[UserRole.CUSTOMER]}>
     <div className="container mx-auto px-6 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
@@ -289,5 +294,6 @@ export default function VideoConsultationPage() {
         </Card>
       )}
     </div>
+    </ProtectedRoute>
   );
 }

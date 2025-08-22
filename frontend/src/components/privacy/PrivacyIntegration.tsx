@@ -108,13 +108,11 @@ const FunctionalIntegration: React.FC = () => {
       // Initialize live chat
       const initializeLiveChat = () => {
         // Example: Intercom or other live chat integration
-        console.log('Initializing live chat with functional consent');
       };
 
       // Initialize social media widgets
       const initializeSocialWidgets = () => {
         // Example: Twitter widgets, Facebook widgets
-        console.log('Initializing social media widgets');
       };
 
       initializeLiveChat();
@@ -139,7 +137,6 @@ const PersonalizationIntegration: React.FC = () => {
       };
 
       // Initialize personalization engine
-      console.log('Initializing personalization with preferences:', preferences);
       
       // Track user behavior for personalization
       const trackBehavior = (action: string, data?: any) => {

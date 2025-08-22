@@ -35,7 +35,6 @@ router.get('/csv/email-templates', async (req, res) => {
   try {
     const filters = req.query;
     
-    console.log('📊 CSV export request for email templates');
     
     const exportResult = await exportService.exportEmailTemplatesCSV(filters);
     
@@ -68,7 +67,6 @@ router.get('/excel/email-templates', async (req, res) => {
   try {
     const filters = req.query;
     
-    console.log('📊 Excel export request for email templates');
     
     const exportResult = await exportService.exportEmailTemplatesExcel(filters);
     
@@ -173,7 +171,6 @@ router.post('/data/:format', async (req, res) => {
       });
     }
 
-    console.log(`📊 Custom data export request - Format: ${format}, Records: ${data.length}`);
     
     let exportResult;
     

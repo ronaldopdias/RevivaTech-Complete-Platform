@@ -64,7 +64,6 @@ class ServerAnalyticsDB {
       this.redisClient = new this.Redis(redisConfig);
 
       this.initialized = true;
-      console.log('✅ Server analytics database initialized');
     } catch (error) {
       console.warn('⚠️ Failed to initialize production database, using fallback:', error);
       this.initialized = false;

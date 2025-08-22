@@ -84,13 +84,11 @@ export const MobileAdminDashboard: React.FC<MobileAdminDashboardProps> = ({
     });
 
     newSocket.on('connect', () => {
-      console.log('✅ Mobile Admin Dashboard connected to Socket.IO server');
       setIsConnected(true);
       newSocket.emit('subscribe:admin', { userId: user?.id || 'admin-demo' });
     });
 
     newSocket.on('disconnect', (reason) => {
-      console.log('❌ Mobile Admin Dashboard disconnected:', reason);
       setIsConnected(false);
     });
 

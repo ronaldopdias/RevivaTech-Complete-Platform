@@ -9,17 +9,35 @@
 import { createAuthClient } from "better-auth/react"
 import { organization, twoFactor } from "better-auth/plugins"
 
-// Get the base URL for authentication - Fixed for server alignment
+// Get the base URL for authentication - Point to backend API server
 function getAuthBaseURL(): string {
-  // Always use the current origin to avoid CORS issues
   if (typeof window !== 'undefined') {
-    // Client-side: use current domain (works for both localhost and production)
-    return window.location.origin + '/api/auth'
+    // Client-side: Point to the backend API server
+    const hostname = window.location.hostname;
+    
+    // Dynamic hostname detection for backend API
+    if (hostname.match(/^100\.\d+\.\d+\.\d+$/)) {
+      return 'http://localhost:3011/api/auth';
+    }
+    
+    if (hostname === 'revivatech.co.uk' || hostname === 'www.revivatech.co.uk') {
+      return 'https://api.revivatech.co.uk/api/auth';
+    }
+    
+    if (hostname === 'revivatech.com.br' || hostname === 'www.revivatech.com.br') {
+      return 'https://api.revivatech.com.br/api/auth';
+    }
+    
+    if (hostname.includes('.tail1168f5.ts.net')) {
+      return 'http://localhost:3011/api/auth';
+    }
+    
+    // Default: localhost backend
+    return 'http://localhost:3011/api/auth';
   }
   
-  // Server-side fallback: use environment variables or default
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3010'
-  return baseUrl + '/api/auth'
+  // Server-side fallback: always use localhost backend
+  return 'http://localhost:3011/api/auth';
 }
 
 // Create Better Auth client - Fixed base URL alignment
@@ -48,7 +66,7 @@ export const signIn = async (credentials: { email: string; password: string }) =
       
       // Quick session validation - let Better Auth handle the session state
       try {
-        const sessionCheck = await fetch('/api/auth/get-session', {
+        const sessionCheck = await fetch(getAuthBaseURL() + '/get-session', {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -86,7 +104,7 @@ export const signUp = authClient.signUp
 export const refreshSession = async () => {
   try {
     // Refreshing session
-    const response = await fetch('/api/auth/get-session', {
+    const response = await fetch(getAuthBaseURL() + '/get-session', {
       method: 'GET',
       credentials: 'include',
       headers: {

@@ -81,7 +81,6 @@ async function trackToBackend(eventName: string, eventData: any) {
     );
     
     if (ANALYTICS_CONFIG.debug) {
-      console.log('🎯 Backend Analytics:', eventName, response.status);
     }
   } catch (error) {
     if (ANALYTICS_CONFIG.debug) {
@@ -117,7 +116,6 @@ function trackToGoogle(eventName: string, eventData: any) {
     });
     
     if (ANALYTICS_CONFIG.debug) {
-      console.log('📊 Google Analytics:', eventName, eventData);
     }
   } catch (error) {
     if (ANALYTICS_CONFIG.debug) {
@@ -235,7 +233,6 @@ export function trackEvent(eventName: string, eventData: any = {}) {
   };
   
   if (ANALYTICS_CONFIG.debug) {
-    console.log('🎯 Tracking Event:', eventName, enrichedEventData);
   }
   
   // Send to all enabled providers

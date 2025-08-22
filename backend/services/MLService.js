@@ -20,7 +20,6 @@ class MLService {
 
   async initialize() {
     try {
-      console.log('🤖 Initializing ML Service...');
       
       // Initialize models
       this.models.leadScoring = new LeadScoringModel();
@@ -35,7 +34,6 @@ class MLService {
       ]);
 
       this.isInitialized = true;
-      console.log('✅ ML Service initialized successfully');
       
       return true;
     } catch (error) {
@@ -176,7 +174,6 @@ class MLService {
 
   async trainModels(trainingData) {
     try {
-      console.log('🏋️ Starting model training...');
       
       const trainingResults = await Promise.all([
         this.models.leadScoring.train(trainingData.leads),
@@ -190,7 +187,6 @@ class MLService {
         console.warn(`⚠️ Lead scoring accuracy ${leadAccuracy} below target (>80%)`);
       }
 
-      console.log('✅ Model training completed');
       return {
         leadScoring: trainingResults[0],
         churnPrediction: trainingResults[1],

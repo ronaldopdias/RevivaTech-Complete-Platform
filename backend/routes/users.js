@@ -1,7 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const router = express.Router();
-const { authenticateBetterAuth: authenticateToken, requireRole, requireAdmin, hashPassword } = require('../middleware/better-auth-db-direct');
+const { authenticateBetterAuth: authenticateToken, requireRole, requireAdmin, hashPassword } = require('../middleware/better-auth-official');
 
 // Validation schemas
 const createUserSchema = Joi.object({

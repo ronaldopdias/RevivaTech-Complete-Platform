@@ -9,7 +9,7 @@ const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 
 // Import Better Auth middleware
-const { authenticateBetterAuth, requireRole } = require('../middleware/better-auth-db-direct');
+const { authenticateBetterAuth, requireRole } = require('../middleware/better-auth-official');
 
 const router = express.Router();
 

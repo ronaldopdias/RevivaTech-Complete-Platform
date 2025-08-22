@@ -414,6 +414,5 @@ export async function runPerformanceTests(): Promise<{
 if (typeof window !== 'undefined') {
   // Start monitoring on page load
   window.addEventListener('load', () => {
-    console.log('🚀 Performance monitoring initialized');
   });
 }

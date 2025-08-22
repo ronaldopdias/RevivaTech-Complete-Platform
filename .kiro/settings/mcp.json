@@ -1,13 +1,20 @@
 {
   "mcpServers": {
     "sequential-thinking": {
-      "command": "uvx",
-      "args": ["mcp-sequential-thinking@latest"],
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-sequential-thinking"],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
       "disabled": false,
       "autoApprove": ["sequentialthinking"]
+    },
+    "serena-mcp": {
+      "command": "/opt/webapps/revivatech/serena/start-mcp.sh",
+      "args": [],
+      "env": {},
+      "disabled": false,
+      "autoApprove": ["serena", "symbol", "memory", "file"]
     }
   }
 }

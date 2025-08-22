@@ -100,15 +100,16 @@ const nextConfig: NextConfig = {
     webVitalsAttribution: ['CLS', 'LCP'],
   },
   
-  // API rewrites for external domain access (excluding NextAuth.js routes)
-  async rewrites() {
-    return [
-      {
-        source: '/api/((?!auth).*)',
-        destination: 'http://localhost:3011/api/$1', // Proxy to backend (excluding /api/auth)
-      },
-    ];
-  },
+  // API rewrites disabled - using simple API routes instead
+  // async rewrites() {
+  //   console.log('🔧 Next.js rewrites configuration loading...');
+  //   return [
+  //     {
+  //       source: '/api/((?!auth).*)',
+  //       destination: 'http://revivatech_backend:3011/api/$1', // Proxy to backend container
+  //     },
+  //   ];
+  // },
 
   // Output file tracing exclusions (moved from experimental)
   outputFileTracingExcludes: {

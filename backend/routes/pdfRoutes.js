@@ -205,56 +205,6 @@ router.post('/from-template/:templateId', async (req, res) => {
 });
 
 // Test PDF generation endpoint
-router.get('/test', async (req, res) => {
-  try {
-    const testInvoiceData = {
-      customerName: 'John Doe',
-      customerEmail: 'john.doe@example.com',
-      customerAddress: {
-        line1: '123 Test Street',
-        city: 'London',
-        postcode: 'SW1A 1AA',
-        country: 'United Kingdom'
-      },
-      invoiceNumber: 'INV-TEST-001',
-      invoiceDate: new Date().toLocaleDateString(),
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      bookingReference: 'BK-TEST-001',
-      items: [
-        {
-          description: 'iPhone 12 Screen Replacement',
-          quantity: 1,
-          unitPrice: 120.00,
-          total: 120.00
-        },
-        {
-          description: 'Diagnostic Service',
-          quantity: 1,
-          unitPrice: 25.00,
-          total: 25.00
-        }
-      ],
-      subtotal: 145.00,
-      tax: 29.00,
-      taxRate: 20,
-      total: 174.00
-    };
-    
-    const pdf = await pdfService.generateInvoicePDF(testInvoiceData);
-    
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename=test-invoice.pdf');
-    res.setHeader('Content-Length', pdf.byteLength);
-    res.send(Buffer.from(pdf));
-    
-  } catch (error) {
-    req.logger?.error('PDF test failed:', error);
-    res.status(500).json({ 
-      error: 'PDF test failed',
-      message: error.message 
-    });
-  }
-});
 
 // Get PDF service status
 router.get('/status', async (req, res) => {

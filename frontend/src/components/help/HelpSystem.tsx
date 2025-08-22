@@ -210,7 +210,7 @@ Our transparent pricing system ensures you know exactly what you're paying for.
 
 ## Example Breakdown
 
-```
+\`\`\`
 iPhone 13 Screen Replacement
 Base repair cost:        £150
 Genuine OEM part:        £120
@@ -219,7 +219,7 @@ Total quote:             £405
 
 Estimated time: 24-48 hours
 Quote valid: 7 days
-```
+\`\`\`
 
 ## Price Guarantees
 

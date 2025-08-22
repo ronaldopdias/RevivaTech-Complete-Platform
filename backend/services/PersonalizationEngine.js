@@ -38,7 +38,6 @@ class PersonalizationEngine extends EventEmitter {
 
   async initialize() {
     try {
-      console.log('🎯 Initializing Personalization Engine...');
       
       // Initialize dependencies
       await this.mlService.initialize();
@@ -52,7 +51,6 @@ class PersonalizationEngine extends EventEmitter {
         this.setupABTests();
       }
       
-      console.log('✅ Personalization Engine initialized');
       return true;
     } catch (error) {
       console.error('❌ Personalization Engine initialization failed:', error);
@@ -147,7 +145,6 @@ class PersonalizationEngine extends EventEmitter {
       this.contentVariants.set(variant.id, variant);
     });
 
-    console.log(`🎨 Configured ${variants.length} content variant groups`);
   }
 
   setupPersonalizationRules() {
@@ -518,7 +515,6 @@ class PersonalizationEngine extends EventEmitter {
       this.abTests.set(test.id, test);
     });
 
-    console.log(`🧪 Configured ${tests.length} A/B tests`);
   }
 
   getABTestVariants(userId) {

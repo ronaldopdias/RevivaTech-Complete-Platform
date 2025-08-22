@@ -478,13 +478,20 @@ class FingerprintingClient {
   }
 
   private async sendEvents(): Promise<void> {
+    // Disabled: Using UniversalAnalyticsManager as primary analytics system
+    // Uncomment below to re-enable fingerprinting analytics
+    return;
+    
+    /*
     if (this.eventQueue.length === 0 || !this.consentGiven) return;
 
     const events = [...this.eventQueue];
     this.eventQueue = [];
 
     try {
-      await fetch('/api/analytics/events', {
+      const endpoint = '/api/analytics/events';
+        
+      await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -500,6 +507,7 @@ class FingerprintingClient {
       // Re-queue events for retry
       this.eventQueue.unshift(...events);
     }
+    */
   }
 }
 

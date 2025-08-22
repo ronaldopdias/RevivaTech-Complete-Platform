@@ -58,7 +58,6 @@ export function useRealTimeBookings(options: UseRealTimeBookingsOptions) {
     });
 
     newSocket.on('connect', () => {
-      console.log('✅ Socket.IO connected:', newSocket.id);
       setIsConnected(true);
       setIsConnecting(false);
       setError(null);
@@ -69,7 +68,6 @@ export function useRealTimeBookings(options: UseRealTimeBookingsOptions) {
     });
 
     newSocket.on('disconnect', (reason) => {
-      console.log('❌ Socket.IO disconnected:', reason);
       setIsConnected(false);
       setIsConnecting(false);
       onConnectionChange?.(false);
@@ -125,7 +123,6 @@ export function useRealTimeBookings(options: UseRealTimeBookingsOptions) {
 
     // Handle connection confirmation
     newSocket.on('connected', (data) => {
-      console.log('✅ Server connection confirmed:', data);
     });
 
     setSocket(newSocket);

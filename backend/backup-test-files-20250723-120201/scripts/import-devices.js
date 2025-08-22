@@ -495,7 +495,6 @@ async function importDeviceData() {
   const client = await pool.connect();
   
   try {
-    console.log('🚀 Starting device data import...\n');
     
     // Create tables
     console.log('Creating device tables...');

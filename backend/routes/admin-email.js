@@ -267,7 +267,6 @@ router.delete('/templates/:templateId', async (req, res) => {
     const { templateId } = req.params;
     
     // Mock deletion - replace with database deletion
-    console.log(`🗑️ Deleting template: ${templateId}`);
 
     res.json({
       success: true,
@@ -826,7 +825,6 @@ router.post('/queue/retry', async (req, res) => {
     const { emailIds } = req.body;
     
     // Mock retry implementation
-    console.log(`🔄 Retrying ${emailIds?.length || 'all'} failed emails`);
     
     res.json({
       success: true,

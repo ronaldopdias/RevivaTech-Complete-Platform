@@ -1,6 +1,6 @@
 const express = require('express');
 const Joi = require('joi');
-const { authenticateBetterAuth: authenticateToken, requireRole, requireAdmin } = require('../middleware/better-auth-db-direct');
+const { authenticateBetterAuth: authenticateToken, requireRole, requireAdmin } = require('../middleware/better-auth-official');
 const crypto = require('crypto');
 const router = express.Router();
 

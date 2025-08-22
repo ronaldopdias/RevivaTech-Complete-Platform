@@ -54,7 +54,6 @@ router.post('/test-workflow', async (req, res) => {
       ...options
     };
     
-    console.log('🧪 Testing integrated automation workflow:', testEvent.eventType);
     
     // Process through EventProcessor (triggers all connected services)
     const processingResult = await eventProcessor.processEvent(testEvent, { immediate: true });

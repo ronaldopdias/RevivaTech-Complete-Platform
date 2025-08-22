@@ -104,7 +104,6 @@ class AlertManager extends EventEmitter {
 
   async init() {
     try {
-      console.log('Initializing AlertManager...');
       
       // Setup email transporter
       if (this.config.channels.email.enabled) {

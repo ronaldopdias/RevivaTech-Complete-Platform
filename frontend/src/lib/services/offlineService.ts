@@ -136,7 +136,6 @@ class OfflineService {
       const metadata = await this.getFromStore('metadata', 'lastSync');
       this.storage.lastSync = metadata?.value || 0;
 
-      console.log(`📦 Loaded ${this.syncQueue.length} items from offline queue`);
     } catch (error) {
       console.error('Failed to load offline data:', error);
     }
@@ -176,7 +175,6 @@ class OfflineService {
       return [];
     }
 
-    console.log(`🔄 Processing sync queue: ${this.syncQueue.length} items`);
     this.syncInProgress = true;
 
     const results: SyncResult[] = [];
@@ -191,7 +189,6 @@ class OfflineService {
           // Remove from queue
           this.syncQueue = this.syncQueue.filter(q => q.id !== item.id);
           await this.removeFromStore('syncQueue', item.id);
-          console.log(`✅ Synced: ${item.type} (${item.id})`);
         } else {
           // Increment retry count
           item.retryCount++;
@@ -220,7 +217,6 @@ class OfflineService {
     this.storage.lastSync = Date.now();
     await this.saveToStore('metadata', { key: 'lastSync', value: this.storage.lastSync });
 
-    console.log(`🎯 Sync complete: ${results.filter(r => r.success).length}/${results.length} successful`);
     return results;
   }
 
@@ -280,7 +276,6 @@ class OfflineService {
       maxRetries: 3
     });
 
-    console.log(`💾 Saved booking offline: ${booking.id}`);
   }
 
   /**
@@ -408,7 +403,6 @@ class OfflineService {
       lastSync: 0
     };
 
-    console.log('🗑️ Cleared all offline data');
   }
 
   // Helper methods for IndexedDB operations

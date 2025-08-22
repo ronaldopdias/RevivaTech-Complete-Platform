@@ -36,7 +36,6 @@ async function sendRepairQuote() {
     // Verify connection
     console.log('🔌 Testing SMTP connection...');
     await transporter.verify();
-    console.log('✅ Connection successful!\n');
 
     // Generate quote number
     const quoteNumber = `REV-${Date.now().toString().slice(-6)}`;
@@ -331,7 +330,6 @@ Generated: ${quoteDate.toLocaleString()}
     };
 
     const result = await transporter.sendMail(quoteEmail);
-    console.log('✅ Repair quote email sent successfully!');
     console.log(`   Message ID: ${result.messageId}`);
     console.log(`   Response: ${result.response}`);
     console.log(`   Quote Number: ${quoteNumber}`);

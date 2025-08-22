@@ -14,10 +14,8 @@ console.log('🔍 Diagnosing WebSocket Connection Issues...\n');
 // Check if Next.js development server is running
 try {
   const processes = execSync('ps aux | grep -i "next dev"', { encoding: 'utf8' });
-  console.log('✅ Next.js development server processes:');
   console.log(processes);
 } catch (error) {
-  console.log('❌ No Next.js development server found running');
 }
 
 // Check network interfaces
@@ -25,7 +23,6 @@ try {
   const interfaces = execSync('hostname -I', { encoding: 'utf8' });
   console.log('🌐 Available network interfaces:', interfaces.trim());
 } catch (error) {
-  console.log('❌ Could not get network interfaces');
 }
 
 // Check if port 3010 is in use
@@ -34,7 +31,6 @@ try {
   console.log('🔌 Port 3010 status:');
   console.log(portCheck);
 } catch (error) {
-  console.log('❌ Port 3010 is not in use or netstat failed');
 }
 
 // Create a simple WebSocket test
@@ -113,7 +109,6 @@ const testScript = `
 `;
 
 fs.writeFileSync(path.join(__dirname, 'public', 'websocket-test.html'), testScript);
-console.log('✅ WebSocket test page created at /websocket-test.html');
 
 console.log('\n📋 Recommended fixes:');
 console.log('1. Restart the Next.js development server');
@@ -121,4 +116,3 @@ console.log('2. Visit http://localhost:3010/websocket-test.html to test WebSocke
 console.log('3. If WebSocket still fails, try running: npm run dev:safe');
 console.log('4. Check firewall settings if the issue persists');
 
-console.log('\n🚀 To apply fixes automatically, the development server will be restarted with proper WebSocket configuration.');

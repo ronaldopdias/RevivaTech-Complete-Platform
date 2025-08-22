@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/Badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -171,7 +171,6 @@ export function CameraCapture({
       
       if (result.success && result.url) {
         onImageUploaded?.(result.url);
-        console.log('📤 Image uploaded:', result.url);
       } else {
         setError(result.error || 'Upload failed');
       }

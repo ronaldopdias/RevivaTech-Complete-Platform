@@ -10,7 +10,7 @@ const {
   verifyPassword,
   authenticateBetterAuth: authenticateToken,
   optionalAuth
-} = require('../middleware/better-auth-db-direct');
+} = require('../middleware/better-auth-official');
 
 // JWT-specific functions that are deprecated with Better Auth
 // These are stubs for compatibility - Better Auth handles these internally
@@ -836,12 +836,6 @@ router.get('/validate-simple', (req, res) => {
 });
 
 // Test route for debugging  
-router.get('/test-permissions', (req, res) => {
-  res.json({
-    message: 'Test route working',
-    timestamp: new Date().toISOString()
-  });
-});
 
 // Health check
 router.get('/health', (req, res) => {

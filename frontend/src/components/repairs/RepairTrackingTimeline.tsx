@@ -16,7 +16,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Progress } from '@/components/ui/progress';
+import { Progress } from '@/components/ui/Progress';
 import { 
   Clock,
   CheckCircle,
@@ -248,10 +248,8 @@ export default function RepairTrackingTimeline({
         const healthResponse = await fetch('http://localhost:3011/health');
         if (healthResponse.ok) {
           setApiConnected(true);
-          console.log('✅ Backend API is available for timeline tracking');
         }
       } catch (apiError) {
-        console.log('⚠️ Backend API not available, using mock timeline data');
         setApiConnected(false);
       }
 

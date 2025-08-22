@@ -57,7 +57,6 @@ class PWAManager {
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('🔄 PWA: New version available');
                 this.showUpdateNotification();
               }
             });
@@ -84,7 +83,6 @@ class PWAManager {
     });
 
     window.addEventListener('appinstalled', () => {
-      console.log('✅ PWA: App installed successfully');
       this.isInstalled = true;
       this.hideInstallButton();
       this.trackInstallation();
@@ -223,7 +221,6 @@ class PWAManager {
   private setupUpdateNotifications(): void {
     if (this.swRegistration) {
       this.swRegistration.addEventListener('updatefound', () => {
-        console.log('🔄 PWA: Update found');
       });
     }
   }
@@ -317,7 +314,6 @@ class PWAManager {
   // Track installation for analytics
   private trackInstallation(): void {
     // Send analytics event
-    console.log('📊 PWA: Tracking installation');
     
     // You can integrate with your analytics service here
     if (typeof gtag !== 'undefined') {

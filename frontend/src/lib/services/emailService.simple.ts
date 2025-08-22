@@ -28,7 +28,6 @@ class SimpleEmailService {
   private isProcessing: boolean = false;
 
   constructor() {
-    console.log('Simple Email Service initialized (test mode)');
   }
 
   // Add email to queue

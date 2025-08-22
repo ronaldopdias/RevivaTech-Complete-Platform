@@ -141,25 +141,17 @@ const corsOptions = {
 app.use(cors(corsOptions));
 logger.info('✅ CORS middleware mounted successfully');
 
-logger.info('🚀 About to mount Better Auth - checking execution flow...');
-
-// Mount Better Auth server BEFORE express.json() middleware (CRITICAL)
-logger.info('🔧 Attempting to mount Better Auth server...');
+// Better Auth Implementation - Production Ready
 try {
-  logger.info('📦 Loading better-auth/node module...');
   const { toNodeHandler } = require("better-auth/node");
-  logger.info('📦 Loading Better Auth server configuration...');
   const auth = require('./lib/better-auth-server');
-  logger.info('🔧 Creating Better Auth node handler...');
   const handler = toNodeHandler(auth);
   
-  // Mount Better Auth handler - MUST be before express.json()
-  logger.info('🔧 Mounting Better Auth handler at /api/auth...');
   app.use("/api/auth", handler);
-  logger.info('✅ Better Auth server mounted successfully at /api/auth');
+  logger.info('✅ Better Auth mounted at /api/auth');
 } catch (error) {
-  logger.error('❌ Better Auth server mounting failed:', error.message);
-  logger.error('❌ Better Auth error stack:', error.stack);
+  logger.error('❌ Better Auth mount failed:', error.message);
+  console.error('Better Auth error:', error.stack);
 }
 
 // Body parsing middleware (AFTER Better Auth)
@@ -216,18 +208,7 @@ app.use('/api/health', (req, res, next) => {
   next();
 }, healthRoutes);
 
-// Public Analytics Routes (temporary for development)
-try {
-  const publicAnalyticsRoutes = require('./routes/public-analytics');
-  app.use('/api/public', (req, res, next) => {
-    req.pool = pool;
-    req.logger = logger;
-    next();
-  }, publicAnalyticsRoutes);
-  logger.info('✅ Public analytics routes mounted successfully');
-} catch (error) {
-  logger.error('❌ Failed to mount public analytics routes:', error);
-}
+// Public analytics routes removed during cleanup - file was deleted
 
 // API info route
 app.get('/api/info', (req, res) => {
@@ -241,7 +222,7 @@ app.get('/api/info', (req, res) => {
 });
 
 // Import and mount analytics routes
-const analyticsRoutes = require('./routes/analytics-clean');
+const { router: analyticsRoutes } = require('./routes/analytics');
 app.use('/api/analytics', (req, res, next) => {
   req.pool = pool;
   req.logger = logger;
@@ -435,6 +416,118 @@ if (process.env.NODE_ENV === 'development') {
   } catch (error) {
     logger.error('❌ DEV analytics events bypass failed:', error.message);
   }
+
+  // Development bypass for admin repairs stats (temporary)
+  app.get('/api/dev/admin/repairs/stats/overview', async (req, res) => {
+    try {
+      req.pool = pool;
+      req.logger = logger;
+      console.log('🧪 DEV: Bypassing admin auth for repair stats');
+      
+      const statsQuery = `
+        SELECT 
+          COUNT(*) as total_repairs,
+          COUNT(CASE WHEN booking_status = 'pending' THEN 1 END) as pending_repairs,
+          COUNT(CASE WHEN booking_status = 'in_progress' THEN 1 END) as in_progress_repairs,
+          COUNT(CASE WHEN booking_status = 'ready_for_pickup' THEN 1 END) as ready_for_pickup,
+          COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) as completed_repairs,
+          AVG(CASE 
+            WHEN booking_status = 'completed' AND actual_completion IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM (actual_completion - created_at)) / 3600 
+          END) as avg_completion_hours,
+          AVG(quote_total_price) as average_price
+        FROM bookings
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+      `;
+
+      const result = await pool.query(statsQuery);
+      const stats = result.rows[0];
+
+      // Convert strings to numbers
+      stats.total_repairs = parseInt(stats.total_repairs);
+      stats.pending_repairs = parseInt(stats.pending_repairs);
+      stats.in_progress_repairs = parseInt(stats.in_progress_repairs);
+      stats.ready_for_pickup = parseInt(stats.ready_for_pickup);
+      stats.completed_repairs = parseInt(stats.completed_repairs);
+      stats.avg_completion_hours = parseFloat(stats.avg_completion_hours) || 0;
+      stats.average_price = parseFloat(stats.average_price) || 0;
+
+      res.json({
+        success: true,
+        stats
+      });
+    } catch (error) {
+      console.error('🔥 DEV REPAIR STATS ERROR:', error);
+      res.status(500).json({
+        error: 'Failed to fetch repair statistics',
+        code: 'FETCH_REPAIR_STATS_ERROR',
+        details: error.message
+      });
+    }
+  });
+
+  // Development bypass for admin bookings stats (temporary)
+  app.get('/api/dev/admin/bookings/stats/overview', async (req, res) => {
+    try {
+      req.pool = pool;
+      req.logger = logger;
+      console.log('🧪 DEV: Bypassing admin auth for booking stats');
+      
+      const statsQuery = `
+        SELECT 
+          COUNT(*) as total_bookings,
+          COUNT(DISTINCT customer_id) as active_customers,
+          COUNT(CASE WHEN DATE(created_at) = CURRENT_DATE THEN 1 END) as new_customers_today,
+          COUNT(CASE WHEN booking_status = 'pending' THEN 1 END) as pending_bookings,
+          COUNT(CASE WHEN booking_status = 'in_progress' THEN 1 END) as in_progress_bookings,
+          COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) as completed_bookings,
+          COUNT(CASE WHEN booking_status = 'cancelled' THEN 1 END) as cancelled_bookings,
+          AVG(CASE 
+            WHEN booking_status = 'completed' AND actual_completion IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM (actual_completion - created_at)) / 3600 
+          END) as avg_completion_time,
+          SUM(COALESCE(quote_total_price, 0)) as total_revenue,
+          AVG(COALESCE(quote_total_price, 0)) as avg_order_value,
+          CASE 
+            WHEN COUNT(*) > 0 THEN 
+              COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) * 100.0 / COUNT(*)
+            ELSE 0 
+          END as completion_rate,
+          0 as low_stock_items
+        FROM bookings
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+      `;
+
+      const result = await pool.query(statsQuery);
+      const stats = result.rows[0];
+
+      // Convert strings to numbers
+      stats.total_bookings = parseInt(stats.total_bookings);
+      stats.active_customers = parseInt(stats.active_customers);
+      stats.new_customers_today = parseInt(stats.new_customers_today);
+      stats.pending_bookings = parseInt(stats.pending_bookings);
+      stats.in_progress_bookings = parseInt(stats.in_progress_bookings);
+      stats.completed_bookings = parseInt(stats.completed_bookings);
+      stats.cancelled_bookings = parseInt(stats.cancelled_bookings);
+      stats.avg_completion_time = parseFloat(stats.avg_completion_time) || 0;
+      stats.total_revenue = parseFloat(stats.total_revenue) || 0;
+      stats.avg_order_value = parseFloat(stats.avg_order_value) || 0;
+      stats.completion_rate = parseFloat(stats.completion_rate) || 0;
+      stats.low_stock_items = parseInt(stats.low_stock_items);
+
+      res.json({
+        success: true,
+        stats
+      });
+    } catch (error) {
+      console.error('🔥 DEV BOOKING STATS ERROR:', error);
+      res.status(500).json({
+        error: 'Failed to fetch booking statistics',
+        code: 'FETCH_BOOKING_STATS_ERROR',
+        details: error.message
+      });
+    }
+  });
 }
 
 // Better Auth handles authentication internally - no custom middleware needed
@@ -558,6 +651,57 @@ try {
   logger.error('❌ Email template routes not available:', error.message);
 }
 
+// Import and mount template scanner routes
+try {
+  const templateScannerRoutes = require('./routes/templateScannerRoutes');
+  
+  app.use('/api/template-scanner', 
+    (req, res, next) => {
+      req.pool = pool;
+      req.logger = logger;
+      next();
+    },
+    templateScannerRoutes
+  );
+  logger.info('✅ Template scanner routes mounted successfully');
+} catch (error) {
+  logger.error('❌ Template scanner routes not available:', error.message);
+}
+
+// Import and mount SMS template routes
+try {
+  const smsTemplateRoutes = require('./routes/smsTemplateRoutes');
+  
+  app.use('/api/sms-templates', 
+    (req, res, next) => {
+      req.pool = pool;
+      req.logger = logger;
+      next();
+    },
+    smsTemplateRoutes
+  );
+  logger.info('✅ SMS template routes mounted successfully');
+} catch (error) {
+  logger.error('❌ SMS template routes not available:', error.message);
+}
+
+// Import and mount PDF template routes
+try {
+  const pdfTemplateRoutes = require('./routes/pdfTemplateRoutes');
+  
+  app.use('/api/pdf-templates', 
+    (req, res, next) => {
+      req.pool = pool;
+      req.logger = logger;
+      next();
+    },
+    pdfTemplateRoutes
+  );
+  logger.info('✅ PDF template routes mounted successfully');
+} catch (error) {
+  logger.error('❌ PDF template routes not available:', error.message);
+}
+
 // Import and mount AI document routes (CRITICAL - AI Documentation Service)
 try {
   const documentRoutes = require('./routes/documentRoutes');
@@ -658,6 +802,33 @@ try {
   logger.info('✅ Template integration routes mounted successfully - Template-Service connections activated');
 } catch (error) {
   logger.error('❌ Template integration routes not available:', error.message);
+}
+
+// PHASE 6 STEP 4: ADVANCED ENTERPRISE FEATURES
+// AI Advanced Features (ML-enhanced chatbot, recommendations, personalization)
+try {
+  const aiAdvancedRoutes = require('./routes/ai-advanced');
+  app.use('/api/ai-advanced', (req, res, next) => {
+    req.pool = pool;
+    req.logger = logger;
+    next();
+  }, aiAdvancedRoutes);
+  logger.info('✅ AI Advanced Features mounted successfully - ML chatbot, recommendations, and personalization activated');
+} catch (error) {
+  logger.error('❌ AI Advanced Features not available:', error.message);
+}
+
+// Automation Integration (Cross-service workflow automation)
+try {
+  const automationRoutes = require('./routes/automation-integration');
+  app.use('/api/automation', (req, res, next) => {
+    req.pool = pool;
+    req.logger = logger;
+    next();
+  }, automationRoutes);
+  logger.info('✅ Automation Integration mounted successfully - Cross-service workflow automation activated');
+} catch (error) {
+  logger.error('❌ Automation Integration not available:', error.message);
 }
 
 // Error handling middleware

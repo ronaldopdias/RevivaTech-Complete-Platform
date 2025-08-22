@@ -36,19 +36,16 @@ class ComprehensiveAuthTester {
       const result = await testFn();
       const success = { category, name, status: '✅ PASS', result };
       this.results[category].push(success);
-      console.log(`✅ ${name}: PASSED`);
       return success;
     } catch (error) {
       const failure = { category, name, status: '❌ FAIL', error: error.message };
       this.results[category].push(failure);
-      console.log(`❌ ${name}: FAILED - ${error.message}`);
       return failure;
     }
   }
 
   // User Registration Testing
   async testUserRegistration() {
-    console.log('\n🎯 TESTING USER REGISTRATION FLOWS');
 
     // Test complete user registration
     await this.test('userRegistration', 'Complete User Registration', async () => {
@@ -137,7 +134,6 @@ class ComprehensiveAuthTester {
 
   // User Authentication Testing
   async testUserAuthentication() {
-    console.log('\n🎯 TESTING USER AUTHENTICATION FLOWS');
 
     // Test successful login
     await this.test('userAuthentication', 'Successful User Login', async () => {
@@ -207,7 +203,6 @@ class ComprehensiveAuthTester {
 
   // Session Management Testing
   async testSessionManagement() {
-    console.log('\n🎯 TESTING SESSION MANAGEMENT');
 
     // Test session validation endpoint
     await this.test('sessionManagement', 'Session Validation Endpoint', async () => {
@@ -279,7 +274,6 @@ class ComprehensiveAuthTester {
 
   // Backend Integration Testing
   async testBackendIntegration() {
-    console.log('\n🎯 TESTING BACKEND INTEGRATION');
 
     // Test backend health and middleware
     await this.test('backendIntegration', 'Backend Authentication Middleware', async () => {
@@ -337,7 +331,6 @@ class ComprehensiveAuthTester {
 
   // Security Features Testing
   async testSecurityFeatures() {
-    console.log('\n🎯 TESTING SECURITY FEATURES');
 
     // Test CORS configuration
     await this.test('securityFeatures', 'CORS Configuration', async () => {
@@ -404,7 +397,6 @@ class ComprehensiveAuthTester {
 
   // Debug Services Testing
   async testDebugServices() {
-    console.log('\n🎯 TESTING DEBUG SERVICES');
 
     // Test frontend debug endpoints
     await this.test('debugServices', 'Frontend Debug Endpoints', async () => {
@@ -465,7 +457,6 @@ class ComprehensiveAuthTester {
 
   // Error Handling Testing
   async testErrorHandling() {
-    console.log('\n🎯 TESTING ERROR HANDLING');
 
     // Test network error handling
     await this.test('errorHandling', 'Network Error Handling', async () => {
@@ -518,7 +509,6 @@ class ComprehensiveAuthTester {
 
   // Run all tests
   async runComprehensiveTests() {
-    console.log('🚀 STARTING COMPREHENSIVE AUTHENTICATION SYSTEM TEST SUITE');
     console.log('=' .repeat(80));
 
     await this.testUserRegistration();
@@ -534,7 +524,6 @@ class ComprehensiveAuthTester {
 
   // Generate detailed report
   generateComprehensiveReport() {
-    console.log('\n📊 COMPREHENSIVE AUTHENTICATION SYSTEM ANALYSIS REPORT');
     console.log('=' .repeat(80));
 
     const categories = Object.keys(this.results);
@@ -553,25 +542,16 @@ class ComprehensiveAuthTester {
       categoryResults[category] = { passed, failed, total: tests.length };
 
       console.log(`\n${category.toUpperCase().replace(/([A-Z])/g, ' $1').trim()}:`);
-      console.log(`  ✅ Passed: ${passed}`);
-      console.log(`  ❌ Failed: ${failed}`);
-      console.log(`  📊 Total:  ${tests.length}`);
-      console.log(`  📈 Success Rate: ${Math.round((passed / tests.length) * 100)}%`);
 
       if (failed > 0) {
         console.log(`  🔍 Failed Tests:`);
         tests.filter(t => t.status.includes('❌')).forEach(test => {
-          console.log(`    - ${test.name}: ${test.error}`);
         });
       }
     });
 
-    console.log(`\n🎯 OVERALL COMPREHENSIVE ANALYSIS SUMMARY:`);
     console.log(`  📋 Total Test Categories: ${categories.length}`);
     console.log(`  🧪 Total Tests Executed: ${totalTests}`);
-    console.log(`  ✅ Tests Passed: ${totalPassed}`);
-    console.log(`  ❌ Tests Failed: ${totalTests - totalPassed}`);
-    console.log(`  📊 Overall Success Rate: ${Math.round((totalPassed / totalTests) * 100)}%`);
 
     // System Status Assessment
     const criticalCategories = ['userAuthentication', 'sessionManagement', 'securityFeatures'];
@@ -580,14 +560,11 @@ class ComprehensiveAuthTester {
     const criticalRate = Math.round((criticalPassed / criticalTotal) * 100);
 
     console.log(`\n🔐 CRITICAL SYSTEM HEALTH:`);
-    console.log(`  📊 Critical Components Success Rate: ${criticalRate}%`);
     
     if (criticalRate >= 90) {
       console.log(`  🎉 SYSTEM STATUS: EXCELLENT - Ready for production`);
     } else if (criticalRate >= 75) {
-      console.log(`  ✅ SYSTEM STATUS: GOOD - Minor issues to address`);
     } else if (criticalRate >= 60) {
-      console.log(`  ⚠️  SYSTEM STATUS: NEEDS ATTENTION - Several issues to fix`);
     } else {
       console.log(`  🚨 SYSTEM STATUS: CRITICAL - Major issues require immediate attention`);
     }
@@ -595,8 +572,6 @@ class ComprehensiveAuthTester {
     console.log(`\n📝 KEY FINDINGS & RECOMMENDATIONS:`);
     
     if (this.testUsers.length > 0) {
-      console.log(`  ✅ User Registration & Authentication: Working`);
-      console.log(`  ✅ Test Users Created: ${this.testUsers.length}`);
     }
 
     if (categoryResults.backendIntegration.passed === 0) {
@@ -606,17 +581,14 @@ class ComprehensiveAuthTester {
     }
 
     if (categoryResults.debugServices.passed >= 2) {
-      console.log(`  ✅ Debug & Monitoring Systems: Operational`);
     }
 
     console.log(`\n📋 NEXT STEPS:`);
-    console.log(`  1. Address any failed tests above`);
     console.log(`  2. Fix backend-frontend container communication`);
     console.log(`  3. Consider implementing missing security features`);
     console.log(`  4. Review and optimize session management`);
     console.log(`  5. Monitor authentication events in production`);
 
-    console.log(`\n🏆 TEST SUITE COMPLETION: ${new Date().toISOString()}`);
     console.log('=' .repeat(80));
 
     return {

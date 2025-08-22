@@ -30,9 +30,7 @@ class SimplePDFService {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing Simple PDF Service...');
       this.isInitialized = true;
-      console.log('✅ Simple PDF Service initialized successfully');
       return true;
     } catch (error) {
       console.error('❌ Simple PDF Service initialization failed:', error);
@@ -191,7 +189,6 @@ class SimplePDFService {
       
       doc.text(`Thank you for choosing RevivaTech. Payment terms: ${invoiceData.dueDate ? 'Net 30 days' : 'Due upon completion'}`, 20, yPosition + 20);
 
-      console.log('✅ Simple invoice PDF generated successfully');
       return doc.output('arraybuffer');
 
     } catch (error) {

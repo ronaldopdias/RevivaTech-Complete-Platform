@@ -12,7 +12,6 @@ import { getDebugInfo } from './api-config';
  */
 export function runStartupValidation(): boolean {
   try {
-    console.log('🚀 [RevivaTech] Starting application with environment validation...');
     
     // Run environment validation
     logEnvironmentValidation();
@@ -20,17 +19,11 @@ export function runStartupValidation(): boolean {
     // Get API configuration debug info
     console.log('📡 [API Configuration Debug]');
     const debugInfo = getDebugInfo();
-    console.log(`Environment: ${debugInfo.environment}`);
-    console.log(`Server Side: ${debugInfo.isServerSide}`);
-    console.log(`Health Check: ${debugInfo.healthCheckUrl}`);
     
     if (debugInfo.isServerSide) {
-      console.log(`Internal API: ${debugInfo.internalApiUrl}`);
     } else {
-      console.log(`External API: ${debugInfo.externalApiUrl}`);
     }
     
-    console.log(`WebSocket: ${debugInfo.webSocketUrl}`);
     
     // Check if validation passes
     const validation = validateEnvironment();
@@ -46,7 +39,6 @@ export function runStartupValidation(): boolean {
       console.warn('⚠️  [RevivaTech] Startup validation completed with warnings:');
       validation.warnings.forEach(warning => console.warn(`  - ${warning}`));
     } else {
-      console.log('✅ [RevivaTech] Startup validation completed successfully!');
     }
     
     return true;
@@ -62,7 +54,6 @@ export function runStartupValidation(): boolean {
  */
 export async function testContainerConnectivity(): Promise<void> {
   if (typeof window !== 'undefined') {
-    console.log('🔍 [Container Test] Skipping server-side connectivity tests (running client-side)');
     return;
   }
   
@@ -77,7 +68,6 @@ export async function testContainerConnectivity(): Promise<void> {
     
     // Note: We can't actually make HTTP requests here since this runs at build time
     // This is more for logging and validation
-    console.log('✅ [Container Test] Backend configuration validated');
   } catch (error) {
     console.error('❌ [Container Test] Backend connectivity test failed:', error);
   }

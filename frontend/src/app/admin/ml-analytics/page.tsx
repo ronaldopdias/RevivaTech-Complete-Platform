@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Progress } from '@/components/ui/progress';
+import { Progress } from '@/components/ui/Progress';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 
@@ -59,23 +59,46 @@ interface MLEndpointStatus {
   accuracy?: number;
 }
 
+interface ChartDataPoint {
+  name: string;
+  value: number;
+  date?: string;
+  category?: string;
+}
+
+interface MetricCard {
+  title: string;
+  value: number | string;
+  change: number;
+  trend: 'up' | 'down' | 'stable';
+  unit?: string;
+}
+
+interface AlertItem {
+  id: string;
+  type: 'warning' | 'critical' | 'info';
+  message: string;
+  timestamp: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
 interface DashboardData {
   predictiveAnalytics: {
-    demandForecast: any;
-    repairDuration: any;
-    customerChurn: any;
-    revenueProjection: any;
-    seasonalTrends: any;
-    performanceMetrics: any;
+    demandForecast: ChartDataPoint[];
+    repairDuration: ChartDataPoint[];
+    customerChurn: ChartDataPoint[];
+    revenueProjection: ChartDataPoint[];
+    seasonalTrends: ChartDataPoint[];
+    performanceMetrics: MetricCard[];
   };
   inventoryManagement: {
-    overview: any;
-    optimization: any;
-    demandPrediction: any;
-    restockAlert: any;
-    costAnalysis: any;
-    turnoverAnalysis: any;
-    supplierPerformance: any;
+    overview: MetricCard[];
+    optimization: ChartDataPoint[];
+    demandPrediction: ChartDataPoint[];
+    restockAlert: AlertItem[];
+    costAnalysis: ChartDataPoint[];
+    turnoverAnalysis: ChartDataPoint[];
+    supplierPerformance: MetricCard[];
   };
   realtimeMetrics: {
     activeModels: number;
@@ -85,13 +108,13 @@ interface DashboardData {
     lastUpdate: string;
   };
   workflowAutomation: {
-    overview: any;
-    optimization: any;
-    performance: any;
-    suggestions: any;
-    resources: any;
-    timeline: any;
-    efficiency: any;
+    overview: MetricCard[];
+    optimization: ChartDataPoint[];
+    performance: MetricCard[];
+    suggestions: string[];
+    resources: { name: string; usage: number; capacity: number }[];
+    timeline: { phase: string; progress: number; eta: string }[];
+    efficiency: MetricCard[];
   };
 }
 
@@ -143,7 +166,6 @@ export default function MLAnalyticsDashboard() {
       wsRef.current = new WebSocket('ws://localhost:3011/api/analytics/ws');
       
       wsRef.current.onopen = () => {
-        console.log('⚡ Real-time ML analytics connected');
         
         // Subscribe to ML metrics streaming
         wsRef.current?.send(JSON.stringify({
@@ -156,7 +178,6 @@ export default function MLAnalyticsDashboard() {
         
         switch (update.type) {
           case 'connection_established':
-            console.log('✅ WebSocket connection established with capabilities:', update.capabilities);
             break;
             
           case 'ml_metrics_update':

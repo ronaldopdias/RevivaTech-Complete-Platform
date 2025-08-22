@@ -21,7 +21,6 @@ async function initializeServices() {
       await automationService.initialize();
       await analyticsService.initialize();
       servicesInitialized = true;
-      console.log('✅ All email services initialized');
     } catch (error) {
       console.error('❌ Email services initialization failed:', error);
       throw error;

@@ -39,7 +39,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // FIXED: All navigation moved to useEffect to prevent React rendering errors
   useEffect(() => {
     if (shouldRedirect) {
-      console.log('🔄 ProtectedRoute: Executing redirect to:', shouldRedirect);
       router.push(shouldRedirect);
       setShouldRedirect(null); // Clear redirect state
     }
@@ -56,10 +55,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           localStorage.getItem('revivatech_auth_user');
         
         if (!hasStoredTokens) {
-          console.log('🔄 ProtectedRoute: No stored credentials, setting redirect to login');
           setShouldRedirect(redirectTo);
         } else {
-          console.log('🔄 ProtectedRoute: Stored credentials found, waiting for AuthContext initialization');
           // Do NOT redirect - let AuthContext handle authentication restoration
         }
       }
@@ -90,7 +87,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (!isAuthenticated || !user) {
     // If we have stored credentials, FORCE loading state (AuthContext will handle auth)
     if (hasStoredCredentials) {
-      console.log('🔄 ProtectedRoute: Found stored credentials, showing loading instead of redirect');
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center space-y-4">
@@ -157,7 +153,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       if (!isAdminOnlyPage || !userIsAuthenticated) {
         // FIXED: Use state to trigger redirect in useEffect instead of during render
         if (!shouldRedirect) {
-          console.log('🔄 ProtectedRoute: Role mismatch, setting redirect to login');
           setShouldRedirect(redirectTo);
         }
         return (
@@ -209,7 +204,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       if (!userIsFullyAuthenticated) {
         // FIXED: Use state to trigger redirect in useEffect instead of during render
         if (!shouldRedirect) {
-          console.log('🔄 ProtectedRoute: Permission denied, setting redirect to login');
           setShouldRedirect(redirectTo);
         }
         return (

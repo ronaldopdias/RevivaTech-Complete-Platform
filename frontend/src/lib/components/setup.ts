@@ -560,8 +560,6 @@ export const setupComponents = (): ComponentRegistry => {
       CallToAction
     );
 
-    console.log('✅ Components registered successfully');
-    console.log('📦 Registered components:', registry.getComponentNames());
 
     return registry;
   } catch (error) {

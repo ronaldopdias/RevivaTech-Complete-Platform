@@ -565,7 +565,6 @@ export const performStartupValidation = (): Promise<SystemValidationResult> => {
       
       // Log validation results
       if (result.isValid) {
-        console.log('✅ Configuration validation passed', {
           totalRules: result.totalRules,
           passedRules: result.passedRules,
           warnings: result.warnings.length

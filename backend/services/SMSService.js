@@ -43,7 +43,6 @@ class SMSService extends EventEmitter {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing SMS Service...');
       
       if (this.options.provider === 'twilio') {
         await this.initializeTwilio();
@@ -52,7 +51,6 @@ class SMSService extends EventEmitter {
       }
 
       this.isInitialized = true;
-      console.log(`✅ SMS Service initialized with ${this.options.provider}`);
       
       return true;
     } catch (error) {
@@ -73,7 +71,6 @@ class SMSService extends EventEmitter {
       
       // Test Twilio connection
       await this.testTwilioConnection();
-      console.log('✅ Twilio connection verified');
     } catch (error) {
       throw new Error(`Twilio initialization failed: ${error.message}`);
     }
@@ -126,7 +123,6 @@ class SMSService extends EventEmitter {
         timestamp: Date.now()
       });
 
-      console.log(`✅ SMS sent successfully: ${messageData.id} to ${messageData.to}`);
       
       return {
         success: true,
@@ -195,7 +191,6 @@ class SMSService extends EventEmitter {
         timestamp: Date.now()
       });
 
-      console.log(`✅ WhatsApp message sent successfully: ${messageData.id} to ${messageData.to}`);
       
       return {
         success: true,
@@ -415,7 +410,6 @@ class SMSService extends EventEmitter {
 
     if (messageData.retryCount <= this.options.maxRetries) {
       // Schedule retry
-      console.log(`🔄 Scheduling retry ${messageData.retryCount}/${this.options.maxRetries} for message: ${messageData.id}`);
       
       setTimeout(async () => {
         try {
@@ -552,13 +546,11 @@ class SMSService extends EventEmitter {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
-      console.log(`📊 Batch ${Math.floor(i / batchSize) + 1} completed: ${batch.length} messages`);
     }
 
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
-    console.log(`✅ Bulk send completed: ${successful} sent, ${failed} failed`);
 
     return {
       total: messages.length,

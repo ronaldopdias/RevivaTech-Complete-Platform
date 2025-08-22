@@ -1,6 +1,6 @@
 const express = require('express');
 const Joi = require('joi');
-const { authenticateBetterAuth: authenticateToken, optionalAuth, requireRole, requireAdmin } = require('../middleware/better-auth-db-direct');
+const { authenticateBetterAuth: authenticateToken, optionalAuth, requireRole, requireAdmin } = require('../middleware/better-auth-official');
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');

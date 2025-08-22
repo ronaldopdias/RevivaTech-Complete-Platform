@@ -505,7 +505,6 @@ class DatabaseOptimizationService {
 
   private setupQueryMonitoring(): void {
     // Set up real-time query monitoring
-    console.log('📊 Database optimization: Query monitoring initialized');
   }
 
   private setupConnectionMonitoring(): void {

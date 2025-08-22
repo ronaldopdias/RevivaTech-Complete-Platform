@@ -88,7 +88,6 @@ class EmailService {
       // Verify transporter configuration
       try {
         await this.transporter.verify();
-        console.log('✅ Email service ready to send emails');
       } catch (error) {
         console.error('❌ Email transporter verification failed:', error);
         this.transporter = null;
@@ -204,7 +203,6 @@ class EmailService {
     };
 
     const info = await this.transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent successfully. Message ID: ${info.messageId}`);
   }
 
   // Convert HTML to plain text (basic implementation)

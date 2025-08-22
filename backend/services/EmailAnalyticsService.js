@@ -36,7 +36,6 @@ class EmailAnalyticsService extends EventEmitter {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing Email Analytics Service...');
       
       // Load recent aggregates
       await this.loadRecentAggregates();
@@ -47,7 +46,6 @@ class EmailAnalyticsService extends EventEmitter {
       // Setup periodic aggregation
       this.setupPeriodicAggregation();
       
-      console.log('✅ Email Analytics Service initialized');
       return true;
     } catch (error) {
       console.error('❌ Email Analytics Service initialization failed:', error);
@@ -236,12 +234,10 @@ class EmailAnalyticsService extends EventEmitter {
       await this.trackABTestEvent(eventData.campaign_context.ab_test_id, 'click', eventData);
     }
     
-    console.log(`🖱️ Email click tracked: ${eventData.email_send_id} -> ${eventData.clicked_url}`);
   }
 
   async handleEmailBounced(eventData, dailyData) {
     dailyData.bounces++;
-    console.log(`⚠️ Email bounce tracked: ${eventData.email_send_id}`);
   }
 
   async handleEmailSpam(eventData, dailyData) {
@@ -325,7 +321,6 @@ class EmailAnalyticsService extends EventEmitter {
         break;
     }
 
-    console.log(`🧪 A/B test event tracked: ${abTestId} variant ${variant} ${eventType}`);
   }
 
   updateRealtimeMetrics(dailyData) {
@@ -343,12 +338,10 @@ class EmailAnalyticsService extends EventEmitter {
 
   async storeEventInDatabase(eventType, eventData) {
     // Mock database storage - replace with actual implementation
-    console.log(`💾 Storing event in database: ${eventType}`);
   }
 
   async loadRecentAggregates() {
     // Load recent daily aggregates from database
-    console.log('📊 Loading recent analytics aggregates...');
     
     // Mock implementation - replace with database query
     const today = new Date().toISOString().split('T')[0];
@@ -378,7 +371,6 @@ class EmailAnalyticsService extends EventEmitter {
       this.processCachedEvents();
     }, 30000); // Every 30 seconds
 
-    console.log('🔄 Event processor started');
   }
 
   async processCachedEvents() {
@@ -449,12 +441,10 @@ class EmailAnalyticsService extends EventEmitter {
     // Store aggregated data
     await this.storeDailyAggregate(aggregatedData);
     
-    console.log(`📊 Daily aggregation completed for ${dateKey}`);
   }
 
   async storeDailyAggregate(aggregatedData) {
     // Store in database - mock implementation
-    console.log('💾 Storing daily aggregate:', aggregatedData);
   }
 
   // Public API methods

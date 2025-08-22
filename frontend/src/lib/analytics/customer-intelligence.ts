@@ -166,7 +166,6 @@ class CustomerIntelligenceService {
       if (this.isInitialized) return;
 
       if (this.config.debugMode) {
-        console.log('Initializing Customer Intelligence System...');
       }
 
       // Start fingerprinting

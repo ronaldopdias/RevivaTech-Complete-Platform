@@ -262,7 +262,6 @@ export function logEnvironmentValidation(): void {
   const validation = validateEnvironment();
   
   console.log('🔍 [Environment Validation]');
-  console.log(`Status: ${validation.isValid ? '✅ Valid' : '❌ Invalid'}`);
   
   if (validation.errors.length > 0) {
     console.error('❌ Errors:');

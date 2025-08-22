@@ -78,7 +78,6 @@ class ProductionAnalyticsDB {
       });
 
       this.initialized = true;
-      console.log('✅ Production analytics database initialized');
     } catch (error) {
       console.warn('⚠️ Failed to initialize production database, using fallback:', error);
       this.initialized = false;

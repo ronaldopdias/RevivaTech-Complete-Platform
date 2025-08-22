@@ -33,14 +33,11 @@ class LeadScoringModel {
 
   async initialize() {
     try {
-      console.log('🎯 Initializing Lead Scoring Model...');
       
       // Try to load existing model
       try {
         this.model = await tf.loadLayersModel('file:///opt/webapps/revivatech/backend/models/saved/lead_scoring');
-        console.log('📦 Loaded existing lead scoring model');
       } catch (error) {
-        console.log('🔨 Creating new lead scoring model');
         await this.createModel();
       }
 
@@ -48,7 +45,6 @@ class LeadScoringModel {
       this.initializeScaler();
       
       this.isReady = true;
-      console.log('✅ Lead Scoring Model ready');
       
       return true;
     } catch (error) {
@@ -223,7 +219,6 @@ class LeadScoringModel {
 
   async train(trainingData) {
     try {
-      console.log('🏋️ Training lead scoring model...');
       
       if (!trainingData || trainingData.length < 100) {
         console.warn('⚠️ Insufficient training data, using synthetic data');
@@ -281,7 +276,6 @@ class LeadScoringModel {
       // Save model
       await this.saveModel();
 
-      console.log(`✅ Training completed - Accuracy: ${(finalAccuracy * 100).toFixed(2)}%`);
       
       return {
         accuracy: finalAccuracy,
@@ -334,7 +328,6 @@ class LeadScoringModel {
     try {
       const savePath = 'file:///opt/webapps/revivatech/backend/models/saved/lead_scoring';
       await this.model.save(savePath);
-      console.log('💾 Lead scoring model saved');
     } catch (error) {
       console.warn('⚠️ Could not save model:', error.message);
     }

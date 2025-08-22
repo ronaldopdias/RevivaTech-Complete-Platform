@@ -48,14 +48,11 @@ class CustomerSegmentationModel {
 
   async initialize() {
     try {
-      console.log('🎭 Initializing Customer Segmentation Model...');
       
       // Try to load existing model
       try {
         this.model = await tf.loadLayersModel('file:///opt/webapps/revivatech/backend/models/saved/customer_segmentation');
-        console.log('📦 Loaded existing customer segmentation model');
       } catch (error) {
-        console.log('🔨 Creating new customer segmentation model');
         await this.createModel();
       }
 
@@ -63,7 +60,6 @@ class CustomerSegmentationModel {
       this.initializeScaler();
       
       this.isReady = true;
-      console.log('✅ Customer Segmentation Model ready');
       
       return true;
     } catch (error) {
@@ -428,7 +424,6 @@ class CustomerSegmentationModel {
 
   async train(trainingData) {
     try {
-      console.log('🏋️ Training customer segmentation model...');
       
       if (!trainingData || trainingData.length < 100) {
         console.warn('⚠️ Insufficient training data, using synthetic data');
@@ -482,7 +477,6 @@ class CustomerSegmentationModel {
       await this.saveModel();
 
       const finalLoss = history.history.val_loss[history.history.val_loss.length - 1];
-      console.log(`✅ Customer segmentation training completed - Loss: ${finalLoss.toFixed(4)}`);
       
       return {
         loss: finalLoss,
@@ -527,7 +521,6 @@ class CustomerSegmentationModel {
     try {
       const savePath = 'file:///opt/webapps/revivatech/backend/models/saved/customer_segmentation';
       await this.model.save(savePath);
-      console.log('💾 Customer segmentation model saved');
     } catch (error) {
       console.warn('⚠️ Could not save segmentation model:', error.message);
     }

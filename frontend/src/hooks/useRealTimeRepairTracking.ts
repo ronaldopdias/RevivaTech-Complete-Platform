@@ -221,7 +221,6 @@ export const useRealTimeRepairTracking = (
       });
 
       socket.on('authenticated', (data) => {
-        console.log('✅ Authenticated with repair tracking service', data);
         
         setState(prev => ({
           ...prev,
@@ -285,12 +284,10 @@ export const useRealTimeRepairTracking = (
       });
 
       socket.on('repair_photo_uploaded', (photo: PhotoUpload) => {
-        console.log('📸 Repair photo uploaded:', photo);
         handlePhotoUploaded(photo);
       });
 
       socket.on('repair_quality_checked', (qualityCheck: QualityCheck) => {
-        console.log('✅ Quality check completed:', qualityCheck);
         handleQualityCheck(qualityCheck);
       });
 

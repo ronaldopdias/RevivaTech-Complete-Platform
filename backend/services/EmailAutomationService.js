@@ -41,7 +41,6 @@ class EmailAutomationService extends EventEmitter {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing Email Automation Service...');
       
       // Initialize template engine
       await this.templateEngine.initialize();
@@ -55,7 +54,6 @@ class EmailAutomationService extends EventEmitter {
       // Setup rate limiting reset
       this.setupRateLimitReset();
       
-      console.log('✅ Email Automation Service initialized');
       return true;
     } catch (error) {
       console.error('❌ Email Automation Service initialization failed:', error);
@@ -183,7 +181,6 @@ class EmailAutomationService extends EventEmitter {
   async loadActiveWorkflows() {
     // In production, this would load workflows from database
     // For now, we use the predefined templates
-    console.log('📂 Loading active email workflows...');
     
     // Mock database call to load custom workflows
     const customWorkflows = await this.fetchWorkflowsFromDatabase();
@@ -226,7 +223,6 @@ class EmailAutomationService extends EventEmitter {
             await this.scheduleWorkflowSteps(execution);
             triggeredWorkflows.push(execution);
 
-            console.log(`🎯 Triggered workflow: ${workflow.name} for ${triggerType}`);
           }
         }
       }
@@ -338,7 +334,6 @@ class EmailAutomationService extends EventEmitter {
           // Skip this step
           email.status = 'skipped';
           this.scheduledEmails.set(key, email);
-          console.log(`⏭️ Skipped email step due to conditions: ${key}`);
         }
       } catch (error) {
         console.error(`❌ Failed to process scheduled email ${key}:`, error);
@@ -497,7 +492,6 @@ class EmailAutomationService extends EventEmitter {
       }
     }, this.options.queueProcessingInterval);
 
-    console.log('🔄 Email queue processor started');
   }
 
   async processEmailQueue() {
@@ -558,7 +552,6 @@ class EmailAutomationService extends EventEmitter {
       });
 
       // Log successful send
-      console.log(`✅ Email sent successfully: ${emailData.id} to ${emailData.recipientEmail}`);
       
       // Emit success event
       this.emit('emailSent', {
@@ -598,7 +591,6 @@ class EmailAutomationService extends EventEmitter {
         this.emailQueue.unshift(emailData);
       }, this.options.retryDelay);
       
-      console.log(`🔄 Scheduled retry ${emailData.retryCount}/${this.options.maxRetries} for email: ${emailData.id}`);
     } else {
       // Mark as permanently failed
       emailData.status = 'failed';
@@ -672,7 +664,6 @@ class EmailAutomationService extends EventEmitter {
 
     this.activeWorkflows.set(workflow.id, workflow);
     
-    console.log(`✅ Created workflow: ${workflow.name}`);
     return workflow;
   }
 

@@ -62,6 +62,7 @@ class UniversalAnalyticsManager {
   private static instance: UniversalAnalyticsManager;
   private sessionId: string;
   private userId?: string;
+  private userFingerprint: string;
   private pageViews: Map<string, number> = new Map();
   private interactions: UserInteraction[] = [];
   private performanceMetrics: PerformanceMetric[] = [];
@@ -72,6 +73,7 @@ class UniversalAnalyticsManager {
 
   private constructor() {
     this.sessionId = this.generateSessionId();
+    this.userFingerprint = this.generateUserFingerprint();
     this.initialize();
   }
 
@@ -113,6 +115,33 @@ class UniversalAnalyticsManager {
       return newSession;
     }
     return generateUUID();
+  }
+
+  private generateUserFingerprint(): string {
+    // Check for existing fingerprint in localStorage
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const existingFingerprint = window.localStorage.getItem('analytics_user_fingerprint');
+      if (existingFingerprint) return existingFingerprint;
+      
+      // Generate basic fingerprint from browser characteristics
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx?.fillText('fingerprint', 10, 10);
+      
+      const fingerprint = btoa(JSON.stringify({
+        userAgent: navigator.userAgent,
+        language: navigator.language,
+        platform: navigator.platform,
+        screenResolution: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        canvas: canvas.toDataURL(),
+        random: Math.random().toString(36)
+      })).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+      
+      window.localStorage.setItem('analytics_user_fingerprint', fingerprint);
+      return fingerprint;
+    }
+    return generateUUID().replace(/-/g, '').substring(0, 32);
   }
 
   // Set user ID for authenticated users
@@ -484,33 +513,49 @@ class UniversalAnalyticsManager {
     this.eventQueue = [];
 
     try {
-      // Send events with required sessionId to analytics backend
-      // Include credentials for authentication
-      const response = await fetch('/api/analytics/events', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Include cookies for authentication
-        body: JSON.stringify({ 
-          sessionId: this.sessionId,
-          events,
-          customerId: this.userId
-        })
-      });
+      // Send events in the format expected by backend validation
+      for (const event of events) {
+        const payload = {
+          user_fingerprint: this.userFingerprint,
+          session_id: this.sessionId,
+          event_type: event.event || 'page_view',
+          event_category: event.category || 'engagement',
+          event_action: event.action || 'view',
+          event_label: event.label,
+          event_value: event.value,
+          user_id: this.userId,
+          page_url: typeof window !== 'undefined' ? window.location.href : '',
+          page_title: typeof document !== 'undefined' ? document.title : '',
+          timestamp: event.timestamp.toISOString(),
+          properties: event.properties,
+          metadata: event.metadata
+        };
 
-      if (!response.ok) {
-        // If 401 Unauthorized, silently skip for anonymous users (expected behavior)
-        if (response.status === 401) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Analytics: Anonymous user session, skipping analytics API');
+        const endpoint = '/api/analytics/events';
+          
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include', // Include cookies for authentication
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          // If 401 Unauthorized, silently skip for anonymous users (expected behavior)
+          if (response.status === 401) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Analytics: Anonymous user session, skipping analytics API');
+            }
+            return; // Don't re-queue for auth errors
           }
-          return; // Don't re-queue for auth errors
+          
+          console.error('Analytics API error:', response.status, await response.text());
+          // Re-queue event if failed (non-auth errors)
+          this.eventQueue.unshift(event);
+          break; // Stop processing remaining events
         }
-        
-        console.error('Analytics API error:', response.status, await response.text());
-        // Re-queue events if failed (non-auth errors)
-        this.eventQueue.unshift(...events);
       }
     } catch (error) {
       console.error('Failed to flush analytics events:', error);

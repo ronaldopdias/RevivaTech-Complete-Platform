@@ -51,7 +51,6 @@ export const RealTimeProvider: React.FC<RealTimeProviderProps> = ({
       const latestNotification = notifications[0];
       if (!latestNotification.data.read) {
         // You can integrate with a toast library here
-        console.log('New notification:', latestNotification.data);
         
         // Show browser notification if permission granted
         if ('Notification' in window && Notification.permission === 'granted') {
@@ -67,7 +66,6 @@ export const RealTimeProvider: React.FC<RealTimeProviderProps> = ({
   // Show toast for repair updates
   useEffect(() => {
     if (latestUpdate) {
-      console.log('Repair update:', latestUpdate.data);
       
       // Show browser notification if permission granted
       if ('Notification' in window && Notification.permission === 'granted') {

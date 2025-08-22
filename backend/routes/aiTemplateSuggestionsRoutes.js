@@ -26,7 +26,6 @@ const initializeAIServices = () => {
       const mlServicePath = path.join(__dirname, '../nlu/services/ml_recommendation_service.py');
       if (fs.existsSync(mlServicePath)) {
         // ML service available - can integrate with Python service
-        console.log('✅ ML recommendation service discovered at:', mlServicePath);
       }
       
       // Try to initialize available services

@@ -6,17 +6,14 @@
 const express = require('express');
 const router = express.Router();
 
-console.log('🧪 DEV: Analytics development router loaded');
 
 // POST /api/dev/analytics/events - Development analytics events endpoint
 router.post('/events', (req, res) => {
   try {
-    console.log('📊 DEV: Analytics event received:', req.body);
-    
-    // In development, just log and return success
+    // Simplified dev endpoint - main analytics now handles all requests
     res.json({
       success: true,
-      message: 'Analytics event received (development mode)',
+      message: 'Analytics event received (development mode - redirected to main endpoint)',
       timestamp: new Date().toISOString()
     });
   } catch (error) {

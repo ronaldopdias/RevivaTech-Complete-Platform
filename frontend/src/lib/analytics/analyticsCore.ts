@@ -180,12 +180,19 @@ export class EventCollector {
   }
 
   private async processBatch(): Promise<void> {
+    // Disabled: Using UniversalAnalyticsManager as primary analytics system
+    // Uncomment below to re-enable this analytics core system
+    return;
+    
+    /*
     if (this.eventQueue.length === 0) return;
 
     const batch = this.eventQueue.splice(0, this.batchSize);
     
     try {
-      await fetch('/api/analytics/events', {
+      const endpoint = '/api/analytics/events';
+        
+      await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -200,6 +207,7 @@ export class EventCollector {
       // Re-queue events for retry
       this.eventQueue.unshift(...batch);
     }
+    */
   }
 }
 

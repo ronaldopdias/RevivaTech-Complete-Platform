@@ -17,11 +17,10 @@ const repairsRoutes = require('../repairs');
 const bookingsRoutes = require('../bookings');
 
 // Import hybrid authentication middleware (supports both JWT and Better Auth)
-const { authenticateBetterAuth: authenticateHybrid, requireAdmin } = require('../../middleware/better-auth-db-direct');
+const { authenticateBetterAuth: authenticateHybrid, requireAdmin } = require('../../middleware/better-auth-official');
 
 // Debug authentication middleware to understand what's happening
 const debugAuth = (req, res, next) => {
-    console.log(`🔍 DEBUG: Admin route hit - ${req.method} ${req.originalUrl}`);
     console.log(`🔍 DEBUG: Auth header:`, req.headers.authorization ? 'Present' : 'Missing');
     console.log(`🔍 DEBUG: req.user before auth:`, req.user ? 'Present' : 'Missing');
     next();
@@ -42,7 +41,6 @@ const debugAfterRoleCheck = (req, res, next) => {
 router.use(authenticateHybrid);
 router.use(requireAdmin);
 router.use((req, res, next) => {
-    console.log(`✅ Admin authenticated: ${req.user.email} (${req.user.role}) via ${req.authMethod || 'Unknown'}`);
     next();
 });
 

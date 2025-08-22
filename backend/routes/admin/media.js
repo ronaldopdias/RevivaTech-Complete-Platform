@@ -12,7 +12,6 @@ const router = express.Router();
 // Check existing media_files table
 const initializeMediaTable = async () => {
     try {
-        console.log('✅ Using existing media_files table');
     } catch (error) {
         console.error('❌ Error checking media table:', error);
     }

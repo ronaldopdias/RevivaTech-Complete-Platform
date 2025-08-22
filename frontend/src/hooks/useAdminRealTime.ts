@@ -76,7 +76,6 @@ export function useAdminRealTime(options: UseAdminRealTimeOptions) {
   } = useWebSocket({
     url: wsUrl,
     onOpen: () => {
-      console.log('✅ Admin real-time connected');
       
       // Authenticate admin connection
       if (adminId && authToken) {
@@ -89,7 +88,6 @@ export function useAdminRealTime(options: UseAdminRealTimeOptions) {
       }
     },
     onClose: () => {
-      console.log('❌ Admin real-time disconnected');
     },
     onError: (event) => {
       console.error('Admin WebSocket error:', event);
@@ -170,7 +168,6 @@ export function useAdminRealTime(options: UseAdminRealTimeOptions) {
         break;
 
       case 'admin_authenticated':
-        console.log('✅ Admin authentication successful');
         // Request initial metrics
         sendMessage({ type: 'request_metrics' });
         break;

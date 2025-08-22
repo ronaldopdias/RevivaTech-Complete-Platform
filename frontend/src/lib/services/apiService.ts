@@ -5,7 +5,121 @@
 
 import { featureService } from './featureService';
 
-export interface ApiResponse<T = any> {
+// Core data types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'technician' | 'customer';
+  avatar?: string;
+  phone?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+  refreshToken?: string;
+}
+
+export interface CustomerProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  preferences?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Repair {
+  id: string;
+  customerId: string;
+  deviceType: string;
+  deviceModel: string;
+  issue: string;
+  status: 'pending' | 'diagnosed' | 'in_progress' | 'completed' | 'cancelled';
+  estimatedCost?: number;
+  actualCost?: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface Booking {
+  id: string;
+  customerId: string;
+  deviceType: string;
+  deviceModel: string;
+  issueDescription: string;
+  preferredDate: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  estimatedPrice?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Device {
+  id: string;
+  brand: string;
+  model: string;
+  category: string;
+  repairTypes: string[];
+  averageRepairTime: number;
+}
+
+export interface PricingRule {
+  id: string;
+  deviceType: string;
+  repairType: string;
+  basePrice: number;
+  laborCost: number;
+  parts?: string[];
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface AdminStats {
+  totalCustomers: number;
+  totalRepairs: number;
+  pendingRepairs: number;
+  monthlyRevenue: number;
+  averageRepairTime: number;
+}
+
+export interface MediaFile {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  createdAt: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  minQuantity: number;
+  price: number;
+  supplier?: string;
+  updatedAt: string;
+}
+
+export interface ApiResponse<T = unknown> {
   data: T;
   success: boolean;
   message?: string;
@@ -64,7 +178,7 @@ class ApiService {
     return 'http://localhost:3011';
   }
 
-  private async request<T = any>(
+  private async request<T = unknown>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
@@ -105,7 +219,7 @@ class ApiService {
     } catch (error) {
       console.error(`API request failed: ${endpoint}`, error);
       return {
-        data: null,
+        data: null as T,
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
@@ -113,67 +227,67 @@ class ApiService {
   }
 
   // Authentication
-  async login(email: string, password: string): Promise<ApiResponse<{ token: string; user: any }>> {
+  async login(email: string, password: string): Promise<ApiResponse<AuthResponse>> {
     return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   }
 
-  async register(userData: any): Promise<ApiResponse<{ token: string; user: any }>> {
+  async register(userData: Partial<User>): Promise<ApiResponse<AuthResponse>> {
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
   }
 
-  async logout(): Promise<ApiResponse> {
+  async logout(): Promise<ApiResponse<null>> {
     return this.request('/auth/logout', { method: 'POST' });
   }
 
   // Customer API
-  async getCustomerProfile(): Promise<ApiResponse<any>> {
+  async getCustomerProfile(): Promise<ApiResponse<CustomerProfile>> {
     return this.request('/customer/profile');
   }
 
-  async updateCustomerProfile(profileData: any): Promise<ApiResponse<any>> {
+  async updateCustomerProfile(profileData: Partial<CustomerProfile>): Promise<ApiResponse<CustomerProfile>> {
     return this.request('/customer/profile', {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
   }
 
-  async getCustomerRepairs(): Promise<ApiResponse<any[]>> {
+  async getCustomerRepairs(): Promise<ApiResponse<Repair[]>> {
     return this.request('/customer/repairs');
   }
 
-  async getRepairHistory(): Promise<ApiResponse<any[]>> {
+  async getRepairHistory(): Promise<ApiResponse<Repair[]>> {
     return this.request('/customer/repair-history');
   }
 
-  async getNotifications(): Promise<ApiResponse<any[]>> {
+  async getNotifications(): Promise<ApiResponse<Notification[]>> {
     return this.request('/customer/notifications');
   }
 
-  async markNotificationRead(notificationId: string): Promise<ApiResponse> {
+  async markNotificationRead(notificationId: string): Promise<ApiResponse<null>> {
     return this.request(`/notifications/${notificationId}/read`, {
       method: 'POST',
     });
   }
 
   // Booking API
-  async createBooking(bookingData: any): Promise<ApiResponse<any>> {
+  async createBooking(bookingData: Partial<Booking>): Promise<ApiResponse<Booking>> {
     return this.request('/bookings', {
       method: 'POST',
       body: JSON.stringify(bookingData),
     });
   }
 
-  async getBooking(bookingId: string): Promise<ApiResponse<any>> {
+  async getBooking(bookingId: string): Promise<ApiResponse<Booking>> {
     return this.request(`/bookings/${bookingId}`);
   }
 
-  async updateBookingStatus(bookingId: string, status: string): Promise<ApiResponse<any>> {
+  async updateBookingStatus(bookingId: string, status: string): Promise<ApiResponse<Booking>> {
     return this.request(`/bookings/${bookingId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
@@ -181,76 +295,76 @@ class ApiService {
   }
 
   // Devices API
-  async getDevices(): Promise<ApiResponse<any[]>> {
+  async getDevices(): Promise<ApiResponse<Device[]>> {
     return this.request('/devices');
   }
 
-  async getDeviceModels(deviceId: string): Promise<ApiResponse<any[]>> {
+  async getDeviceModels(deviceId: string): Promise<ApiResponse<Device[]>> {
     return this.request(`/devices/${deviceId}/models`);
   }
 
   // Pricing API
-  async calculatePrice(pricingData: any): Promise<ApiResponse<any>> {
+  async calculatePrice(pricingData: Record<string, unknown>): Promise<ApiResponse<{ basePrice: number; laborCost: number; totalPrice: number }>> {
     return this.request('/pricing/calculate', {
       method: 'POST',
       body: JSON.stringify(pricingData),
     });
   }
 
-  async getPricingRules(): Promise<ApiResponse<any[]>> {
+  async getPricingRules(): Promise<ApiResponse<PricingRule[]>> {
     return this.request('/pricing/rules');
   }
 
   // Admin API
-  async getAdminStats(): Promise<ApiResponse<any>> {
+  async getAdminStats(): Promise<ApiResponse<AdminStats>> {
     return this.request('/admin/stats');
   }
 
-  async getRepairQueue(): Promise<ApiResponse<any[]>> {
+  async getRepairQueue(): Promise<ApiResponse<Repair[]>> {
     return this.request('/admin/repair-queue');
   }
 
   // Admin Procedures API
-  async getAdminProcedures(page = 1, limit = 20): Promise<ApiResponse<any>> {
+  async getAdminProcedures(page = 1, limit = 20): Promise<PaginatedResponse<Record<string, unknown>>> {
     return this.request(`/admin/procedures?page=${page}&limit=${limit}`);
   }
 
-  async getAdminProcedure(procedureId: string): Promise<ApiResponse<any>> {
+  async getAdminProcedure(procedureId: string): Promise<ApiResponse<Record<string, unknown>>> {
     return this.request(`/admin/procedures/${procedureId}`);
   }
 
-  async createAdminProcedure(procedureData: any): Promise<ApiResponse<any>> {
+  async createAdminProcedure(procedureData: Record<string, unknown>): Promise<ApiResponse<Record<string, unknown>>> {
     return this.request('/admin/procedures', {
       method: 'POST',
       body: JSON.stringify(procedureData),
     });
   }
 
-  async updateAdminProcedure(procedureId: string, procedureData: any): Promise<ApiResponse<any>> {
+  async updateAdminProcedure(procedureId: string, procedureData: Record<string, unknown>): Promise<ApiResponse<Record<string, unknown>>> {
     return this.request(`/admin/procedures/${procedureId}`, {
       method: 'PUT',
       body: JSON.stringify(procedureData),
     });
   }
 
-  async deleteAdminProcedure(procedureId: string): Promise<ApiResponse> {
+  async deleteAdminProcedure(procedureId: string): Promise<ApiResponse<null>> {
     return this.request(`/admin/procedures/${procedureId}`, {
       method: 'DELETE',
     });
   }
 
   // Admin Media API
-  async getAdminMedia(page = 1, limit = 20, type?: string): Promise<ApiResponse<any>> {
+  async getAdminMedia(page = 1, limit = 20, type?: string): Promise<PaginatedResponse<MediaFile>> {
     const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
     if (type) params.append('type', type);
     return this.request(`/admin/media?${params.toString()}`);
   }
 
-  async getAdminMediaFile(mediaId: string): Promise<ApiResponse<any>> {
+  async getAdminMediaFile(mediaId: string): Promise<ApiResponse<MediaFile>> {
     return this.request(`/admin/media/${mediaId}`);
   }
 
-  async uploadAdminMedia(file: File, metadata?: any): Promise<ApiResponse<any>> {
+  async uploadAdminMedia(file: File, metadata?: Record<string, unknown>): Promise<ApiResponse<MediaFile>> {
     const formData = new FormData();
     formData.append('file', file);
     if (metadata) {
@@ -264,70 +378,70 @@ class ApiService {
     });
   }
 
-  async updateAdminMedia(mediaId: string, metadata: any): Promise<ApiResponse<any>> {
+  async updateAdminMedia(mediaId: string, metadata: Record<string, unknown>): Promise<ApiResponse<MediaFile>> {
     return this.request(`/admin/media/${mediaId}`, {
       method: 'PUT',
       body: JSON.stringify(metadata),
     });
   }
 
-  async deleteAdminMedia(mediaId: string): Promise<ApiResponse> {
+  async deleteAdminMedia(mediaId: string): Promise<ApiResponse<null>> {
     return this.request(`/admin/media/${mediaId}`, {
       method: 'DELETE',
     });
   }
 
-  async getCustomers(page = 1, limit = 20): Promise<PaginatedResponse<any>> {
+  async getCustomers(page = 1, limit = 20): Promise<PaginatedResponse<CustomerProfile>> {
     return this.request(`/admin/customers?page=${page}&limit=${limit}`);
   }
 
-  async getCustomer(customerId: string): Promise<ApiResponse<any>> {
+  async getCustomer(customerId: string): Promise<ApiResponse<CustomerProfile>> {
     return this.request(`/admin/customers/${customerId}`);
   }
 
-  async getInventory(): Promise<ApiResponse<any[]>> {
+  async getInventory(): Promise<ApiResponse<InventoryItem[]>> {
     return this.request('/admin/inventory');
   }
 
-  async addInventoryItem(itemData: any): Promise<ApiResponse<any>> {
+  async addInventoryItem(itemData: Partial<InventoryItem>): Promise<ApiResponse<InventoryItem>> {
     return this.request('/admin/inventory', {
       method: 'POST',
       body: JSON.stringify(itemData),
     });
   }
 
-  async updateInventoryItem(itemId: string, itemData: any): Promise<ApiResponse<any>> {
+  async updateInventoryItem(itemId: string, itemData: Partial<InventoryItem>): Promise<ApiResponse<InventoryItem>> {
     return this.request(`/admin/inventory/${itemId}`, {
       method: 'PUT',
       body: JSON.stringify(itemData),
     });
   }
 
-  async deleteInventoryItem(itemId: string): Promise<ApiResponse> {
+  async deleteInventoryItem(itemId: string): Promise<ApiResponse<null>> {
     return this.request(`/admin/inventory/${itemId}`, {
       method: 'DELETE',
     });
   }
 
   // Analytics API
-  async getAnalytics(dateRange?: { start: string; end: string }): Promise<ApiResponse<any>> {
+  async getAnalytics(dateRange?: { start: string; end: string }): Promise<ApiResponse<Record<string, unknown>>> {
     const params = dateRange ? `?start=${dateRange.start}&end=${dateRange.end}` : '';
     return this.request(`/analytics${params}`);
   }
 
-  async getRevenueAnalytics(): Promise<ApiResponse<any>> {
+  async getRevenueAnalytics(): Promise<ApiResponse<Record<string, unknown>>> {
     return this.request('/analytics/revenue');
   }
 
-  async getCustomerAnalytics(): Promise<ApiResponse<any>> {
+  async getCustomerAnalytics(): Promise<ApiResponse<Record<string, unknown>>> {
     return this.request('/analytics/customers');
   }
 
   // AI Diagnostics API (if feature enabled)
-  async runAIDiagnostics(diagnosticData: any): Promise<ApiResponse<any>> {
+  async runAIDiagnostics(diagnosticData: Record<string, unknown>): Promise<ApiResponse<Record<string, unknown>>> {
     if (!featureService.isEnabled('ai_diagnostics')) {
       return {
-        data: null,
+        data: null as Record<string, unknown>,
         success: false,
         error: 'AI Diagnostics feature is not enabled',
       };
@@ -339,15 +453,15 @@ class ApiService {
     });
   }
 
-  async getAIDiagnosticsHistory(): Promise<ApiResponse<any[]>> {
+  async getAIDiagnosticsHistory(): Promise<ApiResponse<Record<string, unknown>[]>> {
     return this.request('/ai/diagnostics/history');
   }
 
   // Video Consultation API (if feature enabled)
-  async getConsultationSlots(): Promise<ApiResponse<any[]>> {
+  async getConsultationSlots(): Promise<ApiResponse<Record<string, unknown>[]>> {
     if (!featureService.isEnabled('video_consultations')) {
       return {
-        data: null,
+        data: null as Record<string, unknown>[],
         success: false,
         error: 'Video Consultations feature is not enabled',
       };
@@ -356,7 +470,7 @@ class ApiService {
     return this.request('/consultations/slots');
   }
 
-  async bookConsultation(slotData: any): Promise<ApiResponse<any>> {
+  async bookConsultation(slotData: Record<string, unknown>): Promise<ApiResponse<Record<string, unknown>>> {
     return this.request('/consultations', {
       method: 'POST',
       body: JSON.stringify(slotData),
@@ -377,19 +491,19 @@ class ApiService {
   }
 
   // Email API
-  async sendTestEmail(emailData: any): Promise<ApiResponse> {
+  async sendTestEmail(emailData: Record<string, unknown>): Promise<ApiResponse<null>> {
     return this.request('/email/test', {
       method: 'POST',
       body: JSON.stringify(emailData),
     });
   }
 
-  async getEmailStatus(): Promise<ApiResponse<any>> {
+  async getEmailStatus(): Promise<ApiResponse<Record<string, unknown>>> {
     return this.request('/email/status');
   }
 
   // Real-time API helpers
-  async subscribeToNotifications(userId: string): Promise<ApiResponse> {
+  async subscribeToNotifications(userId: string): Promise<ApiResponse<null>> {
     return this.request('/notifications/subscribe', {
       method: 'POST',
       body: JSON.stringify({ userId }),
@@ -397,7 +511,7 @@ class ApiService {
   }
 
   // Health check
-  async healthCheck(): Promise<ApiResponse> {
+  async healthCheck(): Promise<ApiResponse<{ status: string; timestamp: string }>> {
     return this.request('/health');
   }
 }

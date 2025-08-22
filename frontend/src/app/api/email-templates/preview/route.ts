@@ -1,203 +1,175 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Import template renderers
-import { render as renderBookingConfirmation } from '@/lib/services/emailTemplates/booking-confirmation';
-import { render as renderRepairStatusUpdate } from '@/lib/services/emailTemplates/repair-status-update';
-import { render as renderPaymentConfirmation } from '@/lib/services/emailTemplates/payment-confirmation';
-import { render as renderInvoice } from '@/lib/services/emailTemplates/invoice';
-import { render as renderPasswordReset } from '@/lib/services/emailTemplates/password-reset';
-import { render as renderEmailVerification } from '@/lib/services/emailTemplates/email-verification';
-
-// Sample data for previewing templates
-const sampleData: Record<string, any> = {
-  'booking-confirmation': {
-    customerName: 'John Doe',
-    bookingReference: 'REV-2025-001234',
-    device: {
-      brand: 'Apple',
-      model: 'iPhone 14 Pro',
-      issues: ['Cracked Screen', 'Battery Drain']
-    },
-    service: {
-      type: 'Screen Replacement',
-      urgency: 'Standard',
-      estimatedCost: 149.99,
-      estimatedDays: 2
-    },
-    appointment: {
-      date: 'February 1, 2025',
-      time: '2:00 PM',
-      type: 'Drop-off'
-    },
-    nextSteps: [
-      'Bring your device to our store at the scheduled time',
-      'Our technician will assess the device and confirm the repair cost',
-      'You\'ll receive SMS updates throughout the repair process',
-      'Pick up your device once the repair is complete'
-    ]
-  },
-  'repair-status-update': {
-    customerName: 'Jane Smith',
-    bookingReference: 'REV-2025-001235',
-    currentStatus: {
-      status: 'In Progress',
-      timestamp: new Date().toISOString(),
-      message: 'Our technician is currently working on your device'
-    },
-    previousStatus: {
-      status: 'Diagnostics Complete',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      message: 'Issue confirmed, parts ordered'
-    },
-    statusHistory: [
-      {
-        status: 'Received',
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        message: 'Device received at repair center'
-      },
-      {
-        status: 'Diagnostics Complete',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        message: 'Issue confirmed, parts ordered'
-      }
-    ],
-    device: {
-      brand: 'Samsung',
-      model: 'Galaxy S23',
-      serialNumber: 'XXXX1234'
-    },
-    estimatedCompletion: '2 days',
-    message: 'Your screen replacement is progressing well. The new display has been installed and we\'re currently running quality tests.',
-    nextSteps: 'We\'ll notify you once the repair is complete and ready for collection.'
-  },
-  'payment-confirmation': {
-    customerName: 'Mike Johnson',
-    paymentReference: 'PAY-2025-567890',
-    amount: 149.99,
-    paymentMethod: {
-      type: 'Credit Card',
-      last4: '4242'
-    },
-    device: {
-      brand: 'Apple',
-      model: 'MacBook Pro 14"'
-    },
-    service: {
-      type: 'Battery Replacement',
-      warranty: '90 days'
-    },
-    breakdown: [
-      { item: 'Battery Replacement', price: 129.99 },
-      { item: 'Labor', price: 20.00 }
-    ]
-  },
-  'invoice': {
-    invoiceNumber: 'INV-2025-001',
-    invoiceDate: new Date().toLocaleDateString(),
-    dueDate: new Date(Date.now() + 2592000000).toLocaleDateString(), // 30 days
-    customerInfo: {
-      name: 'Sarah Williams',
-      email: 'sarah@example.com',
-      phone: '+44 7700 900123',
-      address: '123 High Street, London, SW1A 1AA'
-    },
-    items: [
-      {
-        description: 'iPhone 14 Screen Replacement',
-        quantity: 1,
-        unitPrice: 149.99,
-        total: 149.99
-      },
-      {
-        description: 'Protective Case',
-        quantity: 1,
-        unitPrice: 29.99,
-        total: 29.99
-      }
-    ],
-    subtotal: 179.98,
-    tax: 36.00,
-    total: 215.98,
-    paymentTerms: 'Payment due within 30 days'
-  },
-  'password-reset': {
-    customerName: 'David Brown',
-    resetLink: 'https://revivatech.co.uk/auth/reset-password?token=sample-token-123',
-    expirationTime: '24 hours'
-  },
-  'email-verification': {
-    customerName: 'Emma Davis',
-    verificationLink: 'https://revivatech.co.uk/auth/verify-email?token=verify-token-456',
-    expirationTime: '48 hours'
-  }
-};
+const BACKEND_BASE_URL = process.env.BACKEND_URL || 'http://revivatech_backend:3011';
 
 export async function GET(request: NextRequest) {
   try {
-    const templateId = request.nextUrl.searchParams.get('id');
+    const { searchParams } = new URL(request.url);
+    const templateId = searchParams.get('id');
     
     if (!templateId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Template ID is required'
-      }, { status: 400 });
+      return new NextResponse(
+        '<html><body><div style="padding: 20px; font-family: Arial, sans-serif;"><h2>Error</h2><p>Template ID is required</p></div></body></html>',
+        {
+          status: 400,
+          headers: { 'Content-Type': 'text/html' }
+        }
+      );
     }
-
-    let html = '';
-    const data = sampleData[templateId];
-
-    if (!data) {
-      // Return a placeholder for templates without sample data
-      html = `
-        <div style="font-family: Arial, sans-serif; padding: 40px; text-align: center; color: #666;">
-          <h2>Template Preview Not Available</h2>
-          <p>This template is planned for future implementation.</p>
-          <p style="margin-top: 20px; font-size: 14px;">Template ID: ${templateId}</p>
-        </div>
-      `;
-    } else {
-      // Render the appropriate template
-      switch (templateId) {
-        case 'booking-confirmation':
-          html = renderBookingConfirmation(data);
-          break;
-        case 'repair-status-update':
-          html = renderRepairStatusUpdate(data);
-          break;
-        case 'payment-confirmation':
-          html = renderPaymentConfirmation(data);
-          break;
-        case 'invoice':
-          html = renderInvoice(data);
-          break;
-        case 'password-reset':
-          html = renderPasswordReset(data);
-          break;
-        case 'email-verification':
-          html = renderEmailVerification(data);
-          break;
-        default:
-          html = `
-            <div style="font-family: Arial, sans-serif; padding: 40px; text-align: center; color: #666;">
-              <h2>Template Not Found</h2>
-              <p>The requested template could not be rendered.</p>
-            </div>
-          `;
-      }
-    }
-
-    // Return the HTML with proper headers for iframe display
-    return new NextResponse(html, {
+    
+    // Default sample variables for preview
+    const sampleVariables = {
+      customer_name: 'John Doe',
+      device: 'iPhone 14 Pro',
+      booking_id: 'B12345',
+      repair_cost: '125.00',
+      quote_total_price: '125.00',
+      company_name: 'RevivaTech',
+      technician_name: 'Mike Johnson',
+      estimated_completion: '2-3 business days'
+    };
+    
+    const backendUrl = `${BACKEND_BASE_URL}/api/email-templates/${templateId}/preview`;
+    
+    const response = await fetch(backendUrl, {
+      method: 'POST',
       headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'X-Frame-Options': 'SAMEORIGIN', // Allow iframe from same origin
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ variables: sampleVariables }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Backend responded with ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.success || !data.data || !data.data.preview) {
+      throw new Error('Invalid preview data received from backend');
+    }
+
+    const { preview } = data.data;
+    const htmlContent = preview.html || '<p>No HTML content available</p>';
+    
+    // Return HTML content suitable for iframe display
+    const fullHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Template Preview</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+        }
+        .preview-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .preview-header {
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .preview-subject {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+        .preview-meta {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .preview-content {
+            min-height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-container">
+        <div class="preview-header">
+            <div class="preview-subject">Subject: ${preview.subject || 'No subject'}</div>
+            <div class="preview-meta">Template: ${data.data.template_name || 'Unknown'}</div>
+        </div>
+        <div class="preview-content">
+            ${htmlContent}
+        </div>
+    </div>
+</body>
+</html>`;
+    
+    return new NextResponse(fullHtml, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html',
+        'Cache-Control': 'no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       }
     });
+    
   } catch (error) {
-    console.error('Template preview error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to generate template preview'
-    }, { status: 500 });
+    console.error('Email template preview GET error:', error);
+    
+    const errorHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview Error</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .error-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #ef4444;
+            margin: 20px auto;
+            max-width: 500px;
+        }
+        .error-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .error-message {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-title">Preview Error</div>
+        <div class="error-message">
+            Failed to load email template preview.<br>
+            ${error instanceof Error ? error.message : 'Unknown error occurred'}
+        </div>
+    </div>
+</body>
+</html>`;
+    
+    return new NextResponse(errorHtml, {
+      status: 500,
+      headers: { 'Content-Type': 'text/html' }
+    });
   }
 }

@@ -44,7 +44,6 @@ class AIComputerVisionService {
    */
   async initialize() {
     try {
-      console.log('🎯 Initializing AI Computer Vision Service...');
       
       // Load device knowledge base
       await this.loadDeviceDatabase();
@@ -56,7 +55,6 @@ class AIComputerVisionService {
       await this.initializeModels();
       
       this.isInitialized = true;
-      console.log('✅ AI Computer Vision Service ready - Enterprise grade diagnostic capabilities active');
       
       return {
         status: 'initialized',
@@ -136,7 +134,6 @@ class AIComputerVisionService {
       // Update metrics
       this.updateMetrics(results);
 
-      console.log(`✅ Image analysis completed in ${results.processingTime}ms with ${Math.round(results.confidence * 100)}% confidence`);
       
       return results;
 
@@ -688,18 +685,15 @@ class AIComputerVisionService {
 
   async loadDeviceDatabase() {
     // Load device knowledge base
-    console.log('📚 Loading device knowledge base...');
     // In production, would load from database
   }
 
   async loadRepairCostDatabase() {
     // Load repair cost database
-    console.log('💰 Loading repair cost database...');
     // In production, would load from database
   }
 
   async initializeModels() {
-    console.log('🧠 Initializing AI models...');
     // In production, would load TensorFlow models
     this.models.damageDetection = { loaded: true };
     this.models.deviceIdentification = { loaded: true };

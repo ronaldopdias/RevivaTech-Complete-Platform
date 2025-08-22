@@ -84,7 +84,6 @@ class MonitoringService extends EventEmitter {
 
   async init() {
     try {
-      console.log('Initializing MonitoringService...');
       
       // Load historical metrics if available
       await this.loadHistoricalMetrics();
@@ -518,7 +517,6 @@ class MonitoringService extends EventEmitter {
     alert.active = false;
     alert.resolved = Date.now();
     
-    console.log(`✅ ALERT RESOLVED: ${alert.message}`);
     
     // Add to history
     this.alertHistory.push({
@@ -666,7 +664,6 @@ class MonitoringService extends EventEmitter {
 
   async loadHistoricalMetrics() {
     // In production, load from persistent storage
-    console.log('Historical metrics loaded (stub implementation)');
   }
 
   setupCleanup() {

@@ -1,7 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const rateLimit = require('express-rate-limit');
-const { authenticateBetterAuth: authenticateToken } = require('../middleware/better-auth-db-direct');
+const { authenticateBetterAuth: authenticateToken } = require('../middleware/better-auth-official');
 const router = express.Router();
 
 // Rate limiting for customer endpoints
@@ -25,54 +25,62 @@ router.get('/my-bookings', async (req, res) => {
   const client = await req.pool.connect();
   
   try {
-    const userId = req.user.id;
+    const userEmail = req.user.email;
     
-    // Get all bookings for the authenticated customer - FIXED QUERY
+    // Find customer by email (Better Auth user email -> Customer record)
+    const customerQuery = 'SELECT id FROM customers WHERE email = $1';
+    const customerResult = await client.query(customerQuery, [userEmail]);
+    
+    if (customerResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({
+        error: 'Customer not found',
+        message: 'No customer record found for this user'
+      });
+    }
+    
+    const customerId = customerResult.rows[0].id;
+    
+    // Get all bookings for the authenticated customer - FIXED QUERY  
     const bookingsQuery = `
       SELECT 
         b.id,
-        dm.name as device_model,
-        db.name as device_brand,
+        d.name as device_model,
+        db.name as device_brand, 
         dc.name as device_category,
-        b."repairType" as repair_type,
-        b.status,
-        b."problemDescription" as problem_description,
-        b."basePrice" as base_price,
-        b."finalPrice" as final_price,
-        b."createdAt" as created_at,
-        b."updatedAt" as updated_at,
-        b."scheduledDate" as estimated_completion,
-        u."firstName" as technician_first_name,
-        u."lastName" as technician_last_name
+        b.selected_repairs,
+        b.booking_status,
+        b.issue_description as problem_description,
+        b.quote_base_price as base_price,
+        b.quote_total_price as final_price,
+        b.created_at,
+        b.updated_at,
+        b.scheduled_date as estimated_completion
       FROM bookings b
       LEFT JOIN devices d ON b.device_id = d.id
       LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
       LEFT JOIN device_brands db ON d.brand_id = db.id
       LEFT JOIN device_categories dc ON d.category_id = dc.id
-      LEFT JOIN users u ON b."assignedTechnicianId" = u.id
       WHERE b.customer_id = $1
-      ORDER BY b."createdAt" DESC
+      ORDER BY b.created_at DESC
     `;
     
-    const bookingsResult = await client.query(bookingsQuery, [userId]);
+    const bookingsResult = await client.query(bookingsQuery, [customerId]);
     
     // Transform the data to match frontend interface
     const bookings = bookingsResult.rows.map(row => ({
       id: row.id,
-      deviceModel: row.device_model,
-      deviceBrand: row.device_brand,
-      deviceCategory: row.device_category,
-      repairType: row.repair_type,
-      status: row.status,
-      problemDescription: row.problem_description,
-      basePrice: parseFloat(row.base_price),
-      finalPrice: parseFloat(row.final_price),
+      deviceModel: row.device_model || 'Unknown Device',
+      deviceBrand: row.device_brand || 'Unknown Brand',
+      deviceCategory: row.device_category || 'Device',
+      repairType: Array.isArray(row.selected_repairs) ? row.selected_repairs.join(', ') : 'General Repair',
+      status: row.booking_status || 'draft',
+      problemDescription: row.problem_description || 'No description provided',
+      basePrice: parseFloat(row.base_price) || 0,
+      finalPrice: parseFloat(row.final_price) || 0,
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
       estimatedCompletion: row.estimated_completion?.toISOString(),
-      technicianName: row.technician_first_name && row.technician_last_name 
-        ? `${row.technician_first_name} ${row.technician_last_name}` 
-        : null
     }));
 
     client.release();
@@ -100,22 +108,36 @@ router.get('/dashboard-stats', async (req, res) => {
   const client = await req.pool.connect();
   
   try {
-    const userId = req.user.id;
+    const userEmail = req.user.email;
+    
+    // Find customer by email (Better Auth user email -> Customer record)
+    const customerQuery = 'SELECT id FROM customers WHERE email = $1';
+    const customerResult = await client.query(customerQuery, [userEmail]);
+    
+    if (customerResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({
+        error: 'Customer not found',
+        message: 'No customer record found for this user'
+      });
+    }
+    
+    const customerId = customerResult.rows[0].id;
     
     // Get statistics from bookings
     const statsQuery = `
       SELECT 
         COUNT(*) as total_bookings,
-        COUNT(CASE WHEN status IN ('PENDING', 'CONFIRMED', 'IN_PROGRESS') THEN 1 END) as active_bookings,
-        COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_bookings,
-        COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN "finalPrice" END), 0) as total_spent,
-        AVG(CASE WHEN status = 'COMPLETED' THEN 5.0 END) as average_rating,
-        MAX("createdAt") as last_booking_date
+        COUNT(CASE WHEN booking_status IN ('confirmed', 'in_progress', 'scheduled') THEN 1 END) as active_bookings,
+        COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) as completed_bookings,
+        COALESCE(SUM(CASE WHEN booking_status = 'completed' THEN quote_total_price END), 0) as total_spent,
+        AVG(CASE WHEN booking_status = 'completed' THEN 5.0 END) as average_rating,
+        MAX(created_at) as last_booking_date
       FROM bookings
-      WHERE "customerId" = $1
+      WHERE customer_id = $1
     `;
     
-    const statsResult = await client.query(statsQuery, [userId]);
+    const statsResult = await client.query(statsQuery, [customerId]);
     const stats = statsResult.rows[0];
     
     client.release();
@@ -150,30 +172,40 @@ router.get('/recent-activity', async (req, res) => {
   const client = await req.pool.connect();
   
   try {
-    const userId = req.user.id;
+    const userEmail = req.user.email;
+    
+    // Find customer by email (Better Auth user email -> Customer record)
+    const customerQuery = 'SELECT id FROM customers WHERE email = $1';
+    const customerResult = await client.query(customerQuery, [userEmail]);
+    
+    if (customerResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({
+        error: 'Customer not found',
+        message: 'No customer record found for this user'
+      });
+    }
+    
+    const customerId = customerResult.rows[0].id;
     
     // Get recent booking status changes - FIXED QUERY
     const activityQuery = `
       SELECT 
         b.id,
-        b.status,
-        b."updatedAt" as updated_at,
-        dm.name as device_model,
-        db.name as device_brand,
-        u."firstName" as technician_first_name,
-        u."lastName" as technician_last_name
+        b.booking_status,
+        b.updated_at,
+        d.name as device_model,
+        db.name as device_brand
       FROM bookings b
       LEFT JOIN devices d ON b.device_id = d.id
-      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
-      LEFT JOIN device_brands db ON dm."brandId" = db.id
-      LEFT JOIN users u ON b."assignedTechnicianId" = u.id
-      WHERE b."customerId" = $1 
-        AND b."updatedAt" >= NOW() - INTERVAL '7 days'
-      ORDER BY b."updatedAt" DESC
+      LEFT JOIN device_brands db ON d.brand_id = db.id
+      WHERE b.customer_id = $1 
+        AND b.updated_at >= NOW() - INTERVAL '7 days'
+      ORDER BY b.updated_at DESC
       LIMIT 10
     `;
     
-    const activityResult = await client.query(activityQuery, [userId]);
+    const activityResult = await client.query(activityQuery, [customerId]);
     
     // Transform to activity feed format
     const activities = activityResult.rows.map(row => {

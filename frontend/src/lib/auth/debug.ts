@@ -47,15 +47,6 @@ export function logAuthState(authHook: any, context: string = 'Unknown') {
   const debugInfo = captureAuthState(authHook);
   
   console.group(`🔍 Auth Debug - ${context}`);
-  console.log('Timestamp:', debugInfo.timestamp);
-  console.log('URL:', debugInfo.url);
-  console.log('Is Authenticated:', debugInfo.isAuthenticated);
-  console.log('Is Loading:', debugInfo.isLoading);
-  console.log('Has Valid Session:', debugInfo.hasValidSession);
-  console.log('User Role:', debugInfo.role);
-  console.log('Session Data:', debugInfo.session);
-  console.log('User Data:', debugInfo.user);
-  console.log('Auth Cookies:', Object.keys(debugInfo.cookies).filter(k => 
     k.includes('auth') || k.includes('session') || k.includes('role')
   ).reduce((obj, key) => {
     obj[key] = debugInfo.cookies[key];
@@ -104,7 +95,6 @@ export function createAuthDebugger(interval: number = 5000) {
     start: (authHook: any, context: string = 'Auto Debug') => {
       if (debugInterval) return;
       
-      console.log(`🔍 Starting auth debugger (${interval}ms interval)`);
       
       debugInterval = setInterval(() => {
         const validation = validateAuthState(authHook);
@@ -119,7 +109,6 @@ export function createAuthDebugger(interval: number = 5000) {
       if (debugInterval) {
         clearInterval(debugInterval);
         debugInterval = null;
-        console.log('🔍 Auth debugger stopped');
       }
     },
     

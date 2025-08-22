@@ -78,7 +78,6 @@ class NotificationService extends EventEmitter {
             // Send pending notifications
             await this.sendPendingNotifications(userId, socket);
             
-            console.log(`✅ User authenticated: ${userId} (${userType})`);
           } else {
             socket.emit('authentication_error', {
               error: 'Invalid credentials'
@@ -422,7 +421,6 @@ class NotificationService extends EventEmitter {
       
       if (notification) {
         notification.acknowledged = true;
-        console.log(`✅ Notification acknowledged: ${notificationId} by user ${userId}`);
       }
     }
   }
@@ -438,7 +436,6 @@ class NotificationService extends EventEmitter {
         }
       });
 
-      console.log(`✅ Marked ${notificationIds.length} notifications as read for user ${userId}`);
     }
   }
 
@@ -448,7 +445,6 @@ class NotificationService extends EventEmitter {
       updatedAt: Date.now()
     });
 
-    console.log(`⚙️ Updated notification preferences for user ${userId}`);
   }
 
   // Broadcast methods for admin notifications

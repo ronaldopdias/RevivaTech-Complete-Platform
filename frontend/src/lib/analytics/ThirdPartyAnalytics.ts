@@ -161,7 +161,6 @@ class ThirdPartyAnalyticsService {
           console.log('PostHog: Using official SDK from instrumentation-client.js');
         } else {
           // PostHog is disabled in instrumentation.ts - this is expected
-          console.log('PostHog: SDK not loaded (disabled in instrumentation.ts)');
         }
       }
 

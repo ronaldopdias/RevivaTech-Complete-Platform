@@ -41,7 +41,6 @@ class EmailService extends EventEmitter {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing Email Service...');
       
       // Try SendGrid first, fallback to SMTP if it fails
       if (this.options.provider === 'sendgrid') {
@@ -59,7 +58,6 @@ class EmailService extends EventEmitter {
       }
 
       this.isInitialized = true;
-      console.log(`✅ Email Service initialized with ${this.options.provider}`);
       
       return true;
     } catch (error) {
@@ -82,7 +80,6 @@ class EmailService extends EventEmitter {
     // Test SendGrid connection
     try {
       await this.testSendGridConnection();
-      console.log('✅ SendGrid connection verified');
     } catch (error) {
       throw new Error(`SendGrid connection failed: ${error.message}`);
     }
@@ -112,7 +109,6 @@ class EmailService extends EventEmitter {
     // Verify SMTP connection
     try {
       await this.transporter.verify();
-      console.log('✅ SMTP connection verified');
     } catch (error) {
       throw new Error(`SMTP connection failed: ${error.message}`);
     }
@@ -154,7 +150,6 @@ class EmailService extends EventEmitter {
         timestamp: Date.now()
       });
 
-      console.log(`✅ Email sent successfully: ${emailData.id} to ${emailData.to}`);
       
       return {
         success: true,
@@ -372,7 +367,6 @@ class EmailService extends EventEmitter {
 
     if (emailData.retryCount <= this.options.maxRetries) {
       // Schedule retry
-      console.log(`🔄 Scheduling retry ${emailData.retryCount}/${this.options.maxRetries} for email: ${emailData.id}`);
       
       setTimeout(async () => {
         try {
@@ -571,13 +565,11 @@ class EmailService extends EventEmitter {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
-      console.log(`📊 Batch ${Math.floor(i / batchSize) + 1} completed: ${batch.length} emails`);
     }
 
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
-    console.log(`✅ Bulk send completed: ${successful} sent, ${failed} failed`);
 
     return {
       total: emails.length,
@@ -628,7 +620,6 @@ class EmailService extends EventEmitter {
 
   // Email preference updates
   async updateEmailPreferences(email, preferences) {
-    console.log(`⚙️ Updating email preferences for: ${email}`);
     
     // Emit preference update event
     this.emit('preferencesUpdated', {

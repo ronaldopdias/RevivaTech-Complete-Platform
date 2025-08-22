@@ -40,7 +40,6 @@ if (!dbConfig) {
   process.exit(1);
 }
 
-console.log(`🚀 Setting up RevivaTech database for ${environment} environment`);
 console.log(`📍 Database: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
 console.log('');
 
@@ -63,13 +62,11 @@ async function setupDatabase() {
     });
     
     await adminClient.connect();
-    console.log('✅ Connected to PostgreSQL');
     
     // ===================================
     // 2. CREATE DATABASE AND USER
     // ===================================
     
-    console.log(`🏗️  Creating database and user...`);
     
     // Create user if doesn't exist
     try {
@@ -79,10 +76,8 @@ async function setupDatabase() {
         CREATEDB
         LOGIN;
       `);
-      console.log(`✅ Created user: ${dbConfig.user}`);
     } catch (error) {
       if (error.code === '42710') { // User already exists
-        console.log(`ℹ️  User ${dbConfig.user} already exists`);
       } else {
         throw error;
       }
@@ -91,10 +86,8 @@ async function setupDatabase() {
     // Create database if doesn't exist
     try {
       await adminClient.query(`CREATE DATABASE ${dbConfig.database} OWNER ${dbConfig.user};`);
-      console.log(`✅ Created database: ${dbConfig.database}`);
     } catch (error) {
       if (error.code === '42P04') { // Database already exists
-        console.log(`ℹ️  Database ${dbConfig.database} already exists`);
       } else {
         throw error;
       }
@@ -102,7 +95,6 @@ async function setupDatabase() {
     
     // Grant privileges
     await adminClient.query(`GRANT ALL PRIVILEGES ON DATABASE ${dbConfig.database} TO ${dbConfig.user};`);
-    console.log(`✅ Granted privileges to ${dbConfig.user}`);
     
     await adminClient.end();
     
@@ -120,13 +112,11 @@ async function setupDatabase() {
     });
     
     await userClient.connect();
-    console.log('✅ Connected as application user');
     
     // ===================================
     // 4. RUN MIGRATIONS
     // ===================================
     
-    console.log('🔄 Running database migrations...');
     
     const knex = require('knex');
     const knexConfig = require('../knexfile.js')[environment];
@@ -135,13 +125,10 @@ async function setupDatabase() {
     
     try {
       // Run migrations
-      console.log('📦 Running schema migrations...');
       const [batchNo, migrationFiles] = await db.migrate.latest();
       
       if (migrationFiles.length === 0) {
-        console.log('ℹ️  Database is already up to date');
       } else {
-        console.log(`✅ Migrated ${migrationFiles.length} files:`);
         migrationFiles.forEach(file => {
           console.log(`   - ${file}`);
         });
@@ -157,7 +144,6 @@ async function setupDatabase() {
         ORDER BY table_name;
       `);
       
-      console.log(`✅ Found ${tables.rows.length} tables:`);
       tables.rows.forEach(row => {
         console.log(`   - ${row.table_name}`);
       });
@@ -225,7 +211,6 @@ async function checkConnection() {
   try {
     await testClient.connect();
     const result = await testClient.query('SELECT version();');
-    console.log(`✅ Connection successful - PostgreSQL ${result.rows[0].version}`);
     await testClient.end();
     return true;
   } catch (error) {
@@ -235,7 +220,6 @@ async function checkConnection() {
 }
 
 async function showDatabaseInfo() {
-  console.log('📊 Database information:');
   
   const infoClient = new Client({
     host: dbConfig.host,
@@ -294,8 +278,6 @@ async function main() {
       break;
       
     case 'reset':
-      console.log('⚠️  This will completely reset the database!');
-      console.log('⚠️  All data will be lost!');
       console.log('');
       // Could implement reset functionality here
       console.log('Reset functionality not implemented for safety');

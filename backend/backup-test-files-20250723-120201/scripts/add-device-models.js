@@ -1272,7 +1272,6 @@ async function addDeviceModels() {
   const client = await pool.connect();
   
   try {
-    console.log('🚀 Adding comprehensive UK device models to existing database...\n');
     console.log(`📊 Addition Statistics:`);
     console.log(`   New Device Models to Add: ${newDeviceModels.length}`);
     
@@ -1343,7 +1342,6 @@ async function addDeviceModels() {
     console.log('   • Complete 2015-2025 device coverage');
     console.log('   • Age-based pricing implemented');
     console.log('   • Brand premiums configured');
-    console.log('   • API endpoints ready for testing');
     
   } catch (error) {
     await client.query('ROLLBACK');
@@ -1360,7 +1358,6 @@ async function addDeviceModels() {
 if (require.main === module) {
   addDeviceModels()
     .then(() => {
-      console.log('\n🎯 Ready for next steps:');
       console.log('   1. Test API endpoints: curl "http://localhost:3011/api/devices/search?limit=10"');
       console.log('   2. Verify categories: curl "http://localhost:3011/api/devices/categories"');
       console.log('   3. Check pricing: curl "http://localhost:3011/api/pricing/calculate"');

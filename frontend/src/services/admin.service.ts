@@ -188,11 +188,19 @@ class AdminService {
    */
   async getRepairStats(): Promise<RepairStats> {
     try {
-      const apiUrl = getApiBaseUrl();
-      const response = await this.makeAuthenticatedRequest(
-        `${apiUrl}/api/admin/repairs/stats/overview`,
-        { method: 'GET' }
-      );
+      // Force development mode detection and use localhost backend
+      const isDevelopment = process.env.NODE_ENV === 'development' || 
+                           window.location.hostname === 'localhost' ||
+                           window.location.hostname === '127.0.0.1';
+      
+      // Always use direct localhost connection in development
+      const baseUrl = isDevelopment ? 'http://localhost:3011' : getApiBaseUrl();
+      const endpoint = isDevelopment 
+        ? `${baseUrl}/api/dev/admin/repairs/stats/overview`
+        : `${baseUrl}/api/admin/repairs/stats/overview`;
+        
+      console.log(`🔍 Admin Service: Fetching repair stats from ${endpoint} (dev=${isDevelopment})`);
+      const response = await fetch(endpoint, { method: 'GET' });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch repair stats: ${response.status}`);
@@ -211,11 +219,19 @@ class AdminService {
    */
   async getBookingStats(): Promise<BookingStats> {
     try {
-      const apiUrl = getApiBaseUrl();
-      const response = await this.makeAuthenticatedRequest(
-        `${apiUrl}/api/admin/bookings/stats/overview`,
-        { method: 'GET' }
-      );
+      // Force development mode detection and use localhost backend
+      const isDevelopment = process.env.NODE_ENV === 'development' || 
+                           window.location.hostname === 'localhost' ||
+                           window.location.hostname === '127.0.0.1';
+      
+      // Always use direct localhost connection in development
+      const baseUrl = isDevelopment ? 'http://localhost:3011' : getApiBaseUrl();
+      const endpoint = isDevelopment 
+        ? `${baseUrl}/api/dev/admin/bookings/stats/overview`
+        : `${baseUrl}/api/admin/bookings/stats/overview`;
+        
+      console.log(`🔍 Admin Service: Fetching booking stats from ${endpoint} (dev=${isDevelopment})`);
+      const response = await fetch(endpoint, { method: 'GET' });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch booking stats: ${response.status}`);

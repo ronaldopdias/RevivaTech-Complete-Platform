@@ -2108,7 +2108,6 @@ async function importComprehensiveDeviceData() {
   const client = await pool.connect();
   
   try {
-    console.log('🚀 Starting comprehensive UK device database import...\n');
     console.log(`📊 Import Statistics:`);
     console.log(`   Categories: ${comprehensiveDeviceData.categories.length}`);
     console.log(`   Brands: ${comprehensiveDeviceData.brands.length}`);
@@ -2194,7 +2193,6 @@ async function importComprehensiveDeviceData() {
     console.log('   • Age-based pricing implemented');
     console.log('   • Brand premiums configured');
     console.log('   • Seasonal adjustments active');
-    console.log('   • API endpoints ready for testing');
     
   } catch (error) {
     await client.query('ROLLBACK');
@@ -2211,7 +2209,6 @@ async function importComprehensiveDeviceData() {
 if (require.main === module) {
   importComprehensiveDeviceData()
     .then(() => {
-      console.log('\n🎯 Ready for next steps:');
       console.log('   1. Test API endpoints: curl "http://localhost:3011/api/devices/search?limit=10"');
       console.log('   2. Verify pricing: curl "http://localhost:3011/api/pricing/calculate"');
       console.log('   3. Check categories: curl "http://localhost:3011/api/devices/categories"');

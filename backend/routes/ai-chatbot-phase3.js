@@ -328,22 +328,6 @@ router.get('/health', async (req, res) => {
 /**
  * Test endpoint with sample data
  */
-router.get('/test', async (req, res) => {
-    try {
-        const testMessage = 'iPhone 15 Pro screen cracked';
-        
-        // Redirect to main chat endpoint
-        req.body = { message: testMessage };
-        return router.handle(req, res);
-        
-    } catch (error) {
-        res.status(500).json({
-            error: true,
-            error_message: 'Test endpoint error',
-            details: error.message
-        });
-    }
-});
 
 /**
  * Performance metrics endpoint

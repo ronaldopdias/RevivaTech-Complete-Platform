@@ -31,7 +31,6 @@ class MarketingAutomation extends EventEmitter {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing Marketing Automation Service...');
       
       // Initialize ML Service for intelligent triggers
       await this.mlService.initialize();
@@ -39,7 +38,6 @@ class MarketingAutomation extends EventEmitter {
       // Setup event processing
       this.startEventProcessor();
       
-      console.log('✅ Marketing Automation Service initialized');
       return true;
     } catch (error) {
       console.error('❌ Marketing Automation initialization failed:', error);
@@ -198,7 +196,6 @@ class MarketingAutomation extends EventEmitter {
           await this.scheduleAutomation(automation);
           triggeredAutomations.push(automation);
 
-          console.log(`🎯 Triggered automation: ${trigger.name} for event: ${event.type}`);
         }
       } catch (error) {
         console.error(`❌ Trigger evaluation failed for ${triggerId}:`, error);
@@ -302,7 +299,6 @@ class MarketingAutomation extends EventEmitter {
       // Update metrics
       this.metrics.automationSuccess++;
 
-      console.log(`✅ Automation completed: ${automation.id}`);
       return result;
     } catch (error) {
       automation.status = 'failed';

@@ -38,7 +38,6 @@ router.post('/repair-demand-forecast', async (req, res) => {
       historicalData = null
     } = req.body;
 
-    console.log('📊 Generating repair demand forecast for:', timeframe);
 
     // Generate ML-powered demand forecast
     const forecast = await generateRepairDemandForecast({
@@ -284,7 +283,6 @@ router.post('/inventory-demand-prediction', async (req, res) => {
       riskLevel = 'medium'
     } = req.body;
 
-    console.log('📦 Predicting inventory demand for timeframe:', timeframe);
 
     const inventoryPredictions = await predictInventoryDemand({
       parts,

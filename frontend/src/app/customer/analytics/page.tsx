@@ -6,6 +6,8 @@
 import React from 'react';
 import { Metadata } from 'next';
 import CustomerAnalyticsDashboard from '@/components/customer/CustomerAnalyticsDashboard';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { UserRole } from '@/lib/auth/types';
 
 export const metadata: Metadata = {
   title: 'Your Service Analytics | RevivaTech Customer Portal',
@@ -14,10 +16,12 @@ export const metadata: Metadata = {
 
 export default function CustomerAnalyticsPage() {
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <CustomerAnalyticsDashboard />
+    <ProtectedRoute requiredRole={[UserRole.CUSTOMER]}>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <CustomerAnalyticsDashboard />
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

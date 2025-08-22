@@ -74,14 +74,12 @@ export class AnalyticsWebSocketService {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      console.log('✅ Analytics WebSocket connected');
       this.connected = true;
       this.reconnectAttempts = 0;
       this.emit('connected', { timestamp: new Date() });
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log('❌ Analytics WebSocket disconnected:', reason);
       this.connected = false;
       this.emit('disconnected', { reason, timestamp: new Date() });
     });
@@ -119,6 +117,11 @@ export class AnalyticsWebSocketService {
 
   // Subscribe to real-time analytics
   public subscribeToAnalytics(dashboardId?: string) {
+    // In development mode, WebSocket is disabled - silently return
+    if (process.env.NODE_ENV === 'development') {
+      return;
+    }
+    
     if (!this.connected || !this.socket) {
       console.warn('WebSocket not connected, cannot subscribe to analytics');
       return;
@@ -129,7 +132,6 @@ export class AnalyticsWebSocketService {
       timestamp: new Date(),
     });
 
-    console.log('📊 Subscribed to real-time analytics');
   }
 
   // Subscribe to real-time metrics (alias for subscribeToAnalytics)
@@ -146,6 +148,11 @@ export class AnalyticsWebSocketService {
       this.on('live_event', callback);
     }
     
+    // In development mode, WebSocket is disabled - silently return
+    if (process.env.NODE_ENV === 'development') {
+      return;
+    }
+    
     if (!this.connected || !this.socket) {
       console.warn('WebSocket not connected, cannot subscribe to events');
       return;
@@ -156,7 +163,6 @@ export class AnalyticsWebSocketService {
       timestamp: new Date(),
     });
 
-    console.log(`📊 Subscribed to events: ${eventType}`);
   }
 
   // Unsubscribe from analytics
@@ -167,11 +173,15 @@ export class AnalyticsWebSocketService {
       timestamp: new Date(),
     });
 
-    console.log('📊 Unsubscribed from real-time analytics');
   }
 
   // Send analytics event
   public sendEvent(event: Partial<RealTimeEvent>) {
+    // In development mode, WebSocket is disabled - silently return
+    if (process.env.NODE_ENV === 'development') {
+      return;
+    }
+    
     if (!this.connected || !this.socket) {
       console.warn('WebSocket not connected, cannot send event');
       return;
@@ -185,6 +195,11 @@ export class AnalyticsWebSocketService {
 
   // Request metric update
   public requestMetricUpdate(metricId: string) {
+    // In development mode, WebSocket is disabled - silently return
+    if (process.env.NODE_ENV === 'development') {
+      return;
+    }
+    
     if (!this.connected || !this.socket) {
       console.warn('WebSocket not connected, cannot request metric update');
       return;

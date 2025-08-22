@@ -401,7 +401,6 @@ export default function PhotoGallery({
         const data = typeof lastMessage === 'string' ? JSON.parse(lastMessage) : lastMessage;
         
         if (data.type === 'photo-uploaded' && data.repairId === repairId) {
-          console.log('New photo uploaded:', data);
           
           const newPhoto: RepairPhoto = {
             id: data.photoId,

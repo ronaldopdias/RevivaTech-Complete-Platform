@@ -1,6 +1,6 @@
 const express = require('express');
 const Joi = require('joi');
-const { optionalAuth } = require('../middleware/better-auth-db-direct');
+const { optionalAuth } = require('../middleware/better-auth-official');
 const router = express.Router();
 
 // Validation schemas
@@ -22,11 +22,11 @@ router.get('/categories', optionalAuth, async (req, res) => {
         name, 
         slug, 
         description, 
-        "iconName", 
-        "sortOrder"
+        icon as "iconName", 
+        display_order as "sortOrder"
       FROM device_categories 
-      WHERE "isActive" = true 
-      ORDER BY "sortOrder" ASC, name ASC
+      WHERE is_active = true 
+      ORDER BY display_order ASC, name ASC
     `;
 
     const result = await req.pool.query(categoriesQuery);
@@ -51,14 +51,15 @@ router.get('/categories/:categoryId/brands', optionalAuth, async (req, res) => {
     const { categoryId } = req.params;
 
     const brandsQuery = `
-      SELECT 
-        id, 
-        name, 
-        slug, 
-        "logoUrl"
-      FROM device_brands 
-      WHERE "categoryId" = $1 AND "isActive" = true 
-      ORDER BY name ASC
+      SELECT DISTINCT
+        b.id, 
+        b.name, 
+        b.slug, 
+        b.logo_url as "logoUrl"
+      FROM device_brands b
+      JOIN devices d ON d.brand_id = b.id
+      WHERE d.category_id = $1 AND b.is_active = true 
+      ORDER BY b.name ASC
     `;
 
     const result = await req.pool.query(brandsQuery, [categoryId]);
@@ -81,18 +82,19 @@ router.get('/categories/:categoryId/brands', optionalAuth, async (req, res) => {
 router.get('/brands', optionalAuth, async (req, res) => {
   try {
     const brandsQuery = `
-      SELECT 
+      SELECT DISTINCT
         b.id,
         b.name,
         b.slug,
-        b."logoUrl",
-        b."categoryId",
+        b.logo_url as "logoUrl",
+        c.id as "categoryId",
         c.name as "categoryName",
         c.slug as "categorySlug"
       FROM device_brands b
-      JOIN device_categories c ON b."categoryId" = c.id
-      WHERE b."isActive" = true AND c."isActive" = true
-      ORDER BY c."sortOrder" ASC, c.name ASC, b.name ASC
+      JOIN devices d ON d.brand_id = b.id
+      JOIN device_categories c ON d.category_id = c.id
+      WHERE b.is_active = true AND c.is_active = true
+      ORDER BY c.display_order ASC, c.name ASC, b.name ASC
     `;
 
     const result = await req.pool.query(brandsQuery);

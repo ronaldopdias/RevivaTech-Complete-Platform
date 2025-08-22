@@ -438,7 +438,6 @@ export const performanceUtils = {
   optimizeFonts: () => {
     if (typeof window !== 'undefined' && 'fonts' in document) {
       document.fonts.ready.then(() => {
-        console.log('All fonts loaded');
       });
     }
   },

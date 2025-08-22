@@ -38,7 +38,6 @@ class PushNotificationService {
 
   async initialize(): Promise<boolean> {
     try {
-      console.log('📱 PushService: Initializing...');
 
       // Check if service worker and push notifications are supported
       if (!this.isSupported()) {
@@ -384,7 +383,6 @@ class PushNotificationService {
       const response = await fetch('/api/push-notifications?action=vapid-public-key');
       const data = await response.json();
       this.vapidPublicKey = data.publicKey;
-      console.log('📱 PushService: VAPID key loaded');
     } catch (error) {
       console.error('📱 PushService: Failed to load VAPID key:', error);
       throw error;

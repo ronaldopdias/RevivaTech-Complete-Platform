@@ -391,7 +391,6 @@ class CacheService extends EventEmitter {
       
       await pipeline.exec();
       
-      console.log(`Cache warmup completed: ${count} keys preloaded`);
       this.emit('warmupCompleted', { count });
       
       return count;

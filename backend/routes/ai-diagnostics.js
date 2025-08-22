@@ -59,7 +59,6 @@ const upload = multer({
  */
 router.post('/initialize', async (req, res) => {
   try {
-    console.log('🚀 Initializing AI Diagnostic Services...');
     
     const [cvInit, costInit, docInit] = await Promise.all([
       computerVisionService.initialize(),
@@ -133,7 +132,6 @@ router.post('/analyze', upload.array('images', 10), async (req, res) => {
     }));
 
     // Step 1: Computer Vision Analysis
-    console.log('🎯 Running computer vision analysis...');
     const visionAnalysis = await computerVisionService.analyzeDeviceImages(
       imageObjects,
       parsedDeviceInfo,
@@ -211,8 +209,6 @@ router.post('/analyze', upload.array('images', 10), async (req, res) => {
     };
 
     // Log success metrics
-    console.log(`✅ AI analysis completed successfully in ${results.processingTime}ms`);
-    console.log(`📊 Found ${results.summary.totalIssuesFound} issues with ${Math.round(results.summary.confidence * 100)}% confidence`);
     console.log(`💰 Estimated repair cost: £${results.summary.estimatedCost}`);
 
     res.json({
@@ -259,7 +255,6 @@ router.post('/triage', async (req, res) => {
       });
     }
 
-    console.log(`⚡ Running quick diagnostic triage for ${deviceInfo.brand} ${deviceInfo.model}`);
 
     // Quick text-based analysis
     const triageResult = {

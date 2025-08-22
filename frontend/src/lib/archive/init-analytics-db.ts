@@ -21,7 +21,6 @@ async function initializeAnalyticsDatabase() {
   const client = new Pool(dbConfig);
 
   try {
-    console.log('🚀 Initializing RevivaTech Analytics Database...');
 
     // Create analytics_events table
     await client.query(`
@@ -55,7 +54,6 @@ async function initializeAnalyticsDatabase() {
       CREATE INDEX IF NOT EXISTS idx_analytics_events_session_id ON analytics_events(session_id);
     `);
 
-    console.log('✅ Created analytics_events table with indexes');
 
     // Create analytics_metrics table
     await client.query(`
@@ -79,7 +77,6 @@ async function initializeAnalyticsDatabase() {
       CREATE INDEX IF NOT EXISTS idx_analytics_metrics_calculated_at ON analytics_metrics(calculated_at);
     `);
 
-    console.log('✅ Created analytics_metrics table with indexes');
 
     // Create customers table if it doesn't exist (for analytics)
     await client.query(`
@@ -100,7 +97,6 @@ async function initializeAnalyticsDatabase() {
       )
     `);
 
-    console.log('✅ Created customers table');
 
     // Create bookings table if it doesn't exist (for analytics)
     await client.query(`
@@ -136,7 +132,6 @@ async function initializeAnalyticsDatabase() {
       CREATE INDEX IF NOT EXISTS idx_bookings_payment_status ON bookings(payment_status);
     `);
 
-    console.log('✅ Created bookings table with indexes');
 
     // Create reviews table for customer satisfaction tracking
     await client.query(`
@@ -159,7 +154,6 @@ async function initializeAnalyticsDatabase() {
       CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON reviews(created_at);
     `);
 
-    console.log('✅ Created reviews table with indexes');
 
     // Insert sample data for testing (production environment can skip this)
     if (process.env.NODE_ENV !== 'production') {
@@ -194,7 +188,6 @@ async function initializeAnalyticsDatabase() {
         ON CONFLICT DO NOTHING
       `);
 
-      console.log('✅ Sample data inserted for development');
     }
 
     // Create views for analytics queries
@@ -212,18 +205,15 @@ async function initializeAnalyticsDatabase() {
       ORDER BY date DESC
     `);
 
-    console.log('✅ Created analytics views');
 
     console.log('🎉 Analytics database initialization completed successfully!');
     console.log('');
-    console.log('📊 Tables created:');
     console.log('   - analytics_events (event tracking)');
     console.log('   - analytics_metrics (calculated metrics)');
     console.log('   - customers (customer data)');
     console.log('   - bookings (repair bookings)');
     console.log('   - reviews (customer feedback)');
     console.log('');
-    console.log('🚀 RevivaTech Analytics Phase 7 is ready for production!');
 
   } catch (error) {
     console.error('❌ Database initialization failed:', error);

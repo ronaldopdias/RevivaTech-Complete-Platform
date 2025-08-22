@@ -28,7 +28,6 @@ interface AIAssistantRequest {
 
 export default function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   if (!res.socket.server.io) {
-    console.log('Initializing Socket.IO server...');
     
     const io = new SocketIOServer(res.socket.server, {
       path: '/api/chat/websocket',

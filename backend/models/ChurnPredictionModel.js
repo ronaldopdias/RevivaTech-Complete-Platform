@@ -35,14 +35,11 @@ class ChurnPredictionModel {
 
   async initialize() {
     try {
-      console.log('🔮 Initializing Churn Prediction Model...');
       
       // Try to load existing model
       try {
         this.model = await tf.loadLayersModel('file:///opt/webapps/revivatech/backend/models/saved/churn_prediction');
-        console.log('📦 Loaded existing churn prediction model');
       } catch (error) {
-        console.log('🔨 Creating new churn prediction model');
         await this.createModel();
       }
 
@@ -50,7 +47,6 @@ class ChurnPredictionModel {
       this.initializeScaler();
       
       this.isReady = true;
-      console.log('✅ Churn Prediction Model ready');
       
       return true;
     } catch (error) {
@@ -289,7 +285,6 @@ class ChurnPredictionModel {
 
   async train(trainingData) {
     try {
-      console.log('🏋️ Training churn prediction model...');
       
       if (!trainingData || trainingData.length < 100) {
         console.warn('⚠️ Insufficient training data, using synthetic data');
@@ -347,7 +342,6 @@ class ChurnPredictionModel {
       await this.saveModel();
 
       const finalLoss = history.history.val_loss[history.history.val_loss.length - 1];
-      console.log(`✅ Churn prediction training completed - Loss: ${finalLoss.toFixed(4)}`);
       
       return {
         loss: finalLoss,
@@ -405,7 +399,6 @@ class ChurnPredictionModel {
     try {
       const savePath = 'file:///opt/webapps/revivatech/backend/models/saved/churn_prediction';
       await this.model.save(savePath);
-      console.log('💾 Churn prediction model saved');
     } catch (error) {
       console.warn('⚠️ Could not save churn model:', error.message);
     }

@@ -45,10 +45,8 @@ class AIRealtimeStreaming extends EventEmitter {
    */
   async initialize() {
     try {
-      console.log('🔴 Initializing AI Real-time Streaming Service...');
       
       this.isInitialized = true;
-      console.log('✅ AI Real-time Streaming Service ready');
       
       return {
         status: 'initialized',
@@ -447,7 +445,6 @@ class AIRealtimeStreaming extends EventEmitter {
     this.metrics.activeSessions--;
     this.updateSessionMetrics(session);
 
-    console.log(`✅ Analysis completed for session ${sessionId}`);
   }
 
   /**

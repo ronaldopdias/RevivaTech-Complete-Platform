@@ -33,7 +33,6 @@ class AudienceBuilder extends EventEmitter {
 
   async initialize() {
     try {
-      console.log('👥 Initializing Audience Builder Service...');
       
       // Initialize ML Service
       await this.mlService.initialize();
@@ -44,7 +43,6 @@ class AudienceBuilder extends EventEmitter {
       // Setup real-time event listeners
       this.setupEventListeners();
       
-      console.log('✅ Audience Builder Service initialized');
       return true;
     } catch (error) {
       console.error('❌ Audience Builder initialization failed:', error);
@@ -392,7 +390,6 @@ class AudienceBuilder extends EventEmitter {
       
       this.emit('audienceCreated', { audienceId, name: rule.name, size: audience.metadata.size });
       
-      console.log(`✅ Created custom audience: ${rule.name} with ${audience.metadata.size} users`);
       return audience;
     } catch (error) {
       console.error('❌ Failed to create custom audience:', error);
@@ -432,7 +429,6 @@ class AudienceBuilder extends EventEmitter {
       audience.syncStatus = 'built';
 
       const buildTime = Date.now() - startTime;
-      console.log(`🏗️ Built audience ${rule.name}: ${audience.metadata.size} users in ${buildTime}ms`);
       
       return audience;
     } catch (error) {
@@ -466,7 +462,6 @@ class AudienceBuilder extends EventEmitter {
         syncTime 
       });
 
-      console.log(`🔄 Synced audience ${audience.name} to ${platform}: ${audience.metadata.size} users in ${syncTime}ms`);
       return syncResult;
     } catch (error) {
       console.error(`❌ Failed to sync audience ${audienceId}:`, error);
@@ -567,7 +562,6 @@ class AudienceBuilder extends EventEmitter {
       }
 
       await Promise.all(syncPromises);
-      console.log(`🔄 Completed sync for ${syncPromises.length} audiences`);
     } catch (error) {
       console.error('❌ Bulk audience sync failed:', error);
     } finally {

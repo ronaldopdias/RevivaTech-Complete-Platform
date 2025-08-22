@@ -7,7 +7,6 @@ const fs = require('fs');
 const path = require('path');
 
 exports.up = async function(knex) {
-  console.log('🚀 Running RevivaTech initial schema migration...');
   
   try {
     // Read and execute the schema SQL file
@@ -26,8 +25,6 @@ exports.up = async function(knex) {
       }
     }
     
-    console.log('✅ Initial schema migration completed successfully');
-    console.log('📊 Created tables:');
     console.log('   - Device Catalog: device_brands, device_categories, devices, device_variants');
     console.log('   - Repair Services: repair_categories, repair_types, repair_device_compatibility');
     console.log('   - Pricing Engine: pricing_factors, pricing_rules');
@@ -45,7 +42,6 @@ exports.up = async function(knex) {
 };
 
 exports.down = async function(knex) {
-  console.log('🔄 Rolling back RevivaTech initial schema migration...');
   
   try {
     // Drop all tables in reverse dependency order
@@ -93,7 +89,6 @@ exports.down = async function(knex) {
     await knex.raw('DROP EXTENSION IF EXISTS pgcrypto');
     await knex.raw('DROP EXTENSION IF EXISTS "uuid-ossp"');
     
-    console.log('✅ Schema rollback completed successfully');
     
   } catch (error) {
     console.error('❌ Rollback failed:', error.message);

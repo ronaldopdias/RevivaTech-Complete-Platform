@@ -28,6 +28,7 @@ import QuickActions from './QuickActions';
 import CRMIntegrationStatus from './CRMIntegrationStatus';
 import AdvancedAnalytics from './AdvancedAnalytics';
 import BusinessIntelligence from './BusinessIntelligence';
+import BusinessAnalytics from './BusinessAnalytics';
 import PerformanceOptimization from './PerformanceOptimization';
 import { RealTimeAnalyticsDashboard } from '@/components/analytics/RealTimeAnalyticsDashboard';
 import { Button } from '@/components/ui/Button';
@@ -38,47 +39,42 @@ interface AdminDashboardProps {
   className?: string;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({
-  className,
-}) => {
-  const { user } = useAuth();
-  const { isMobile, isTablet } = useIsMobile();
-  const { booking } = useServices();
-  const [socket, setSocket] = useState<Socket | null>(null);
+export const export default function AdminDashboard() {
+  const [activeTab, setActiveTab] = useState('overview');
   const [isConnected, setIsConnected] = useState(false);
+  const [socket, setSocket] = useState(null);
   const [realtimeStats, setRealtimeStats] = useState({
     newBookings: 0,
-    activeRepairs: 24,
-    pendingRepairs: 8,
-    completedToday: 12
+    completedToday: 0,
+    activeRepairs: 0,
+    pendingRepairs: 0,
+    technicianActivity: 0
   });
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'intelligence' | 'performance' | 'components' | 'design-system'>('overview');
-  
-  // Render mobile-optimized dashboard for mobile and tablet devices
-  if (isMobile || isTablet) {
-    return <MobileAdminDashboard className={className} />;
-  }
 
-  const currentUser = user ? {
-    name: `${user.firstName} ${user.lastName}`,
-    email: user.email,
-    role: user.role,
-    avatar: user.avatar,
-  } : undefined;
+  const { user } = useAuth();
 
-  // Socket.IO connection setup
+  // Socket.io setup for real-time updates
   useEffect(() => {
-    const newSocket = io('http://localhost:3011', {
-      auth: {
-        token: user?.id || 'admin-demo',
-        role: 'admin'
-      },
+    // Only connect for authenticated admin users
+    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return;
+    }
+
+    console.log('🚀 Admin Dashboard initializing WebSocket connection...');
+    
+    const newSocket = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3011', {
+      path: '/socket.io/',
       transports: ['websocket', 'polling'],
+      timeout: 10000,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      forceNew: true
     });
 
+    setSocket(newSocket);
+
     newSocket.on('connect', () => {
-      console.log('✅ Admin Dashboard connected to Socket.IO server');
       setIsConnected(true);
       
       // Subscribe to admin-specific events
@@ -86,7 +82,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     newSocket.on('disconnect', (reason) => {
-      console.log('❌ Admin Dashboard disconnected from Socket.IO server:', reason);
       setIsConnected(false);
     });
 
@@ -122,107 +117,284 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     });
 
-    newSocket.on('admin_stats_update', (data) => {
-      console.log('Admin stats update:', data);
-      setRealtimeStats(data);
+    newSocket.on('technician_activity', (data) => {
+      console.log('Technician activity:', data);
+      setRealtimeStats(prev => ({
+        ...prev,
+        technicianActivity: data.activeCount || 0
+      }));
     });
 
-    setSocket(newSocket);
-
+    // Cleanup on unmount
     return () => {
-      newSocket.close();
+      console.log('🔌 Admin Dashboard disconnecting WebSocket...');
+      newSocket.disconnect();
     };
-  }, [user?.id]);
-
-  // Fetch real statistics on component mount and periodically
-  useEffect(() => {
-    const fetchRealStats = async () => {
-      try {
-        setLoadingStats(true);
-        const response = await booking.getBookingStatistics();
-        const apiStats = response.data.stats;
-        
-        // Update real-time stats with API data
-        setRealtimeStats({
-          newBookings: apiStats.total_bookings || 0,
-          activeRepairs: apiStats.in_progress_bookings || 0,
-          pendingRepairs: apiStats.pending_bookings || 0,
-          completedToday: apiStats.completed_bookings || 0
-        });
-      } catch (error) {
-        console.error('Failed to fetch real statistics:', error);
-        // Keep default values on error
-      } finally {
-        setLoadingStats(false);
-      }
-    };
-
-    // Fetch immediately
-    fetchRealStats();
-
-    // Set up periodic refresh every 30 seconds
-    const interval = setInterval(fetchRealStats, 30000);
-
-    return () => clearInterval(interval);
-  }, [booking]);
-
-  const handleTicketSelect = (ticket: any) => {
-    console.log('Selected ticket:', ticket);
-    // Navigate to ticket details or open modal
-  };
-
-  const handleStatusUpdate = (ticketId: string, status: string) => {
-    console.log('Update status:', ticketId, status);
-    // Call API to update ticket status
-  };
-
-  const handleQuickAction = (actionId: string) => {
-    console.log('Quick action:', actionId);
-    // Handle quick action click
-  };
-
-  const sendMessage = (message: any) => {
-    if (socket && isConnected) {
-      socket.emit('admin_action', message);
-    } else {
-      console.warn('Socket not connected. Message not sent:', message);
-    }
-  };
+  }, [user]);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'analytics', label: 'Analytics', icon: '📈' },
     { id: 'intelligence', label: 'Business Intelligence', icon: '🧠' },
+    { id: 'procedures', label: 'Procedures', icon: '🔧' },
+    { id: 'media', label: 'Media', icon: '🖼️' },
+    { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'performance', label: 'Performance', icon: '⚡' },
-    { id: 'components', label: 'Components', icon: '🎨' },
-    { id: 'design-system', label: 'Design System', icon: '🎭' }
-  ] as const;
+    { id: 'components', label: 'Components', icon: '🧩' },
+    { id: 'design-system', label: 'Design System', icon: '🎨' }
+  ];
+
+  // Check if user is authenticated and has admin role
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading user session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🚫</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+          <p className="text-gray-600 mb-4">You don't have permission to access the admin dashboard.</p>
+          <p className="text-sm text-gray-500">Current role: {user.role}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <AdminLayout currentUser={currentUser} className={className}>
-      <div className="space-y-8">
-        {/* Navigation Tabs */}
-        <div className="flex items-center justify-between p-4 bg-card border rounded-lg">
-          <div>
-            <h2 className="text-lg font-semibold">Admin Dashboard</h2>
-            <div className="flex items-center space-x-3">
-              <p className="text-sm text-muted-foreground">Comprehensive management and analytics system</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-xs text-muted-foreground">
-                  {isConnected ? 'Real-time connected' : 'Offline'}
+                <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-sm text-gray-600">
+                  {isConnected ? 'Connected' : 'Disconnected'}
                 </span>
               </div>
             </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">Welcome, {user.name || user.email}</span>
+              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                {user.role}
+              </span>
+            </div>
           </div>
-          
-          <div className="flex space-x-2">
+        </div>
+      </div>
+
+      {/* Real-time Stats Bar */}
+      <div className="bg-blue-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex justify-between items-center text-sm">
+            <div className="flex space-x-6">
+              <span>📋 New Bookings: {realtimeStats.newBookings}</span>
+              <span>✅ Completed Today: {realtimeStats.completedToday}</span>
+              <span>🔧 Active Repairs: {realtimeStats.activeRepairs}</span>
+              <span>⏳ Pending: {realtimeStats.pendingRepairs}</span>
+            </div>
+            <div>
+              <span>👨‍🔧 Active Technicians: {realtimeStats.technicianActivity}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8">
             {tabs.map((tab) => (
-              <Button
+              <button
                 key={tab.id}
-                variant={activeTab === tab.id ? 'default' : 'outline'}
-                size="sm"
                 onClick={() => setActiveTab(tab.id)}
+                className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <span className="mr-2">{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Quick Stats Cards */}
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                      <span className="text-white text-sm">📋</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Bookings</p>
+                    <p className="text-2xl font-semibold text-gray-900">1,234</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                      <span className="text-white text-sm">✅</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Completed</p>
+                    <p className="text-2xl font-semibold text-gray-900">987</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                      <span className="text-white text-sm">🔧</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">In Progress</p>
+                    <p className="text-2xl font-semibold text-gray-900">156</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                      <span className="text-white text-sm">👥</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Customers</p>
+                    <p className="text-2xl font-semibold text-gray-900">789</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">New booking from John Doe</span>
+                    <span className="text-xs text-gray-400">2 min ago</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Repair completed for Jane Smith</span>
+                    <span className="text-xs text-gray-400">15 min ago</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Quote sent to Mike Johnson</span>
+                    <span className="text-xs text-gray-400">1 hour ago</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="p-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-center transition-colors">
+                    <div className="text-2xl mb-2">📋</div>
+                    <div className="text-sm font-medium">New Booking</div>
+                  </button>
+                  <button className="p-3 bg-green-50 hover:bg-green-100 rounded-lg text-center transition-colors">
+                    <div className="text-2xl mb-2">👥</div>
+                    <div className="text-sm font-medium">Add Customer</div>
+                  </button>
+                  <button className="p-3 bg-purple-50 hover:bg-purple-100 rounded-lg text-center transition-colors">
+                    <div className="text-2xl mb-2">📊</div>
+                    <div className="text-sm font-medium">View Reports</div>
+                  </button>
+                  <button className="p-3 bg-yellow-50 hover:bg-yellow-100 rounded-lg text-center transition-colors">
+                    <div className="text-2xl mb-2">⚙️</div>
+                    <div className="text-sm font-medium">Settings</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            <RealTimeAnalyticsDashboard
+              refreshInterval={5000}
+              showDebugInfo={false}
+              userRole={user?.role === 'SUPER_ADMIN' ? 'super_admin' : 'admin'}
+            />
+            <AdvancedAnalytics />
+            <BusinessAnalytics />
+          </div>
+        )}
+
+        {/* Business Intelligence Tab */}
+        {activeTab === 'intelligence' && (
+          <BusinessIntelligence />
+        )}
+
+        {/* Procedures Tab */}
+        {activeTab === 'procedures' && (
+          <ProceduresManager />
+        )}
+
+        {/* Media Tab */}
+        {activeTab === 'media' && (
+          <MediaManager />
+        )}
+
+        {/* Customers Tab */}
+        {activeTab === 'customers' && (
+          <CustomerManager />
+        )}
+
+        {/* Performance Tab */}
+        {activeTab === 'performance' && (
+          <PerformanceOptimization />
+        )}
+
+        {/* Components Tab */}
+        {activeTab === 'components' && (
+          <ComponentShowcase />
+        )}
+
+        {/* Design System Tab */}
+        {activeTab === 'design-system' && (
+          <DesignSystemShowcase />
+        )}
+      </div>
+    </div>
+  );
+} => setActiveTab(tab.id)}
                 className="text-sm"
               >
                 <span className="mr-1">{tab.icon}</span>
@@ -393,7 +565,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Dashboard Stats */}
-        <DashboardStats />
+        <DashboardStats 
+          stats={realtimeStats}
+          dashboardData={dashboardData}
+          loading={loadingStats}
+        />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -402,12 +578,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <RepairQueue
               onTicketSelect={handleTicketSelect}
               onStatusUpdate={handleStatusUpdate}
+              dashboardData={dashboardData}
             />
           </div>
 
           {/* Right Column - Activity & Actions */}
           <div className="space-y-6">
-            <RecentActivity maxItems={6} />
+            <RecentActivity 
+              maxItems={6}
+              dashboardData={dashboardData}
+            />
             <QuickActions onActionClick={handleQuickAction} />
           </div>
         </div>

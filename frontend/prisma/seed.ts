@@ -26,7 +26,6 @@ async function main() {
   // Seed sample bookings
   await seedBookings();
 
-  console.log('✅ Database seeding completed successfully!');
 }
 
 async function cleanDatabase() {
@@ -134,7 +133,6 @@ async function seedDevices() {
     }
   }
 
-  console.log(`✅ Device catalog seeded successfully with ${deviceCount} devices across ${allCategories.length} categories`);
 }
 
 async function seedUsers() {
@@ -189,7 +187,6 @@ async function seedUsers() {
     }),
   ]);
 
-  console.log('✅ Users seeded successfully');
 }
 
 async function seedPricingRules() {
@@ -277,7 +274,6 @@ async function seedPricingRules() {
     }
   }
 
-  console.log('✅ Pricing rules seeded successfully');
 }
 
 async function seedBookings() {
@@ -302,7 +298,6 @@ async function seedBookings() {
   });
 
   if (customers.length === 0 || deviceModels.length === 0) {
-    console.log('⚠️ Skipping booking seeding - no customers or device models found');
     return;
   }
 
@@ -357,7 +352,6 @@ async function seedBookings() {
     });
   }
 
-  console.log('✅ Sample bookings seeded successfully');
 }
 
 main()

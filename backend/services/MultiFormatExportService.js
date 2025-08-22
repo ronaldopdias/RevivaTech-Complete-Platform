@@ -37,14 +37,11 @@ class MultiFormatExportService {
 
   async initialize() {
     try {
-      console.log('🚀 Initializing Multi-Format Export Service...');
       
       // Initialize email template engine
       await this.emailEngine.initialize();
-      console.log('✅ EmailTemplateEngine integration complete');
       
       this.isInitialized = true;
-      console.log('✅ Multi-Format Export Service initialized successfully');
       
       return true;
     } catch (error) {
@@ -63,7 +60,6 @@ class MultiFormatExportService {
         await this.initialize();
       }
 
-      console.log('📊 Generating CSV export for template data...');
 
       const filename = options.filename || `template-export-${Date.now()}.csv`;
       const filePath = `/tmp/${filename}`;
@@ -81,7 +77,6 @@ class MultiFormatExportService {
       
       await csvWriter.writeRecords(csvData);
       
-      console.log('✅ CSV export generated successfully');
       return {
         filePath,
         filename,
@@ -142,7 +137,6 @@ class MultiFormatExportService {
         await this.initialize();
       }
 
-      console.log('📊 Generating Excel export for template data...');
 
       const filename = options.filename || `template-export-${Date.now()}.xlsx`;
       const filePath = `/tmp/${filename}`;
@@ -176,7 +170,6 @@ class MultiFormatExportService {
       // Write file
       XLSX.writeFile(workbook, filePath);
       
-      console.log('✅ Excel export generated successfully');
       return {
         filePath,
         filename,
@@ -259,7 +252,6 @@ class MultiFormatExportService {
       const charCount = template.length;
       const isValid = charCount <= this.smsConfig.maxLength;
       
-      console.log(`✅ SMS template generated: ${charCount}/${this.smsConfig.maxLength} chars`);
       
       return {
         template,

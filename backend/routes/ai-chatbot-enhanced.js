@@ -19,12 +19,10 @@ class EnhancedAIChatbot {
 
     async initializeService() {
         try {
-            console.log('🚀 Initializing Enhanced AI Chatbot with NLU...');
             // Test if Python NLU service is available
             const testResult = await this.callNLUService('test message');
             if (testResult.status === 'success') {
                 this.initialized = true;
-                console.log('✅ Enhanced AI Chatbot NLU service initialized successfully');
             }
         } catch (error) {
             console.error('❌ Failed to initialize NLU service:', error.message);
@@ -377,7 +375,6 @@ router.post('/enhanced-chat', async (req, res) => {
 
         // Log successful interactions for analytics
         if (result.success) {
-            console.log(`✅ Enhanced AI Chat - Session: ${sessionData.sessionId}, Confidence: ${result.nluAnalysis.overall_confidence.toFixed(2)}`);
         }
 
         res.json(result);

@@ -151,7 +151,6 @@ class CameraService {
         this.videoElement!.onloadedmetadata = resolve;
       });
 
-      console.log('✅ Camera started successfully');
       return this.stream;
     } catch (error) {
       console.error('Failed to start camera:', error);
@@ -391,7 +390,6 @@ class CameraService {
       const result = await response.json();
 
       if (result.success) {
-        console.log('📤 Image uploaded successfully:', result.url);
         return { success: true, url: result.url };
       } else {
         return { success: false, error: result.error };

@@ -66,7 +66,6 @@ class OfflineStorageManager {
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('✅ IndexedDB initialized successfully');
         resolve();
       };
 
@@ -103,7 +102,6 @@ class OfflineStorageManager {
           analyticsStore.createIndex('timestamp', 'timestamp', { unique: false });
         }
 
-        console.log('📦 IndexedDB stores created/upgraded');
       };
     });
   }
@@ -205,7 +203,6 @@ class OfflineStorageManager {
       const request = store.delete(id);
 
       request.onsuccess = () => {
-        console.log('🗑️ Offline booking deleted:', id);
         resolve();
       };
 
@@ -299,7 +296,6 @@ class OfflineStorageManager {
       const request = store.add(syncItem);
 
       request.onsuccess = () => {
-        console.log(`🔄 Added to sync queue (${type}):`, id);
         this.requestBackgroundSync(type);
         resolve(id);
       };
@@ -389,7 +385,6 @@ class OfflineStorageManager {
       try {
         const registration = await navigator.serviceWorker.ready;
         await registration.sync.register(tag);
-        console.log(`🔄 Background sync requested: ${tag}`);
       } catch (error) {
         console.warn('Background sync not available:', error);
       }

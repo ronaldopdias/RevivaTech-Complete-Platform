@@ -1,7 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const rateLimit = require('express-rate-limit');
-const { authenticateBetterAuth: authenticateToken, requireRole } = require('../../middleware/better-auth-db-direct');
+const { authenticateBetterAuth: authenticateToken, requireRole } = require('../../middleware/better-auth-official');
 const router = express.Router();
 
 // Rate limiting for admin endpoints
@@ -50,9 +50,9 @@ router.get('/', async (req, res) => {
     if (status && status !== 'all') {
       paramCount++;
       if (status.toLowerCase() === 'active') {
-        whereConditions.push(`u."lastLoginAt" >= NOW() - INTERVAL '30 days' OR u."createdAt" >= NOW() - INTERVAL '30 days'`);
+        whereConditions.push(`u."createdAt" >= NOW() - INTERVAL '30 days'`);
       } else if (status.toLowerCase() === 'inactive') {
-        whereConditions.push(`(u."lastLoginAt" < NOW() - INTERVAL '30 days' OR u."lastLoginAt" IS NULL) AND u."createdAt" < NOW() - INTERVAL '30 days'`);
+        whereConditions.push(`u."createdAt" < NOW() - INTERVAL '30 days'`);
       }
     }
 
@@ -66,25 +66,24 @@ router.get('/', async (req, res) => {
           u.email,
           u.phone,
           u."createdAt" as join_date,
-          u."lastLoginAt",
           COUNT(b.id) as total_repairs,
-          COALESCE(SUM(CASE WHEN b.status = 'COMPLETED' THEN b."finalPrice" END), 0) as total_spent,
-          MAX(b."updatedAt") as last_repair,
+          COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) as total_spent,
+          MAX(b.updated_at) as last_repair,
           CASE 
-            WHEN u."lastLoginAt" >= NOW() - INTERVAL '30 days' OR u."createdAt" >= NOW() - INTERVAL '30 days' THEN 'Active'
+            WHEN u."createdAt" >= NOW() - INTERVAL '30 days' THEN 'Active'
             ELSE 'Inactive'
           END as status,
           CASE 
-            WHEN COALESCE(SUM(CASE WHEN b.status = 'COMPLETED' THEN b."finalPrice" END), 0) >= 2000 THEN 'Platinum'
-            WHEN COALESCE(SUM(CASE WHEN b.status = 'COMPLETED' THEN b."finalPrice" END), 0) >= 1000 THEN 'Gold'
-            WHEN COALESCE(SUM(CASE WHEN b.status = 'COMPLETED' THEN b."finalPrice" END), 0) >= 500 THEN 'Silver'
+            WHEN COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) >= 2000 THEN 'Platinum'
+            WHEN COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) >= 1000 THEN 'Gold'
+            WHEN COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) >= 500 THEN 'Silver'
             ELSE 'Bronze'
           END as tier,
-          COALESCE(SUM(CASE WHEN b.status = 'COMPLETED' THEN b."finalPrice" END), 0) * 0.1 as loyalty_points
-        FROM users u
-        LEFT JOIN bookings b ON u.id = b."customerId"
+          COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) * 0.1 as loyalty_points
+        FROM "user" u
+        LEFT JOIN bookings b ON u.id::uuid = b.customer_id
         WHERE u.role = 'CUSTOMER' AND ${whereConditions.join(' AND ')}
-        GROUP BY u.id, u."firstName", u."lastName", u.email, u.phone, u."createdAt", u."lastLoginAt"
+        GROUP BY u.id, u."firstName", u."lastName", u.email, u.phone, u."createdAt"
       )
       SELECT * FROM customer_stats
       ORDER BY total_spent DESC, join_date DESC
@@ -114,8 +113,8 @@ router.get('/', async (req, res) => {
     // Get total count for pagination
     const countQuery = `
       SELECT COUNT(DISTINCT u.id) as total
-      FROM users u
-      LEFT JOIN bookings b ON u.id = b."customerId"
+      FROM "user" u
+      LEFT JOIN bookings b ON u.id::uuid = b.customer_id
       WHERE u.role = 'CUSTOMER' AND ${whereConditions.join(' AND ')}
     `;
     
@@ -182,14 +181,13 @@ router.get('/:id', async (req, res) => {
         u.email,
         u.phone,
         u."createdAt",
-        u."lastLoginAt",
         COUNT(b.id) as total_repairs,
-        COALESCE(SUM(CASE WHEN b.status = 'COMPLETED' THEN b."finalPrice" END), 0) as total_spent,
-        MAX(b."updatedAt") as last_repair
-      FROM users u
-      LEFT JOIN bookings b ON u.id = b."customerId"
+        COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) as total_spent,
+        MAX(b.updated_at) as last_repair
+      FROM "user" u
+      LEFT JOIN bookings b ON u.id::uuid = b.customer_id
       WHERE u.id = $1 AND u.role = 'CUSTOMER'
-      GROUP BY u.id, u."firstName", u."lastName", u.email, u.phone, u."createdAt", u."lastLoginAt"
+      GROUP BY u.id, u."firstName", u."lastName", u.email, u.phone, u."createdAt"
     `;
     
     const customerResult = await client.query(customerQuery, [customerId]);
@@ -212,7 +210,7 @@ router.get('/:id', async (req, res) => {
       totalRepairs: parseInt(row.total_repairs),
       totalSpent: parseFloat(row.total_spent),
       lastRepair: row.last_repair ? row.last_repair.toISOString().split('T')[0] : '',
-      status: row.lastLoginAt && row.lastLoginAt >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? 'Active' : 'Inactive',
+      status: row.join_date >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? 'Active' : 'Inactive',
       tier: row.total_spent >= 2000 ? 'Platinum' : row.total_spent >= 1000 ? 'Gold' : row.total_spent >= 500 ? 'Silver' : 'Bronze',
       loyaltyPoints: Math.round(parseFloat(row.total_spent) * 0.1)
     };
@@ -264,7 +262,7 @@ router.put('/:id', async (req, res) => {
     
     // Update customer
     const updateQuery = `
-      UPDATE users 
+      UPDATE "user" 
       SET "firstName" = COALESCE($1, "firstName"),
           "lastName" = COALESCE($2, "lastName"),
           email = COALESCE($3, email),

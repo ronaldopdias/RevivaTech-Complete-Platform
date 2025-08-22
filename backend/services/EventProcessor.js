@@ -111,7 +111,6 @@ class EventProcessor extends EventEmitter {
 
   async init() {
     try {
-      console.log('Initializing EventProcessor...');
       
       // Start processing loop
       this.startProcessing();

@@ -227,7 +227,6 @@ export function MobileBookingWizard({ onComplete, className = '' }: MobileBookin
       }
 
       // Offline submission or online fallback
-      console.log('💾 Saving booking offline...');
       
       // Convert any File objects to base64 for offline storage
       const processedData = { ...finalBookingData };
@@ -251,7 +250,6 @@ export function MobileBookingWizard({ onComplete, className = '' }: MobileBookin
         data: processedData
       });
 
-      console.log('✅ Booking saved offline with ID:', offlineId);
       
       // Trigger background sync if available
       if ('serviceWorker' in navigator) {

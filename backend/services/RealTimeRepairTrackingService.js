@@ -72,7 +72,6 @@ class RealTimeRepairTrackingService extends EventEmitter {
     this.setupEventHandlers();
     this.setupPerformanceTracking();
     
-    console.log('🚀 Real-Time Repair Tracking Service initialized');
   }
 
   /**
@@ -164,7 +163,6 @@ class RealTimeRepairTrackingService extends EventEmitter {
             timestamp: new Date().toISOString()
           });
 
-          console.log(`✅ User authenticated: ${userInfo.email} (${userInfo.role}) - Socket: ${socket.id}`);
           
           // Send initial repair data if customer
           if (userInfo.role === 'customer') {
@@ -425,7 +423,6 @@ class RealTimeRepairTrackingService extends EventEmitter {
     this.io.to(`repair:${repairId}`).emit('repair_photo_uploaded', photoNotification);
     this.io.to('role:admin').emit('repair_photo_uploaded', photoNotification);
 
-    console.log(`📸 Photo uploaded for repair ${repairId} by ${user.email}`);
     
     this.emit('repair_photo_uploaded', photoNotification);
   }
@@ -514,7 +511,6 @@ class RealTimeRepairTrackingService extends EventEmitter {
     this.io.to(`repair:${repairId}`).emit('repair_quality_checked', qualityUpdate);
     this.io.to('role:admin').emit('repair_quality_checked', qualityUpdate);
 
-    console.log(`✅ Quality check for repair ${repairId}: ${passed ? 'PASSED' : 'FAILED'} (Score: ${score})`);
     
     this.emit('repair_quality_checked', qualityUpdate);
 

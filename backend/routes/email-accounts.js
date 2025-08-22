@@ -1,7 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
 const bcrypt = require('bcryptjs');
-const { authenticateBetterAuth: authenticateToken, requireRole } = require('../middleware/better-auth-db-direct');
+const { authenticateBetterAuth: authenticateToken, requireRole } = require('../middleware/better-auth-official');
 const router = express.Router();
 
 // Validation schemas

@@ -211,7 +211,6 @@ export class BundleAnalyzer {
     setInterval(() => {
       const analysis = this.analyzeBundle();
       analysis.then(result => {
-        console.log('📊 Bundle Analysis:', result);
         
         // Send metrics to analytics if needed
         if (result.performanceScore < 70) {

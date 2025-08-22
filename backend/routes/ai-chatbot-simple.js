@@ -580,7 +580,6 @@ async function sendDiagnosticNotification(deviceAnalysis, diagnostic) {
     });
 
     if (notificationResponse.ok) {
-      console.log('✅ AI diagnostic notification sent successfully');
     } else {
       console.warn('⚠️ AI diagnostic notification failed:', await notificationResponse.text());
     }
