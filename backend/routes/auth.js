@@ -2,15 +2,16 @@ const express = require('express');
 const Joi = require('joi');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
+const crypto = require('crypto');
 
-// Import authentication middleware
+// Import Prisma client
+const { prisma, executeTransaction } = require('../lib/prisma');
+
+// Import authentication utilities
 const {
-  generateTokens,
-  hashPassword,
-  verifyPassword,
-  authenticateBetterAuth: authenticateToken,
+  requireAuth: authenticateToken,
   optionalAuth
-} = require('../middleware/better-auth-official');
+} = require('../lib/auth-utils');
 
 // JWT-specific functions that are deprecated with Better Auth
 // These are stubs for compatibility - Better Auth handles these internally
@@ -53,8 +54,6 @@ const loginSchema = Joi.object({
   password: Joi.string().required()
 });
 
-// refreshSchema removed - refresh token now comes from httpOnly cookies
-
 const forgotPasswordSchema = Joi.object({
   email: Joi.string().email().required()
 });
@@ -66,8 +65,6 @@ const resetPasswordSchema = Joi.object({
 
 // Register new user
 router.post('/register', authLimiter, async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
     // Validate input
     const { error, value } = registerSchema.validate(req.body);
@@ -80,16 +77,12 @@ router.post('/register', authLimiter, async (req, res) => {
 
     const { email, password, firstName, lastName, phone } = value;
 
-    await client.query('BEGIN');
+    // Check if user already exists using Prisma
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
 
-    // Check if user already exists
-    const existingUser = await client.query(
-      'SELECT id FROM "user" WHERE email = $1',
-      [email.toLowerCase()]
-    );
-
-    if (existingUser.rows.length > 0) {
-      await client.query('ROLLBACK');
+    if (existingUser) {
       return res.status(409).json({
         error: 'Email already registered',
         code: 'EMAIL_EXISTS'
@@ -103,45 +96,51 @@ router.post('/register', authLimiter, async (req, res) => {
     const verificationToken = generateVerificationToken();
 
     // Generate user ID
-    const crypto = require('crypto');
     const userId = crypto.randomBytes(12).toString('base64url');
-
-    // Create user (without password_hash - that goes in account table)
-    const userQuery = `
-      INSERT INTO "user" (id, email, "firstName", "lastName", phone, role, "emailVerified", "updatedAt")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-      RETURNING id, email, "firstName", "lastName", role, "createdAt"
-    `;
-
-    const userResult = await client.query(userQuery, [
-      userId,
-      email.toLowerCase(),
-      firstName,
-      lastName,
-      phone || null,
-      'CUSTOMER', // Default role
-      false // Email not verified initially
-    ]);
-
-    const user = userResult.rows[0];
-
-    // Create account record with password (Better Auth pattern)
     const accountId = crypto.randomBytes(12).toString('base64url');
-    const accountQuery = `
-      INSERT INTO account (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
-      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-    `;
 
-    await client.query(accountQuery, [
-      accountId,
-      email.toLowerCase(), // accountId is email for credential provider
-      'credential',        // providerId for email/password auth
-      userId,
-      passwordHash
-    ]);
+    // Create user and account in a transaction using Prisma
+    const result = await executeTransaction(async (tx) => {
+      // Create user (without password_hash - that goes in account table)
+      const user = await tx.user.create({
+        data: {
+          id: userId,
+          email: email.toLowerCase(),
+          firstName,
+          lastName,
+          phone: phone || null,
+          role: 'CUSTOMER',
+          emailVerified: false,
+          isActive: true
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          createdAt: true
+        }
+      });
+
+      // Create account record with password (Better Auth pattern)
+      await tx.account.create({
+        data: {
+          id: accountId,
+          accountId: email.toLowerCase(),
+          providerId: 'credential',
+          userId: userId,
+          password: passwordHash,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+
+      return user;
+    });
 
     // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user);
+    const { accessToken, refreshToken } = generateTokens(result);
 
     // Store refresh token
     const deviceInfo = {
@@ -149,14 +148,12 @@ router.post('/register', authLimiter, async (req, res) => {
       ip_address: req.ip
     };
 
-    await storeRefreshToken(client, user.id, refreshToken, deviceInfo);
+    await storeRefreshToken(prisma, result.id, refreshToken, deviceInfo);
 
-    await client.query('COMMIT');
-
-    req.logger.info(`User registered: ${user.email}`);
+    req.logger.info(`User registered: ${result.email}`);
 
     // TODO: Send verification email
-    // await sendVerificationEmail(user.email, verificationToken);
+    // await sendVerificationEmail(result.email, verificationToken);
 
     // Set refresh token as httpOnly cookie for secure session persistence
     res.cookie('refreshToken', refreshToken, {
@@ -171,28 +168,24 @@ router.post('/register', authLimiter, async (req, res) => {
       success: true,
       message: 'Registration successful. Please check your email for verification.',
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role.toUpperCase() // Normalize role to uppercase for frontend compatibility
+        id: result.id,
+        email: result.email,
+        firstName: result.firstName,
+        lastName: result.lastName,
+        role: result.role.toUpperCase()
       },
       tokens: {
         accessToken,
         expiresIn: '15m'
-        // refreshToken removed from JSON response - now in httpOnly cookie
       }
     });
 
   } catch (error) {
-    await client.query('ROLLBACK');
     req.logger.error('Registration error:', error);
     res.status(500).json({
       error: 'Registration failed',
       code: 'REGISTRATION_ERROR'
     });
-  } finally {
-    client.release();
   }
 });
 
@@ -210,23 +203,31 @@ router.post('/login', authLimiter, async (req, res) => {
 
     const { email, password } = value;
 
-    // Get user from database
-    const userQuery = `
-      SELECT id, email, "firstName", "lastName", role, "isActive", "emailVerified", "createdAt"
-      FROM "user" 
-      WHERE email = $1
-    `;
+    // Get user from database using Prisma
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        createdAt: true,
+        account: {
+          where: { providerId: 'credential' },
+          select: { password: true }
+        }
+      }
+    });
 
-    const userResult = await req.pool.query(userQuery, [email.toLowerCase()]);
-
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return res.status(401).json({
         error: 'Invalid email or password',
         code: 'INVALID_CREDENTIALS'
       });
     }
-
-    const user = userResult.rows[0];
 
     // Check if user is active
     if (!user.isActive) {
@@ -236,23 +237,16 @@ router.post('/login', authLimiter, async (req, res) => {
       });
     }
 
-    // Get password from account table (Better Auth pattern)
-    const accountQuery = `
-      SELECT password 
-      FROM account 
-      WHERE "userId" = $1 AND "providerId" = 'credential'
-    `;
-    const accountResult = await req.pool.query(accountQuery, [user.id]);
-    
-    if (accountResult.rows.length === 0) {
+    // Check if user has credential account
+    if (!user.account || user.account.length === 0) {
       return res.status(401).json({
         error: 'Invalid email or password',
         code: 'INVALID_CREDENTIALS'
       });
     }
-    
+
     // Verify password
-    const isValidPassword = await verifyPassword(password, accountResult.rows[0].password);
+    const isValidPassword = await verifyPassword(password, user.account[0].password);
     if (!isValidPassword) {
       return res.status(401).json({
         error: 'Invalid email or password',
@@ -261,7 +255,14 @@ router.post('/login', authLimiter, async (req, res) => {
     }
 
     // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user);
+    const userData = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role
+    };
+    const { accessToken, refreshToken } = generateTokens(userData);
 
     // Store refresh token
     const deviceInfo = {
@@ -269,13 +270,13 @@ router.post('/login', authLimiter, async (req, res) => {
       ip_address: req.ip
     };
 
-    await storeRefreshToken(req.pool, user.id, refreshToken, deviceInfo);
+    await storeRefreshToken(prisma, user.id, refreshToken, deviceInfo);
 
-    // Update last login
-    await req.pool.query(
-      'UPDATE "user" SET "updatedAt" = NOW() WHERE id = $1',
-      [user.id]
-    );
+    // Update last login using Prisma
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { updatedAt: new Date() }
+    });
 
     req.logger.info(`User logged in: ${user.email}`);
 
@@ -296,13 +297,12 @@ router.post('/login', authLimiter, async (req, res) => {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role.toUpperCase(), // Normalize role to uppercase for frontend compatibility
+        role: user.role.toUpperCase(),
         emailVerified: user.emailVerified
       },
       tokens: {
         accessToken,
         expiresIn: '15m'
-        // refreshToken removed from JSON response - now in httpOnly cookie
       }
     });
 
@@ -329,7 +329,7 @@ router.post('/refresh', generalLimiter, async (req, res) => {
     }
 
     // Validate refresh token
-    const session = await validateRefreshToken(req.pool, refreshToken);
+    const session = await validateRefreshToken(prisma, refreshToken);
     if (!session) {
       return res.status(401).json({
         error: 'Invalid or expired refresh token',
@@ -341,18 +341,21 @@ router.post('/refresh', generalLimiter, async (req, res) => {
     const user = {
       id: session.user_id,
       email: session.email,
-      "firstName": session.firstName,
-      "lastName": session.lastName,
+      firstName: session.firstName,
+      lastName: session.lastName,
       role: session.role
     };
 
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(user);
 
-    // Update refresh token in database
-    await req.pool.query(
-      'UPDATE user_sessions SET token = $1, "expiresAt" = NOW() + INTERVAL \'7 days\' WHERE token = $2',
-      [newRefreshToken, refreshToken]
-    );
+    // Update refresh token in database using Prisma
+    await prisma.session.update({
+      where: { token: refreshToken },
+      data: { 
+        token: newRefreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      }
+    });
 
     // Set new refresh token as httpOnly cookie
     res.cookie('refreshToken', newRefreshToken, {
@@ -368,7 +371,6 @@ router.post('/refresh', generalLimiter, async (req, res) => {
       tokens: {
         accessToken,
         expiresIn: '15m'
-        // refreshToken removed from JSON response - now in httpOnly cookie
       },
       user: {
         id: user.id,
@@ -395,7 +397,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
     
     if (refreshToken) {
-      await revokeRefreshToken(req.pool, refreshToken);
+      await revokeRefreshToken(prisma, refreshToken);
     }
 
     // Clear the refresh token cookie
@@ -423,7 +425,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
 // Logout from all devices
 router.post('/logout-all', authenticateToken, async (req, res) => {
   try {
-    await revokeAllUserSessions(req.pool, req.user.id);
+    await revokeAllUserSessions(prisma, req.user.id);
 
     res.json({
       success: true,
@@ -442,14 +444,29 @@ router.post('/logout-all', authenticateToken, async (req, res) => {
 // Get current user profile
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const userQuery = `
-      SELECT id, email, "firstName", "lastName", phone, role, "isActive", "emailVerified", "createdAt", "updatedAt"
-      FROM "user" 
-      WHERE id = $1
-    `;
+    // Get user using Prisma
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
 
-    const userResult = await req.pool.query(userQuery, [req.user.id]);
-    const user = userResult.rows[0];
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
 
     res.json({
       success: true,
@@ -459,8 +476,8 @@ router.get('/me', authenticateToken, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
-        role: user.role.toUpperCase(), // Normalize role to uppercase for frontend compatibility
-        "isActive": user.isActive,
+        role: user.role.toUpperCase(),
+        isActive: user.isActive,
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
         lastLogin: user.updatedAt
@@ -493,41 +510,41 @@ router.put('/me', authenticateToken, async (req, res) => {
       });
     }
 
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
+    // Build update data object
+    const updateData = {
+      updatedAt: new Date()
+    };
 
     if (value.firstName !== undefined) {
-      updates.push(`"firstName" = $${paramIndex++}`);
-      values.push(value.firstName);
+      updateData.firstName = value.firstName;
     }
     if (value.lastName !== undefined) {
-      updates.push(`"lastName" = $${paramIndex++}`);
-      values.push(value.lastName);
+      updateData.lastName = value.lastName;
     }
     if (value.phone !== undefined) {
-      updates.push(`phone = $${paramIndex++}`);
-      values.push(value.phone || null);
+      updateData.phone = value.phone || null;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updateData).length === 1) { // Only updatedAt
       return res.status(400).json({
         error: 'No valid fields to update'
       });
     }
 
-    updates.push(`"updatedAt" = NOW()`);
-    values.push(req.user.id);
-
-    const query = `
-      UPDATE "user" 
-      SET ${updates.join(', ')}
-      WHERE id = $${paramIndex}
-      RETURNING id, email, "firstName", "lastName", phone, role, "updatedAt"
-    `;
-
-    const result = await req.pool.query(query, values);
-    const user = result.rows[0];
+    // Update user using Prisma
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        updatedAt: true
+      }
+    });
 
     res.json({
       success: true,
@@ -538,7 +555,7 @@ router.put('/me', authenticateToken, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
-        role: user.role.toUpperCase(), // Normalize role to uppercase for frontend compatibility
+        role: user.role.toUpperCase(),
         updatedAt: user.updatedAt
       }
     });
@@ -564,33 +581,48 @@ router.post('/verify-email', generalLimiter, async (req, res) => {
       });
     }
 
-    const userQuery = `
-      UPDATE "user" 
-      SET "emailVerified" = TRUE, verification_token = NULL, "updatedAt" = NOW()
-      WHERE verification_token = $1 AND "emailVerified" = FALSE
-      RETURNING id, email, "firstName", "lastName"
-    `;
+    // Update user email verification using Prisma
+    const user = await prisma.user.updateMany({
+      where: {
+        verification_token: token,
+        emailVerified: false
+      },
+      data: {
+        emailVerified: true,
+        verification_token: null,
+        updatedAt: new Date()
+      }
+    });
 
-    const result = await req.pool.query(userQuery, [token]);
-
-    if (result.rows.length === 0) {
+    if (user.count === 0) {
       return res.status(400).json({
         error: 'Invalid or expired verification token',
         code: 'INVALID_VERIFICATION_TOKEN'
       });
     }
 
-    const user = result.rows[0];
-    req.logger.info(`Email verified for user: ${user.email}`);
+    // Get the updated user details
+    const updatedUser = await prisma.user.findFirst({
+      where: { emailVerified: true },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true
+      }
+    });
+
+    req.logger.info(`Email verified for user: ${updatedUser.email}`);
 
     res.json({
       success: true,
       message: 'Email verified successfully',
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName
       }
     });
 
@@ -616,26 +648,37 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
 
     const { email } = value;
 
-    // Check if user exists
-    const userQuery = 'SELECT id, email, "firstName" FROM "user" WHERE email = $1 AND "isActive" = $2';
-    const userResult = await req.pool.query(userQuery, [email.toLowerCase(), true]);
+    // Check if user exists using Prisma
+    const user = await prisma.user.findFirst({
+      where: {
+        email: email.toLowerCase(),
+        isActive: true
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true
+      }
+    });
 
     // Always return success to prevent email enumeration
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return res.json({
         success: true,
         message: 'If the email exists, a password reset link has been sent.'
       });
     }
 
-    const user = userResult.rows[0];
     const { token, expires } = generatePasswordResetToken();
 
-    // Store reset token
-    await req.pool.query(
-      'UPDATE "user" SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
-      [token, expires, user.id]
-    );
+    // Store reset token using Prisma
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        reset_token: token,
+        reset_token_expires: expires
+      }
+    });
 
     req.logger.info(`Password reset requested for: ${user.email}`);
 
@@ -669,45 +712,56 @@ router.post('/reset-password', authLimiter, async (req, res) => {
 
     const { token, password } = value;
 
-    // Find user with valid reset token
-    const userQuery = `
-      SELECT id, email 
-      FROM "user" 
-      WHERE reset_token = $1 AND reset_token_expires > NOW() AND "isActive" = true
-    `;
+    // Find user with valid reset token using Prisma
+    const user = await prisma.user.findFirst({
+      where: {
+        reset_token: token,
+        reset_token_expires: { gt: new Date() },
+        isActive: true
+      },
+      select: {
+        id: true,
+        email: true
+      }
+    });
 
-    const userResult = await req.pool.query(userQuery, [token]);
-
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return res.status(400).json({
         error: 'Invalid or expired reset token',
         code: 'INVALID_RESET_TOKEN'
       });
     }
 
-    const user = userResult.rows[0];
-
     // Hash new password
     const passwordHash = await hashPassword(password);
 
-    // Update password in account table and clear reset token (Better Auth pattern)
-    await req.pool.query(
-      `UPDATE account 
-       SET password = $1, "updatedAt" = NOW()
-       WHERE "userId" = $2 AND "providerId" = 'credential'`,
-      [passwordHash, user.id]
-    );
-    
-    // Update user table to clear reset token
-    await req.pool.query(
-      `UPDATE "user" 
-       SET reset_token = NULL, reset_token_expires = NULL, "updatedAt" = NOW()
-       WHERE id = $1`,
-      [user.id]
-    );
+    // Update password and clear reset token in transaction
+    await executeTransaction(async (tx) => {
+      // Update password in account table
+      await tx.account.updateMany({
+        where: {
+          userId: user.id,
+          providerId: 'credential'
+        },
+        data: {
+          password: passwordHash,
+          updatedAt: new Date()
+        }
+      });
+
+      // Clear reset token
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          reset_token: null,
+          reset_token_expires: null,
+          updatedAt: new Date()
+        }
+      });
+    });
 
     // Revoke all existing sessions for security
-    await revokeAllUserSessions(req.pool, user.id);
+    await revokeAllUserSessions(prisma, user.id);
 
     req.logger.info(`Password reset completed for: ${user.email}`);
 
@@ -784,23 +838,30 @@ router.get('/permissions', authenticateToken, async (req, res) => {
 router.get('/validate', authenticateToken, async (req, res) => {
   try {
     // Token is already validated by authenticateToken middleware
-    // Get fresh user data from database
-    const userQuery = `
-      SELECT id, email, "firstName", "lastName", role, "isActive", "emailVerified", "updatedAt"
-      FROM "user" 
-      WHERE id = $1 AND "isActive" = true
-    `;
+    // Get fresh user data from database using Prisma
+    const user = await prisma.user.findFirst({
+      where: {
+        id: req.user.id,
+        isActive: true
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        updatedAt: true
+      }
+    });
 
-    const userResult = await req.pool.query(userQuery, [req.user.id]);
-
-    if (userResult.rows.length === 0) {
+    if (!user) {
       return res.status(401).json({
         error: 'User not found or inactive',
         code: 'USER_NOT_FOUND'
       });
     }
-
-    const user = userResult.rows[0];
 
     res.json({
       success: true,
@@ -810,7 +871,7 @@ router.get('/validate', authenticateToken, async (req, res) => {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role.toUpperCase(), // Normalize role to uppercase for frontend compatibility
+        role: user.role.toUpperCase(),
         emailVerified: user.emailVerified,
         lastLogin: user.updatedAt
       }
@@ -835,12 +896,10 @@ router.get('/validate-simple', (req, res) => {
   });
 });
 
-// Test route for debugging  
-
 // Health check
 router.get('/health', (req, res) => {
   res.json({
-    "isActive": 'healthy',
+    isActive: 'healthy',
     service: 'auth-service',
     timestamp: new Date().toISOString(),
     version: '1.0.0'

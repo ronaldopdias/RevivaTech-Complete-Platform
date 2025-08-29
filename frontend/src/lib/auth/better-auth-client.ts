@@ -57,6 +57,16 @@ export const signIn = async (credentials: { email: string; password: string }) =
     const result = await authClient.signIn.email({
       email: credentials.email,
       password: credentials.password,
+    }, {
+      onRequest: (context) => {
+        console.log('[Better Auth] Sign-in request:', context);
+      },
+      onSuccess: (context) => {
+        console.log('[Better Auth] Sign-in success:', context);
+      },
+      onError: (context) => {
+        console.log('[Better Auth] Sign-in error:', context);
+      }
     });
     // Sign-in result processed
     

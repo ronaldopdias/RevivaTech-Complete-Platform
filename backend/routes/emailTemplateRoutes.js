@@ -1,4 +1,5 @@
 const express = require('express');
+const { prisma } = require('../lib/prisma');
 const router = express.Router();
 
 // Email template engine will be initialized on demand
@@ -44,17 +45,20 @@ router.get('/', async (req, res) => {
     
     const params = [parseInt(limit), offset];
 
-    const result = await req.pool.query(query, params);
-    
-    // Get total count
-    const countQuery = `SELECT COUNT(*) FROM email_templates`;
-    const countResult = await req.pool.query(countQuery);
-    const totalCount = parseInt(countResult.rows[0].count);
+    // SECURITY MIGRATION: Replace raw SQL with Prisma to prevent injection
+    const [templates, totalCount] = await Promise.all([
+      prisma.email_templates.findMany({
+        orderBy: { updated_at: 'desc' },
+        skip: offset,
+        take: parseInt(limit)
+      }),
+      prisma.email_templates.count()
+    ]);
 
     res.json({
       success: true,
       data: {
-        templates: result.rows,
+        templates: templates,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -78,14 +82,11 @@ router.get('/:templateId', async (req, res) => {
   try {
     const { templateId } = req.params;
     
-    const query = `
-      SELECT * FROM email_templates 
-      WHERE id = $1
-    `;
+    const template = await prisma.email_templates.findUnique({
+      where: { id: templateId }
+    });
     
-    const result = await req.pool.query(query, [templateId]);
-    
-    if (result.rows.length === 0) {
+    if (!template) {
       return res.status(404).json({
         error: 'Template not found',
         message: `Template with ID '${templateId}' does not exist`
@@ -94,7 +95,7 @@ router.get('/:templateId', async (req, res) => {
 
     res.json({
       success: true,
-      data: result.rows[0],
+      data: template,
       message: 'Email template retrieved successfully'
     });
   } catch (error) {
@@ -113,18 +114,17 @@ router.post('/:templateId/preview', async (req, res) => {
     const { variables = {} } = req.body;
     
     // Get template from database
-    const templateQuery = `SELECT * FROM email_templates WHERE id = $1`;
-    const templateResult = await req.pool.query(templateQuery, [templateId]);
+    const template = await prisma.email_templates.findUnique({
+      where: { id: templateId }
+    });
     
-    if (templateResult.rows.length === 0) {
+    if (!template) {
       return res.status(404).json({
         success: false,
         error: 'Template not found',
         message: `Template with ID '${templateId}' does not exist`
       });
     }
-    
-    const template = templateResult.rows[0];
     
     // Simple variable replacement for preview
     const processTemplate = (content, data) => {
@@ -304,10 +304,12 @@ router.post('/', async (req, res) => {
     }
 
     // Check if template name already exists
-    const existingQuery = 'SELECT id FROM email_templates WHERE name = $1';
-    const existingResult = await req.pool.query(existingQuery, [name]);
+    const existingTemplate = await prisma.email_templates.findFirst({
+      where: { name },
+      select: { id: true }
+    });
     
-    if (existingResult.rows.length > 0) {
+    if (existingTemplate) {
       return res.status(409).json({
         success: false,
         error: 'Template name already exists',
@@ -316,33 +318,24 @@ router.post('/', async (req, res) => {
     }
 
     // Insert new template
-    const insertQuery = `
-      INSERT INTO email_templates (
-        name, subject, html_template, text_template, 
-        template_type, category, is_active, version,
-        variables, personalization_rules, compliance_settings,
-        created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-      RETURNING *
-    `;
-
-    const values = [
-      name,
-      subject,
-      html_template,
-      text_template,
-      template_type,
-      category,
-      true, // is_active
-      1, // version
-      JSON.stringify(variables),
-      JSON.stringify(personalization_rules),
-      JSON.stringify(compliance_settings),
-      1 // created_by (system user)
-    ];
-
-    const result = await req.pool.query(insertQuery, values);
-    const newTemplate = result.rows[0];
+    const newTemplate = await prisma.email_templates.create({
+      data: {
+        name,
+        subject,
+        html_template,
+        text_template,
+        template_type,
+        category,
+        is_active: true,
+        version: 1,
+        variables,
+        personalization_rules,
+        compliance_settings,
+        created_by: 1, // system user
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    });
 
     res.status(201).json({
       success: true,
@@ -377,10 +370,11 @@ router.put('/:templateId', async (req, res) => {
     } = req.body;
 
     // Check if template exists
-    const existingQuery = 'SELECT * FROM email_templates WHERE id = $1';
-    const existingResult = await req.pool.query(existingQuery, [templateId]);
+    const existingTemplate = await prisma.email_templates.findUnique({
+      where: { id: templateId }
+    });
     
-    if (existingResult.rows.length === 0) {
+    if (!existingTemplate) {
       return res.status(404).json({
         success: false,
         error: 'Template not found',
@@ -388,76 +382,61 @@ router.put('/:templateId', async (req, res) => {
       });
     }
 
-    const existingTemplate = existingResult.rows[0];
-
-    // Build update query dynamically
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
+    // Build update data for Prisma
+    const updateData = {};
+    let hasUpdates = false;
 
     if (name !== undefined) {
-      // Check if new name conflicts with existing templates (excluding current)
-      const nameCheckQuery = 'SELECT id FROM email_templates WHERE name = $1 AND id != $2';
-      const nameCheckResult = await req.pool.query(nameCheckQuery, [name, templateId]);
-      
-      if (nameCheckResult.rows.length > 0) {
-        return res.status(409).json({
-          success: false,
-          error: 'Template name already exists',
-          message: `A template with name '${name}' already exists`
-        });
-      }
-      
-      updates.push(`name = $${paramIndex++}`);
-      values.push(name);
+      updateData.name = name;
+      hasUpdates = true;
     }
 
     if (subject !== undefined) {
-      updates.push(`subject = $${paramIndex++}`);
-      values.push(subject);
+      updateData.subject = subject;
+      hasUpdates = true;
     }
 
     if (html_template !== undefined) {
-      updates.push(`html_template = $${paramIndex++}`);
-      values.push(html_template);
+      updateData.html_template = html_template;
+      hasUpdates = true;
     }
 
     if (text_template !== undefined) {
-      updates.push(`text_template = $${paramIndex++}`);
-      values.push(text_template);
+      updateData.text_template = text_template;
+      hasUpdates = true;
     }
 
     if (template_type !== undefined) {
-      updates.push(`template_type = $${paramIndex++}`);
-      values.push(template_type);
+      updateData.template_type = template_type;
+      hasUpdates = true;
     }
 
     if (category !== undefined) {
-      updates.push(`category = $${paramIndex++}`);
-      values.push(category);
+      updateData.category = category;
+      hasUpdates = true;
     }
 
     if (is_active !== undefined) {
-      updates.push(`is_active = $${paramIndex++}`);
-      values.push(is_active);
+      updateData.is_active = is_active;
+      hasUpdates = true;
     }
 
     if (variables !== undefined) {
-      updates.push(`variables = $${paramIndex++}`);
-      values.push(JSON.stringify(variables));
+      updateData.variables = variables;
+      hasUpdates = true;
     }
 
     if (personalization_rules !== undefined) {
-      updates.push(`personalization_rules = $${paramIndex++}`);
-      values.push(JSON.stringify(personalization_rules));
+      updateData.personalization_rules = personalization_rules;
+      hasUpdates = true;
     }
 
     if (compliance_settings !== undefined) {
-      updates.push(`compliance_settings = $${paramIndex++}`);
-      values.push(JSON.stringify(compliance_settings));
+      updateData.compliance_settings = compliance_settings;
+      hasUpdates = true;
     }
 
-    if (updates.length === 0) {
+    if (!hasUpdates) {
       return res.status(400).json({
         success: false,
         error: 'No updates provided',
@@ -465,23 +444,14 @@ router.put('/:templateId', async (req, res) => {
       });
     }
 
-    // Increment version number
-    updates.push(`version = version + 1`);
-    updates.push(`updated_at = NOW()`);
-    
-    // Add template ID for WHERE clause
-    values.push(templateId);
-    const whereParamIndex = values.length;
+    // Always increment version and update timestamp
+    updateData.version = existingTemplate.version + 1;
+    updateData.updated_at = new Date();
 
-    const updateQuery = `
-      UPDATE email_templates 
-      SET ${updates.join(', ')}
-      WHERE id = $${whereParamIndex}
-      RETURNING *
-    `;
-
-    const result = await req.pool.query(updateQuery, values);
-    const updatedTemplate = result.rows[0];
+    const updatedTemplate = await prisma.email_templates.update({
+      where: { id: templateId },
+      data: updateData
+    });
 
     res.json({
       success: true,
@@ -505,10 +475,11 @@ router.delete('/:templateId', async (req, res) => {
     const { soft_delete = true } = req.query;
 
     // Check if template exists
-    const existingQuery = 'SELECT * FROM email_templates WHERE id = $1';
-    const existingResult = await req.pool.query(existingQuery, [templateId]);
+    const template = await prisma.email_templates.findUnique({
+      where: { id: templateId }
+    });
     
-    if (existingResult.rows.length === 0) {
+    if (!template) {
       return res.status(404).json({
         success: false,
         error: 'Template not found',
@@ -516,19 +487,15 @@ router.delete('/:templateId', async (req, res) => {
       });
     }
 
-    const template = existingResult.rows[0];
-
     if (soft_delete === 'true' || soft_delete === true) {
       // Soft delete - just mark as inactive
-      const softDeleteQuery = `
-        UPDATE email_templates 
-        SET is_active = false, updated_at = NOW()
-        WHERE id = $1
-        RETURNING *
-      `;
-      
-      const result = await req.pool.query(softDeleteQuery, [templateId]);
-      const deletedTemplate = result.rows[0];
+      const deletedTemplate = await prisma.email_templates.update({
+        where: { id: templateId },
+        data: {
+          is_active: false,
+          updated_at: new Date()
+        }
+      });
 
       res.json({
         success: true,
@@ -540,8 +507,9 @@ router.delete('/:templateId', async (req, res) => {
       });
     } else {
       // Hard delete - remove from database
-      const hardDeleteQuery = 'DELETE FROM email_templates WHERE id = $1 RETURNING *';
-      const result = await req.pool.query(hardDeleteQuery, [templateId]);
+      await prisma.email_templates.delete({
+        where: { id: templateId }
+      });
 
       res.json({
         success: true,
@@ -569,25 +537,26 @@ router.post('/:templateId/duplicate', async (req, res) => {
     const { new_name } = req.body;
 
     // Get original template
-    const originalQuery = 'SELECT * FROM email_templates WHERE id = $1';
-    const originalResult = await req.pool.query(originalQuery, [templateId]);
+    const originalTemplate = await prisma.email_templates.findUnique({
+      where: { id: templateId }
+    });
     
-    if (originalResult.rows.length === 0) {
+    if (!originalTemplate) {
       return res.status(404).json({
         success: false,
         error: 'Template not found',
         message: `Template with ID '${templateId}' does not exist`
       });
     }
-
-    const originalTemplate = originalResult.rows[0];
     const duplicateName = new_name || `${originalTemplate.name} (Copy)`;
 
     // Check if duplicate name already exists
-    const nameCheckQuery = 'SELECT id FROM email_templates WHERE name = $1';
-    const nameCheckResult = await req.pool.query(nameCheckQuery, [duplicateName]);
+    const existingDuplicate = await prisma.email_templates.findFirst({
+      where: { name: duplicateName },
+      select: { id: true }
+    });
     
-    if (nameCheckResult.rows.length > 0) {
+    if (existingDuplicate) {
       return res.status(409).json({
         success: false,
         error: 'Template name already exists',
@@ -596,34 +565,25 @@ router.post('/:templateId/duplicate', async (req, res) => {
     }
 
     // Create duplicate
-    const duplicateQuery = `
-      INSERT INTO email_templates (
-        name, subject, html_template, text_template, 
-        template_type, category, is_active, version,
-        variables, personalization_rules, compliance_settings,
-        parent_template_id, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
-      RETURNING *
-    `;
-
-    const values = [
-      duplicateName,
-      originalTemplate.subject,
-      originalTemplate.html_template,
-      originalTemplate.text_template,
-      originalTemplate.template_type,
-      originalTemplate.category,
-      false, // Start duplicates as inactive
-      1, // Reset version
-      originalTemplate.variables,
-      originalTemplate.personalization_rules,
-      originalTemplate.compliance_settings,
-      templateId, // parent_template_id
-      1 // created_by
-    ];
-
-    const result = await req.pool.query(duplicateQuery, values);
-    const duplicatedTemplate = result.rows[0];
+    const duplicatedTemplate = await prisma.email_templates.create({
+      data: {
+        name: duplicateName,
+        subject: originalTemplate.subject,
+        html_template: originalTemplate.html_template,
+        text_template: originalTemplate.text_template,
+        template_type: originalTemplate.template_type,
+        category: originalTemplate.category,
+        is_active: false, // Start duplicates as inactive
+        version: 1, // Reset version
+        variables: originalTemplate.variables,
+        personalization_rules: originalTemplate.personalization_rules,
+        compliance_settings: originalTemplate.compliance_settings,
+        parent_template_id: templateId,
+        created_by: 1, // created_by
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    });
 
     res.status(201).json({
       success: true,

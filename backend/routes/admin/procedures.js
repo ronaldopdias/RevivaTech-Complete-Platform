@@ -1,10 +1,13 @@
 /**
- * RevivaTech Admin Procedures API (Compatible with existing schema)
+ * PRISMA MIGRATION: Admin Procedures API
+ * Converted from raw SQL to Prisma ORM operations
  * CRUD operations for repair procedures management
  */
 
 const express = require('express');
 const router = express.Router();
+const { prisma } = require('../../lib/prisma');
+const { requireAuth: authenticateToken, requireAdmin } = require('../../lib/auth-utils');
 
 // Helper function to map difficulty level to string
 const getDifficultyString = (level) => {
@@ -29,8 +32,18 @@ const getDifficultyLevel = (difficulty) => {
     }
 };
 
+// Health check endpoint (no authentication required)
+router.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        service: 'admin-procedures-api',
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+    });
+});
+
 // GET /api/admin/procedures - List all procedures with filtering and pagination
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const {
             page = 1,
@@ -43,401 +56,547 @@ router.get('/', async (req, res) => {
             sortOrder = 'DESC'
         } = req.query;
 
-        const offset = (page - 1) * limit;
-        let whereConditions = [];
-        let queryParams = [];
-        let paramIndex = 1;
-
-        // Build WHERE conditions
-        if (search) {
-            whereConditions.push(`(title ILIKE $${paramIndex} OR description ILIKE $${paramIndex} OR overview ILIKE $${paramIndex})`);
-            queryParams.push(`%${search}%`);
-            paramIndex++;
-        }
-
-        if (category) {
-            whereConditions.push(`repair_type = $${paramIndex}`);
-            queryParams.push(category);
-            paramIndex++;
-        }
-
-        if (difficulty) {
-            const difficultyLevel = getDifficultyLevel(difficulty);
-            whereConditions.push(`difficulty_level = $${paramIndex}`);
-            queryParams.push(difficultyLevel);
-            paramIndex++;
-        }
-
-        if (status) {
-            whereConditions.push(`status = $${paramIndex}`);
-            queryParams.push(status);
-            paramIndex++;
-        }
-
-        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        const offset = (parseInt(page) - 1) * parseInt(limit);
         
-        // Count total records
-        const countQuery = `SELECT COUNT(*) FROM repair_procedures ${whereClause}`;
-        const countResult = await req.pool.query(countQuery, queryParams);
-        const totalRecords = parseInt(countResult.rows[0].count);
+        // Build where clause for Prisma
+        const whereClause = {};
+        
+        // Search filter (title or description)
+        if (search) {
+            whereClause.OR = [
+                { title: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+        
+        // Category filter
+        if (category) {
+            whereClause.category = category;
+        }
+        
+        // Difficulty filter
+        if (difficulty) {
+            whereClause.difficulty_level = getDifficultyLevel(difficulty);
+        }
+        
+        // Status filter
+        if (status) {
+            whereClause.status = status;
+        }
 
-        // Get procedures with pagination
-        const query = `
-            SELECT 
-                id,
-                uuid as procedure_id,
-                title,
-                description,
-                overview,
-                device_compatibility,
-                repair_type as category,
-                difficulty_level,
-                estimated_time_minutes,
-                success_rate,
-                view_count,
-                status,
-                diagnostic_tags as tags,
-                created_at,
-                updated_at,
-                tools_required,
-                parts_required,
-                safety_warnings
-            FROM repair_procedures 
-            ${whereClause}
-            ORDER BY ${sortBy} ${sortOrder}
-            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-        `;
+        // Execute query with Prisma
+        const [procedures, totalCount] = await Promise.all([
+            prisma.repairProcedure.findMany({
+                where: whereClause,
+                take: parseInt(limit),
+                skip: offset,
+                orderBy: {
+                    [sortBy]: sortOrder.toLowerCase()
+                },
+                include: {
+                    steps: {
+                        orderBy: { step_order: 'asc' }
+                    },
+                    mediaFiles: {
+                        select: {
+                            id: true,
+                            file_name: true,
+                            file_type: true,
+                            file_size: true
+                        }
+                    }
+                }
+            }),
+            prisma.repairProcedure.count({ where: whereClause })
+        ]);
 
-        queryParams.push(limit, offset);
-        const result = await req.pool.query(query, queryParams);
-
-        // Transform the results to match expected format
-        const transformedResults = result.rows.map(row => ({
-            ...row,
-            difficulty: getDifficultyString(row.difficulty_level),
-            video_count: 0, // Not tracked in current schema
-            image_count: 0  // Not tracked in current schema
+        // Format response
+        const formattedProcedures = procedures.map(proc => ({
+            id: proc.id,
+            title: proc.title,
+            description: proc.description,
+            category: proc.category,
+            estimated_time_minutes: proc.estimated_time_minutes,
+            difficulty_level: proc.difficulty_level,
+            difficulty: getDifficultyString(proc.difficulty_level),
+            status: proc.status,
+            tools_required: proc.tools_required,
+            parts_required: proc.parts_required,
+            safety_precautions: proc.safety_precautions,
+            prerequisites: proc.prerequisites,
+            tips: proc.tips,
+            warnings: proc.warnings,
+            created_at: proc.created_at,
+            updated_at: proc.updated_at,
+            created_by: proc.created_by,
+            updated_by: proc.updated_by,
+            step_count: proc.steps?.length || 0,
+            media_count: proc.mediaFiles?.length || 0,
+            media_files: proc.mediaFiles
         }));
 
         res.json({
             success: true,
             data: {
-                procedures: transformedResults,
+                procedures: formattedProcedures,
                 pagination: {
-                    currentPage: parseInt(page),
-                    totalPages: Math.ceil(totalRecords / limit),
-                    totalRecords,
-                    limit: parseInt(limit)
+                    total: totalCount,
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    pages: Math.ceil(totalCount / parseInt(limit))
                 }
             }
         });
 
     } catch (error) {
-        console.error('❌ Error fetching procedures:', error);
+        console.error('List procedures error:', error);
         res.status(500).json({
-            success: false,
-            error: 'Failed to fetch procedures',
-            details: error.message
+            error: 'Failed to retrieve procedures',
+            code: 'PROCEDURES_LIST_ERROR'
         });
     }
 });
 
-// GET /api/admin/procedures/:id - Get single procedure by ID
-router.get('/:id', async (req, res) => {
+// GET /api/admin/procedures/:id - Get specific procedure with steps
+router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        
-        const query = `
-            SELECT 
-                *,
-                uuid as procedure_id
-            FROM repair_procedures 
-            WHERE id = $1 OR uuid::text = $1
-        `;
-        
-        const result = await req.pool.query(query, [id]);
-        
-        if (result.rows.length === 0) {
+
+        const procedure = await prisma.repairProcedure.findUnique({
+            where: { id },
+            include: {
+                steps: {
+                    orderBy: { step_order: 'asc' }
+                },
+                mediaFiles: true
+            }
+        });
+
+        if (!procedure) {
             return res.status(404).json({
-                success: false,
-                error: 'Procedure not found'
+                error: 'Procedure not found',
+                code: 'PROCEDURE_NOT_FOUND'
             });
         }
 
-        const procedure = result.rows[0];
-        procedure.difficulty = getDifficultyString(procedure.difficulty_level);
+        // Format response
+        const formattedProcedure = {
+            ...procedure,
+            difficulty: getDifficultyString(procedure.difficulty_level),
+            step_count: procedure.steps?.length || 0,
+            media_count: procedure.mediaFiles?.length || 0
+        };
 
         res.json({
             success: true,
-            data: procedure
+            data: formattedProcedure
         });
 
     } catch (error) {
-        console.error('❌ Error fetching procedure:', error);
+        console.error('Get procedure error:', error);
         res.status(500).json({
-            success: false,
-            error: 'Failed to fetch procedure',
-            details: error.message
+            error: 'Failed to retrieve procedure',
+            code: 'PROCEDURE_GET_ERROR'
         });
     }
 });
 
 // POST /api/admin/procedures - Create new procedure
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const {
             title,
             description,
-            overview,
-            device_compatibility = {},
             category,
+            estimated_time_minutes,
             difficulty,
-            estimated_time_minutes = 60,
-            tools_required = {},
-            parts_required = {},
-            safety_warnings = {},
-            status = 'draft'
+            tools_required,
+            parts_required,
+            safety_precautions,
+            prerequisites,
+            tips,
+            warnings,
+            steps
         } = req.body;
 
-        // Validation
-        if (!title) {
+        // Validate required fields
+        if (!title || !category) {
             return res.status(400).json({
-                success: false,
-                error: 'Title is required'
+                error: 'Title and category are required',
+                code: 'MISSING_REQUIRED_FIELDS'
             });
         }
 
-        const difficulty_level = getDifficultyLevel(difficulty);
-        
-        const query = `
-            INSERT INTO repair_procedures (
-                title, description, overview, device_compatibility, repair_type,
-                difficulty_level, estimated_time_minutes, tools_required, 
-                parts_required, safety_warnings, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            RETURNING *
-        `;
+        // Create procedure with steps in transaction
+        const newProcedure = await prisma.$transaction(async (tx) => {
+            // Create the procedure
+            const procedure = await tx.repairProcedure.create({
+                data: {
+                    title,
+                    description: description || '',
+                    category,
+                    estimated_time_minutes: parseInt(estimated_time_minutes) || 30,
+                    difficulty_level: getDifficultyLevel(difficulty),
+                    status: 'draft',
+                    tools_required: tools_required || [],
+                    parts_required: parts_required || [],
+                    safety_precautions: safety_precautions || [],
+                    prerequisites: prerequisites || [],
+                    tips: tips || [],
+                    warnings: warnings || [],
+                    created_by: req.user?.id || null,
+                    updated_by: req.user?.id || null,
+                    created_at: new Date(),
+                    updated_at: new Date()
+                }
+            });
 
-        const values = [
-            title, description, overview, JSON.stringify(device_compatibility), category,
-            difficulty_level, estimated_time_minutes, JSON.stringify(tools_required),
-            JSON.stringify(parts_required), JSON.stringify(safety_warnings), status
-        ];
+            // Create steps if provided
+            if (steps && Array.isArray(steps) && steps.length > 0) {
+                await tx.procedureStep.createMany({
+                    data: steps.map((step, index) => ({
+                        procedure_id: procedure.id,
+                        step_order: index + 1,
+                        title: step.title || `Step ${index + 1}`,
+                        description: step.description || '',
+                        estimated_time_minutes: step.estimated_time_minutes || 5,
+                        is_optional: step.is_optional || false,
+                        warning_message: step.warning_message || null,
+                        success_criteria: step.success_criteria || null,
+                        common_mistakes: step.common_mistakes || [],
+                        tools_needed: step.tools_needed || [],
+                        media_references: step.media_references || []
+                    }))
+                });
+            }
 
-        const result = await req.pool.query(query, values);
+            // Fetch the complete procedure with steps
+            return await tx.repairProcedure.findUnique({
+                where: { id: procedure.id },
+                include: {
+                    steps: {
+                        orderBy: { step_order: 'asc' }
+                    }
+                }
+            });
+        });
 
         res.status(201).json({
             success: true,
-            data: result.rows[0],
-            message: 'Procedure created successfully'
+            message: 'Procedure created successfully',
+            data: {
+                ...newProcedure,
+                difficulty: getDifficultyString(newProcedure.difficulty_level)
+            }
         });
 
     } catch (error) {
-        console.error('❌ Error creating procedure:', error);
+        console.error('Create procedure error:', error);
         res.status(500).json({
-            success: false,
             error: 'Failed to create procedure',
-            details: error.message
+            code: 'PROCEDURE_CREATE_ERROR'
         });
     }
 });
 
 // PUT /api/admin/procedures/:id - Update procedure
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const {
             title,
             description,
-            overview,
-            device_compatibility,
             category,
-            difficulty,
             estimated_time_minutes,
+            difficulty,
+            status,
             tools_required,
             parts_required,
-            safety_warnings,
-            status
+            safety_precautions,
+            prerequisites,
+            tips,
+            warnings,
+            steps
         } = req.body;
 
-        // Build dynamic update query
-        const updateFields = [];
-        const values = [];
-        let paramIndex = 1;
+        // Check if procedure exists
+        const existingProcedure = await prisma.repairProcedure.findUnique({
+            where: { id }
+        });
 
-        if (title !== undefined) {
-            updateFields.push(`title = $${paramIndex}`);
-            values.push(title);
-            paramIndex++;
-        }
-
-        if (description !== undefined) {
-            updateFields.push(`description = $${paramIndex}`);
-            values.push(description);
-            paramIndex++;
-        }
-
-        if (overview !== undefined) {
-            updateFields.push(`overview = $${paramIndex}`);
-            values.push(overview);
-            paramIndex++;
-        }
-
-        if (device_compatibility !== undefined) {
-            updateFields.push(`device_compatibility = $${paramIndex}`);
-            values.push(JSON.stringify(device_compatibility));
-            paramIndex++;
-        }
-
-        if (category !== undefined) {
-            updateFields.push(`repair_type = $${paramIndex}`);
-            values.push(category);
-            paramIndex++;
-        }
-
-        if (difficulty !== undefined) {
-            updateFields.push(`difficulty_level = $${paramIndex}`);
-            values.push(getDifficultyLevel(difficulty));
-            paramIndex++;
-        }
-
-        if (estimated_time_minutes !== undefined) {
-            updateFields.push(`estimated_time_minutes = $${paramIndex}`);
-            values.push(estimated_time_minutes);
-            paramIndex++;
-        }
-
-        if (tools_required !== undefined) {
-            updateFields.push(`tools_required = $${paramIndex}`);
-            values.push(JSON.stringify(tools_required));
-            paramIndex++;
-        }
-
-        if (parts_required !== undefined) {
-            updateFields.push(`parts_required = $${paramIndex}`);
-            values.push(JSON.stringify(parts_required));
-            paramIndex++;
-        }
-
-        if (safety_warnings !== undefined) {
-            updateFields.push(`safety_warnings = $${paramIndex}`);
-            values.push(JSON.stringify(safety_warnings));
-            paramIndex++;
-        }
-
-        if (status !== undefined) {
-            updateFields.push(`status = $${paramIndex}`);
-            values.push(status);
-            paramIndex++;
-        }
-
-        if (updateFields.length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'No fields to update'
-            });
-        }
-
-        updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-
-        const query = `
-            UPDATE repair_procedures 
-            SET ${updateFields.join(', ')}
-            WHERE id = $${paramIndex} OR uuid::text = $${paramIndex}
-            RETURNING *
-        `;
-
-        values.push(id);
-        const result = await req.pool.query(query, values);
-
-        if (result.rows.length === 0) {
+        if (!existingProcedure) {
             return res.status(404).json({
-                success: false,
-                error: 'Procedure not found'
+                error: 'Procedure not found',
+                code: 'PROCEDURE_NOT_FOUND'
             });
         }
+
+        // Update procedure and steps in transaction
+        const updatedProcedure = await prisma.$transaction(async (tx) => {
+            // Build update data
+            const updateData = {
+                updated_at: new Date(),
+                updated_by: req.user?.id || null
+            };
+
+            if (title !== undefined) updateData.title = title;
+            if (description !== undefined) updateData.description = description;
+            if (category !== undefined) updateData.category = category;
+            if (estimated_time_minutes !== undefined) updateData.estimated_time_minutes = parseInt(estimated_time_minutes);
+            if (difficulty !== undefined) updateData.difficulty_level = getDifficultyLevel(difficulty);
+            if (status !== undefined) updateData.status = status;
+            if (tools_required !== undefined) updateData.tools_required = tools_required;
+            if (parts_required !== undefined) updateData.parts_required = parts_required;
+            if (safety_precautions !== undefined) updateData.safety_precautions = safety_precautions;
+            if (prerequisites !== undefined) updateData.prerequisites = prerequisites;
+            if (tips !== undefined) updateData.tips = tips;
+            if (warnings !== undefined) updateData.warnings = warnings;
+
+            // Update the procedure
+            const procedure = await tx.repairProcedure.update({
+                where: { id },
+                data: updateData
+            });
+
+            // Update steps if provided
+            if (steps && Array.isArray(steps)) {
+                // Delete existing steps
+                await tx.procedureStep.deleteMany({
+                    where: { procedure_id: id }
+                });
+
+                // Create new steps
+                if (steps.length > 0) {
+                    await tx.procedureStep.createMany({
+                        data: steps.map((step, index) => ({
+                            procedure_id: id,
+                            step_order: index + 1,
+                            title: step.title || `Step ${index + 1}`,
+                            description: step.description || '',
+                            estimated_time_minutes: step.estimated_time_minutes || 5,
+                            is_optional: step.is_optional || false,
+                            warning_message: step.warning_message || null,
+                            success_criteria: step.success_criteria || null,
+                            common_mistakes: step.common_mistakes || [],
+                            tools_needed: step.tools_needed || [],
+                            media_references: step.media_references || []
+                        }))
+                    });
+                }
+            }
+
+            // Fetch the updated procedure with steps
+            return await tx.repairProcedure.findUnique({
+                where: { id },
+                include: {
+                    steps: {
+                        orderBy: { step_order: 'asc' }
+                    }
+                }
+            });
+        });
 
         res.json({
             success: true,
-            data: result.rows[0],
-            message: 'Procedure updated successfully'
+            message: 'Procedure updated successfully',
+            data: {
+                ...updatedProcedure,
+                difficulty: getDifficultyString(updatedProcedure.difficulty_level)
+            }
         });
 
     } catch (error) {
-        console.error('❌ Error updating procedure:', error);
+        console.error('Update procedure error:', error);
         res.status(500).json({
-            success: false,
             error: 'Failed to update procedure',
-            details: error.message
+            code: 'PROCEDURE_UPDATE_ERROR'
         });
     }
 });
 
 // DELETE /api/admin/procedures/:id - Delete procedure
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        
-        const query = `
-            DELETE FROM repair_procedures 
-            WHERE id = $1 OR uuid::text = $1
-            RETURNING uuid, title
-        `;
-        
-        const result = await req.pool.query(query, [id]);
-        
-        if (result.rows.length === 0) {
+
+        // Check if procedure exists
+        const existingProcedure = await prisma.repairProcedure.findUnique({
+            where: { id }
+        });
+
+        if (!existingProcedure) {
             return res.status(404).json({
-                success: false,
-                error: 'Procedure not found'
+                error: 'Procedure not found',
+                code: 'PROCEDURE_NOT_FOUND'
             });
         }
 
+        // Delete procedure and related data in transaction
+        await prisma.$transaction(async (tx) => {
+            // Delete related steps first
+            await tx.procedureStep.deleteMany({
+                where: { procedure_id: id }
+            });
+
+            // Delete the procedure
+            await tx.repairProcedure.delete({
+                where: { id }
+            });
+        });
+
         res.json({
             success: true,
-            message: `Procedure "${result.rows[0].title}" deleted successfully`,
-            data: { procedure_id: result.rows[0].uuid }
+            message: 'Procedure deleted successfully'
         });
 
     } catch (error) {
-        console.error('❌ Error deleting procedure:', error);
+        console.error('Delete procedure error:', error);
         res.status(500).json({
-            success: false,
             error: 'Failed to delete procedure',
-            details: error.message
+            code: 'PROCEDURE_DELETE_ERROR'
         });
     }
 });
 
-// GET /api/admin/procedures/stats/summary - Get procedures statistics
-router.get('/stats/summary', async (req, res) => {
+// GET /api/admin/procedures/stats/summary - Get procedure statistics
+router.get('/stats/summary', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const query = `
-            SELECT 
-                COUNT(*) as total_procedures,
-                COUNT(*) FILTER (WHERE status = 'published') as published_count,
-                COUNT(*) FILTER (WHERE status = 'draft') as draft_count,
-                COUNT(*) FILTER (WHERE status = 'archived') as archived_count,
-                ROUND(AVG(success_rate), 2) as avg_success_rate,
-                SUM(view_count) as total_views,
-                COUNT(DISTINCT repair_type) as categories_count,
-                COUNT(DISTINCT device_compatibility) as devices_count
-            FROM repair_procedures
-        `;
+        const [
+            totalProcedures,
+            proceduresByCategory,
+            proceduresByDifficulty,
+            proceduresByStatus,
+            recentProcedures
+        ] = await Promise.all([
+            // Total procedure count
+            prisma.repairProcedure.count(),
 
-        const result = await req.pool.query(query);
+            // Procedures by category
+            prisma.repairProcedure.groupBy({
+                by: ['category'],
+                _count: { id: true }
+            }),
+
+            // Procedures by difficulty
+            prisma.repairProcedure.groupBy({
+                by: ['difficulty_level'],
+                _count: { id: true }
+            }),
+
+            // Procedures by status
+            prisma.repairProcedure.groupBy({
+                by: ['status'],
+                _count: { id: true }
+            }),
+
+            // Recent procedures
+            prisma.repairProcedure.findMany({
+                take: 5,
+                orderBy: { updated_at: 'desc' },
+                select: {
+                    id: true,
+                    title: true,
+                    category: true,
+                    status: true,
+                    updated_at: true
+                }
+            })
+        ]);
+
+        // Calculate average estimated time
+        const avgTimeResult = await prisma.repairProcedure.aggregate({
+            _avg: { estimated_time_minutes: true }
+        });
 
         res.json({
             success: true,
-            data: result.rows[0]
+            data: {
+                summary: {
+                    total_procedures: totalProcedures,
+                    average_time_minutes: Math.round(avgTimeResult._avg.estimated_time_minutes || 0),
+                    published_count: proceduresByStatus.find(s => s.status === 'published')?._count.id || 0,
+                    draft_count: proceduresByStatus.find(s => s.status === 'draft')?._count.id || 0
+                },
+                by_category: proceduresByCategory.map(cat => ({
+                    category: cat.category,
+                    count: cat._count.id
+                })),
+                by_difficulty: proceduresByDifficulty.map(diff => ({
+                    level: diff.difficulty_level,
+                    difficulty: getDifficultyString(diff.difficulty_level),
+                    count: diff._count.id
+                })),
+                by_status: proceduresByStatus.map(status => ({
+                    status: status.status,
+                    count: status._count.id
+                })),
+                recent_procedures: recentProcedures
+            }
         });
 
     } catch (error) {
-        console.error('❌ Error fetching procedure stats:', error);
+        console.error('Procedure stats error:', error);
         res.status(500).json({
-            success: false,
-            error: 'Failed to fetch procedure statistics',
-            details: error.message
+            error: 'Failed to retrieve procedure statistics',
+            code: 'PROCEDURE_STATS_ERROR'
+        });
+    }
+});
+
+// POST /api/admin/procedures/:id/publish - Publish a procedure
+router.post('/:id/publish', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const procedure = await prisma.repairProcedure.update({
+            where: { id },
+            data: {
+                status: 'published',
+                updated_at: new Date(),
+                updated_by: req.user?.id || null
+            }
+        });
+
+        res.json({
+            success: true,
+            message: 'Procedure published successfully',
+            data: procedure
+        });
+
+    } catch (error) {
+        console.error('Publish procedure error:', error);
+        res.status(500).json({
+            error: 'Failed to publish procedure',
+            code: 'PROCEDURE_PUBLISH_ERROR'
+        });
+    }
+});
+
+// POST /api/admin/procedures/:id/unpublish - Unpublish a procedure
+router.post('/:id/unpublish', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const procedure = await prisma.repairProcedure.update({
+            where: { id },
+            data: {
+                status: 'draft',
+                updated_at: new Date(),
+                updated_by: req.user?.id || null
+            }
+        });
+
+        res.json({
+            success: true,
+            message: 'Procedure unpublished successfully',
+            data: procedure
+        });
+
+    } catch (error) {
+        console.error('Unpublish procedure error:', error);
+        res.status(500).json({
+            error: 'Failed to unpublish procedure',
+            code: 'PROCEDURE_UNPUBLISH_ERROR'
         });
     }
 });

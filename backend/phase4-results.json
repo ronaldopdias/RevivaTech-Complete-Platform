@@ -1,0 +1,141 @@
+[
+  {
+    "test": "Core API GET /health",
+    "status": "PASS",
+    "message": "Status: 200",
+    "details": {
+      "responseType": "object",
+      "hasData": true
+    },
+    "timestamp": "2025-08-28T15:34:19.015Z"
+  },
+  {
+    "test": "Core API GET /api/auth/get-session",
+    "status": "PASS",
+    "message": "Status: 200",
+    "details": {
+      "responseType": "object",
+      "hasData": false
+    },
+    "timestamp": "2025-08-28T15:34:19.026Z"
+  },
+  {
+    "test": "Core API POST /api/auth/sign-out",
+    "status": "PASS",
+    "message": "Status: 400",
+    "details": {
+      "responseType": "object",
+      "hasData": true
+    },
+    "timestamp": "2025-08-28T15:34:19.032Z"
+  },
+  {
+    "test": "Core API GET /api/test-db",
+    "status": "FAIL",
+    "message": "Unexpected status: 404",
+    "details": {
+      "error": "Route not found"
+    },
+    "timestamp": "2025-08-28T15:34:19.036Z"
+  },
+  {
+    "test": "Business Routes Discovery",
+    "status": "PASS",
+    "message": "Found 0 mounted routes",
+    "details": [],
+    "timestamp": "2025-08-28T15:34:19.037Z"
+  },
+  {
+    "test": "Business API /api/bookings",
+    "status": "WARNING",
+    "message": "Authentication required - endpoint exists but protected",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.044Z"
+  },
+  {
+    "test": "Business API /api/devices",
+    "status": "WARNING",
+    "message": "Route not implemented or not mounted",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.046Z"
+  },
+  {
+    "test": "Business API /api/customers",
+    "status": "WARNING",
+    "message": "Authentication required - endpoint exists but protected",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.052Z"
+  },
+  {
+    "test": "Business API /api/pricing",
+    "status": "WARNING",
+    "message": "Route not implemented or not mounted",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.055Z"
+  },
+  {
+    "test": "Business API /api/analytics",
+    "status": "WARNING",
+    "message": "Authentication required - endpoint exists but protected",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.061Z"
+  },
+  {
+    "test": "Proxy Integration get-session",
+    "status": "PASS",
+    "message": "Session retrieval - Status match: 200",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.162Z"
+  },
+  {
+    "test": "Proxy Integration user",
+    "status": "PASS",
+    "message": "User information - Status match: 404",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.212Z"
+  },
+  {
+    "test": "Database Connectivity",
+    "status": "FAIL",
+    "message": "Status: 404",
+    "details": {
+      "error": "Route not found"
+    },
+    "timestamp": "2025-08-28T15:34:19.214Z"
+  },
+  {
+    "test": "Database Operation User count query",
+    "status": "WARNING",
+    "message": "Status: 401",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.219Z"
+  },
+  {
+    "test": "Database Operation Session query",
+    "status": "PASS",
+    "message": "Query successful",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.221Z"
+  },
+  {
+    "test": "Error Handling Non-existent endpoint",
+    "status": "PASS",
+    "message": "Correct error status: 404",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.223Z"
+  },
+  {
+    "test": "Error Handling Invalid request body",
+    "status": "PASS",
+    "message": "Correct error status: 400",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.227Z"
+  },
+  {
+    "test": "Error Handling Invalid email format",
+    "status": "PASS",
+    "message": "Correct error status: 400",
+    "details": null,
+    "timestamp": "2025-08-28T15:34:19.230Z"
+  }
+]

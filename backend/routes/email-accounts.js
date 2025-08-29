@@ -1,7 +1,8 @@
 const express = require('express');
 const Joi = require('joi');
 const bcrypt = require('bcryptjs');
-const { authenticateBetterAuth: authenticateToken, requireRole } = require('../middleware/better-auth-official');
+const { requireAuth: authenticateToken, requireRole } = require('../lib/auth-utils');
+const { prisma } = require('../lib/prisma');
 const router = express.Router();
 
 // Validation schemas
@@ -35,22 +36,41 @@ const emailAccountSchema = Joi.object({
 // Get all email accounts (admin only)
 router.get('/', async (req, res) => {
   try {
-    const query = `
-      SELECT 
-        id, name, email, purpose, provider, smtp_host, smtp_port, smtp_secure, 
-        smtp_user, from_name, reply_to_email, is_active, is_primary, priority,
-        daily_limit, hourly_limit, created_at, updated_at, last_used_at,
-        total_sent, total_failed, last_error
-      FROM email_accounts 
-      ORDER BY priority ASC, created_at DESC
-    `;
-
-    const result = await req.pool.query(query);
+    const accounts = await prisma.email_accounts.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        purpose: true,
+        provider: true,
+        smtp_host: true,
+        smtp_port: true,
+        smtp_secure: true,
+        smtp_user: true,
+        from_name: true,
+        reply_to_email: true,
+        is_active: true,
+        is_primary: true,
+        priority: true,
+        daily_limit: true,
+        hourly_limit: true,
+        created_at: true,
+        updated_at: true,
+        last_used_at: true,
+        total_sent: true,
+        total_failed: true,
+        last_error: true
+      },
+      orderBy: [
+        { priority: 'asc' },
+        { created_at: 'desc' }
+      ]
+    });
     
     res.json({
       success: true,
-      accounts: result.rows,
-      total: result.rows.length
+      accounts: accounts,
+      total: accounts.length
     });
 
   } catch (error) {
@@ -67,19 +87,35 @@ router.get('/:id',  async (req, res) => {
   try {
     const { id } = req.params;
 
-    const query = `
-      SELECT 
-        id, name, email, purpose, provider, smtp_host, smtp_port, smtp_secure, 
-        smtp_user, from_name, reply_to_email, is_active, is_primary, priority,
-        daily_limit, hourly_limit, created_at, updated_at, last_used_at,
-        total_sent, total_failed, last_error
-      FROM email_accounts 
-      WHERE id = $1
-    `;
-
-    const result = await req.pool.query(query, [id]);
+    const account = await prisma.email_accounts.findUnique({
+      where: { id: id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        purpose: true,
+        provider: true,
+        smtp_host: true,
+        smtp_port: true,
+        smtp_secure: true,
+        smtp_user: true,
+        from_name: true,
+        reply_to_email: true,
+        is_active: true,
+        is_primary: true,
+        priority: true,
+        daily_limit: true,
+        hourly_limit: true,
+        created_at: true,
+        updated_at: true,
+        last_used_at: true,
+        total_sent: true,
+        total_failed: true,
+        last_error: true
+      }
+    });
     
-    if (result.rows.length === 0) {
+    if (!account) {
       return res.status(404).json({
         error: 'Email account not found',
         code: 'EMAIL_ACCOUNT_NOT_FOUND'
@@ -88,7 +124,7 @@ router.get('/:id',  async (req, res) => {
 
     res.json({
       success: true,
-      account: result.rows[0]
+      account: account
     });
 
   } catch (error) {
@@ -102,8 +138,6 @@ router.get('/:id',  async (req, res) => {
 
 // Create new email account (admin only)
 router.post('/',  async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
     // Validate input
     const { error, value } = emailAccountSchema.validate(req.body);
@@ -114,77 +148,101 @@ router.post('/',  async (req, res) => {
       });
     }
 
-    await client.query('BEGIN');
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if email already exists
+      const existingAccount = await tx.email_accounts.findUnique({
+        where: { email: value.email },
+        select: { id: true }
+      });
 
-    // Check if email already exists
-    const existingCheck = await client.query(
-      'SELECT id FROM email_accounts WHERE email = $1',
-      [value.email]
-    );
+      if (existingAccount) {
+        throw new Error('EMAIL_ACCOUNT_EXISTS');
+      }
 
-    if (existingCheck.rows.length > 0) {
-      await client.query('ROLLBACK');
+      // If this is being set as primary, unset other primary accounts
+      if (value.is_primary) {
+        await tx.email_accounts.updateMany({
+          where: {},
+          data: { is_primary: false }
+        });
+      }
+
+      // Encrypt password before storing
+      const encryptedPassword = await bcrypt.hash(value.smtp_password, 10);
+
+      // Insert new email account
+      const newAccount = await tx.email_accounts.create({
+        data: {
+          name: value.name,
+          email: value.email,
+          purpose: value.purpose,
+          provider: value.provider,
+          smtp_host: value.smtp_host,
+          smtp_port: value.smtp_port,
+          smtp_secure: value.smtp_secure,
+          smtp_user: value.smtp_user,
+          smtp_password: encryptedPassword,
+          from_name: value.from_name,
+          reply_to_email: value.reply_to_email,
+          is_active: value.is_active,
+          is_primary: value.is_primary,
+          priority: value.priority,
+          daily_limit: value.daily_limit,
+          hourly_limit: value.hourly_limit,
+          created_by: req.user.id,
+          updated_by: req.user.id
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          purpose: true,
+          provider: true,
+          smtp_host: true,
+          smtp_port: true,
+          smtp_secure: true,
+          smtp_user: true,
+          from_name: true,
+          reply_to_email: true,
+          is_active: true,
+          is_primary: true,
+          priority: true,
+          daily_limit: true,
+          hourly_limit: true,
+          created_at: true,
+          updated_at: true
+        }
+      });
+
+      return newAccount;
+    });
+
+    req.logger.info(`Email account created: ${result.email} by: ${req.user.email}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Email account created successfully',
+      account: result
+    });
+
+  } catch (error) {
+    if (error.message === 'EMAIL_ACCOUNT_EXISTS') {
       return res.status(409).json({
         error: 'Email account already exists',
         code: 'EMAIL_ACCOUNT_EXISTS'
       });
     }
 
-    // If this is being set as primary, unset other primary accounts
-    if (value.is_primary) {
-      await client.query('UPDATE email_accounts SET is_primary = false');
-    }
-
-    // Encrypt password before storing
-    const encryptedPassword = await bcrypt.hash(value.smtp_password, 10);
-
-    // Insert new email account
-    const insertQuery = `
-      INSERT INTO email_accounts (
-        name, email, purpose, provider, smtp_host, smtp_port, smtp_secure,
-        smtp_user, smtp_password, from_name, reply_to_email, is_active, 
-        is_primary, priority, daily_limit, hourly_limit, created_by, updated_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)
-      RETURNING id, name, email, purpose, provider, smtp_host, smtp_port, smtp_secure,
-                smtp_user, from_name, reply_to_email, is_active, is_primary, priority,
-                daily_limit, hourly_limit, created_at, updated_at
-    `;
-
-    const result = await client.query(insertQuery, [
-      value.name, value.email, value.purpose, value.provider,
-      value.smtp_host, value.smtp_port, value.smtp_secure,
-      value.smtp_user, encryptedPassword, value.from_name, value.reply_to_email,
-      value.is_active, value.is_primary, value.priority,
-      value.daily_limit, value.hourly_limit, req.user.id
-    ]);
-
-    await client.query('COMMIT');
-
-    const newAccount = result.rows[0];
-    req.logger.info(`Email account created: ${newAccount.email} by: ${req.user.email}`);
-
-    res.status(201).json({
-      success: true,
-      message: 'Email account created successfully',
-      account: newAccount
-    });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
     req.logger.error('Create email account error:', error);
     res.status(500).json({
       error: 'Failed to create email account',
       code: 'CREATE_EMAIL_ACCOUNT_ERROR'
     });
-  } finally {
-    client.release();
   }
 });
 
 // Update email account (admin only)
 router.put('/:id',  async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
     const { id } = req.params;
 
@@ -198,155 +256,169 @@ router.put('/:id',  async (req, res) => {
       });
     }
 
-    await client.query('BEGIN');
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if account exists
+      const existingAccount = await tx.email_accounts.findUnique({
+        where: { id: id },
+        select: { id: true, email: true }
+      });
 
-    // Check if account exists
-    const existingAccount = await client.query(
-      'SELECT id, email FROM email_accounts WHERE id = $1',
-      [id]
-    );
+      if (!existingAccount) {
+        throw new Error('EMAIL_ACCOUNT_NOT_FOUND');
+      }
 
-    if (existingAccount.rows.length === 0) {
-      await client.query('ROLLBACK');
+      // Check if email is being changed and if new email already exists
+      if (value.email !== existingAccount.email) {
+        const emailCheck = await tx.email_accounts.findFirst({
+          where: {
+            email: value.email,
+            id: { not: id }
+          },
+          select: { id: true }
+        });
+
+        if (emailCheck) {
+          throw new Error('EMAIL_ALREADY_EXISTS');
+        }
+      }
+
+      // If this is being set as primary, unset other primary accounts
+      if (value.is_primary) {
+        await tx.email_accounts.updateMany({
+          where: { id: { not: id } },
+          data: { is_primary: false }
+        });
+      }
+
+      // Build update data dynamically
+      const updateData = {
+        updated_by: req.user.id,
+        updated_at: new Date()
+      };
+
+      // Add all fields except password
+      for (const [key, val] of Object.entries(value)) {
+        if (key === 'smtp_password' && val) {
+          // Encrypt password if provided
+          const encryptedPassword = await bcrypt.hash(val, 10);
+          updateData.smtp_password = encryptedPassword;
+        } else if (key !== 'smtp_password') {
+          updateData[key] = val;
+        }
+      }
+
+      // Update the account
+      const updatedAccount = await tx.email_accounts.update({
+        where: { id: id },
+        data: updateData,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          purpose: true,
+          provider: true,
+          smtp_host: true,
+          smtp_port: true,
+          smtp_secure: true,
+          smtp_user: true,
+          from_name: true,
+          reply_to_email: true,
+          is_active: true,
+          is_primary: true,
+          priority: true,
+          daily_limit: true,
+          hourly_limit: true,
+          created_at: true,
+          updated_at: true
+        }
+      });
+
+      return updatedAccount;
+    });
+
+    req.logger.info(`Email account updated: ${result.email} by: ${req.user.email}`);
+
+    res.json({
+      success: true,
+      message: 'Email account updated successfully',
+      account: result
+    });
+
+  } catch (error) {
+    if (error.message === 'EMAIL_ACCOUNT_NOT_FOUND') {
       return res.status(404).json({
         error: 'Email account not found',
         code: 'EMAIL_ACCOUNT_NOT_FOUND'
       });
     }
 
-    // Check if email is being changed and if new email already exists
-    if (value.email !== existingAccount.rows[0].email) {
-      const emailCheck = await client.query(
-        'SELECT id FROM email_accounts WHERE email = $1 AND id != $2',
-        [value.email, id]
-      );
-
-      if (emailCheck.rows.length > 0) {
-        await client.query('ROLLBACK');
-        return res.status(409).json({
-          error: 'Email address already in use by another account',
-          code: 'EMAIL_ALREADY_EXISTS'
-        });
-      }
+    if (error.message === 'EMAIL_ALREADY_EXISTS') {
+      return res.status(409).json({
+        error: 'Email address already in use by another account',
+        code: 'EMAIL_ALREADY_EXISTS'
+      });
     }
 
-    // If this is being set as primary, unset other primary accounts
-    if (value.is_primary) {
-      await client.query('UPDATE email_accounts SET is_primary = false WHERE id != $1', [id]);
-    }
-
-    // Build update query dynamically
-    const updateFields = [];
-    const updateValues = [];
-    let paramIndex = 1;
-
-    for (const [key, val] of Object.entries(value)) {
-      if (key === 'smtp_password' && val) {
-        // Encrypt password if provided
-        const encryptedPassword = await bcrypt.hash(val, 10);
-        updateFields.push(`smtp_password = $${paramIndex++}`);
-        updateValues.push(encryptedPassword);
-      } else if (key !== 'smtp_password') {
-        updateFields.push(`${key} = $${paramIndex++}`);
-        updateValues.push(val);
-      }
-    }
-
-    // Add updated_by and updated_at
-    updateFields.push(`updated_by = $${paramIndex++}`);
-    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
-    updateValues.push(req.user.id);
-    updateValues.push(id); // for WHERE clause
-
-    const updateQuery = `
-      UPDATE email_accounts 
-      SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex}
-      RETURNING id, name, email, purpose, provider, smtp_host, smtp_port, smtp_secure,
-                smtp_user, from_name, reply_to_email, is_active, is_primary, priority,
-                daily_limit, hourly_limit, created_at, updated_at
-    `;
-
-    const result = await client.query(updateQuery, updateValues);
-    await client.query('COMMIT');
-
-    const updatedAccount = result.rows[0];
-    req.logger.info(`Email account updated: ${updatedAccount.email} by: ${req.user.email}`);
-
-    res.json({
-      success: true,
-      message: 'Email account updated successfully',
-      account: updatedAccount
-    });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
     req.logger.error('Update email account error:', error);
     res.status(500).json({
       error: 'Failed to update email account',
       code: 'UPDATE_EMAIL_ACCOUNT_ERROR'
     });
-  } finally {
-    client.release();
   }
 });
 
 // Delete email account (admin only)
 router.delete('/:id',  async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
     const { id } = req.params;
 
-    await client.query('BEGIN');
-
-    // Check if account exists and get details
-    const accountCheck = await client.query(
-      'SELECT id, email, is_primary FROM email_accounts WHERE id = $1',
-      [id]
-    );
-
-    if (accountCheck.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({
-        error: 'Email account not found',
-        code: 'EMAIL_ACCOUNT_NOT_FOUND'
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if account exists and get details
+      const account = await tx.email_accounts.findUnique({
+        where: { id: id },
+        select: { id: true, email: true, is_primary: true }
       });
-    }
 
-    const account = accountCheck.rows[0];
-
-    // Prevent deletion of primary account if it's the only one
-    if (account.is_primary) {
-      const totalAccounts = await client.query('SELECT COUNT(*) as count FROM email_accounts');
-      if (parseInt(totalAccounts.rows[0].count) === 1) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({
-          error: 'Cannot delete the only email account',
-          code: 'CANNOT_DELETE_ONLY_ACCOUNT'
-        });
+      if (!account) {
+        throw new Error('EMAIL_ACCOUNT_NOT_FOUND');
       }
-    }
 
-    // Delete the account
-    await client.query('DELETE FROM email_accounts WHERE id = $1', [id]);
+      // Prevent deletion of primary account if it's the only one
+      if (account.is_primary) {
+        const totalAccounts = await tx.email_accounts.count();
+        if (totalAccounts === 1) {
+          throw new Error('CANNOT_DELETE_ONLY_ACCOUNT');
+        }
+      }
 
-    // If we deleted the primary account, set another account as primary
-    if (account.is_primary) {
-      await client.query(`
-        UPDATE email_accounts 
-        SET is_primary = true 
-        WHERE id = (
-          SELECT id FROM email_accounts 
-          ORDER BY priority ASC, created_at ASC 
-          LIMIT 1
-        )
-      `);
-    }
+      // Delete the account
+      await tx.email_accounts.delete({
+        where: { id: id }
+      });
 
-    await client.query('COMMIT');
+      // If we deleted the primary account, set another account as primary
+      if (account.is_primary) {
+        // Find the next account to set as primary
+        const nextPrimaryAccount = await tx.email_accounts.findFirst({
+          orderBy: [
+            { priority: 'asc' },
+            { created_at: 'asc' }
+          ],
+          select: { id: true }
+        });
 
-    req.logger.info(`Email account deleted: ${account.email} by: ${req.user.email}`);
+        if (nextPrimaryAccount) {
+          await tx.email_accounts.update({
+            where: { id: nextPrimaryAccount.id },
+            data: { is_primary: true }
+          });
+        }
+      }
+
+      return account;
+    });
+
+    req.logger.info(`Email account deleted: ${result.email} by: ${req.user.email}`);
 
     res.json({
       success: true,
@@ -354,14 +426,25 @@ router.delete('/:id',  async (req, res) => {
     });
 
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (error.message === 'EMAIL_ACCOUNT_NOT_FOUND') {
+      return res.status(404).json({
+        error: 'Email account not found',
+        code: 'EMAIL_ACCOUNT_NOT_FOUND'
+      });
+    }
+
+    if (error.message === 'CANNOT_DELETE_ONLY_ACCOUNT') {
+      return res.status(400).json({
+        error: 'Cannot delete the only email account',
+        code: 'CANNOT_DELETE_ONLY_ACCOUNT'
+      });
+    }
+
     req.logger.error('Delete email account error:', error);
     res.status(500).json({
       error: 'Failed to delete email account',
       code: 'DELETE_EMAIL_ACCOUNT_ERROR'
     });
-  } finally {
-    client.release();
   }
 });
 
@@ -379,23 +462,31 @@ router.post('/:id/test',  async (req, res) => {
     }
 
     // Get account details
-    const accountQuery = `
-      SELECT id, name, email, smtp_host, smtp_port, smtp_secure, smtp_user, 
-             smtp_password, from_name, provider
-      FROM email_accounts 
-      WHERE id = $1 AND is_active = true
-    `;
-
-    const accountResult = await req.pool.query(accountQuery, [id]);
+    const account = await prisma.email_accounts.findFirst({
+      where: { 
+        id: id,
+        is_active: true 
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        smtp_host: true,
+        smtp_port: true,
+        smtp_secure: true,
+        smtp_user: true,
+        smtp_password: true,
+        from_name: true,
+        provider: true
+      }
+    });
     
-    if (accountResult.rows.length === 0) {
+    if (!account) {
       return res.status(404).json({
         error: 'Email account not found or inactive',
         code: 'EMAIL_ACCOUNT_NOT_FOUND'
       });
     }
-
-    const account = accountResult.rows[0];
 
     // Import nodemailer
     const nodemailer = require('nodemailer');
@@ -448,18 +539,30 @@ router.post('/:id/test',  async (req, res) => {
 
     const info = await transporter.sendMail(mailOptions);
 
-    // Log the test email
-    await req.pool.query(`
-      INSERT INTO email_logs (to_email, from_email, subject, provider, status, message_id, sent_at, user_id)
-      VALUES ($1, $2, $3, $4, 'sent', $5, NOW(), $6)
-    `, [to_email, account.email, mailOptions.subject, account.provider, info.messageId, req.user.id]);
-
-    // Update account usage stats
-    await req.pool.query(`
-      UPDATE email_accounts 
-      SET total_sent = total_sent + 1, last_used_at = NOW() 
-      WHERE id = $1
-    `, [id]);
+    // Log the test email and update usage stats in a transaction
+    await prisma.$transaction([
+      // Log the test email
+      prisma.email_logs.create({
+        data: {
+          to_email: to_email,
+          from_email: account.email,
+          subject: mailOptions.subject,
+          provider: account.provider,
+          status: 'sent',
+          message_id: info.messageId,
+          sent_at: new Date(),
+          user_id: req.user.id
+        }
+      }),
+      // Update account usage stats
+      prisma.email_accounts.update({
+        where: { id: id },
+        data: {
+          total_sent: { increment: 1 },
+          last_used_at: new Date()
+        }
+      })
+    ]);
 
     req.logger.info(`Test email sent from account ${account.email} to ${to_email} by: ${req.user.email}`);
 
@@ -480,17 +583,17 @@ router.post('/:id/test',  async (req, res) => {
     
     // Log failed test attempt
     try {
-      await req.pool.query(`
-        INSERT INTO email_logs (to_email, from_email, subject, provider, status, error_message, user_id)
-        VALUES ($1, $2, $3, $4, 'failed', $5, $6)
-      `, [
-        req.body.to_email || 'unknown',
-        'test',
-        'Email Account Test',
-        'unknown',
-        error.message,
-        req.user.id
-      ]);
+      await prisma.email_logs.create({
+        data: {
+          to_email: req.body.to_email || 'unknown',
+          from_email: 'test',
+          subject: 'Email Account Test',
+          provider: 'unknown',
+          status: 'failed',
+          error_message: error.message,
+          user_id: req.user.id
+        }
+      });
     } catch (logError) {
       req.logger.error('Failed to log test email error:', logError);
     }
@@ -510,46 +613,53 @@ router.get('/:id/stats',  async (req, res) => {
     const { period = '7d' } = req.query;
 
     // Calculate date range
-    let dateFilter = "created_at >= NOW() - INTERVAL '7 days'";
-    if (period === '1d') dateFilter = "created_at >= NOW() - INTERVAL '1 day'";
-    if (period === '30d') dateFilter = "created_at >= NOW() - INTERVAL '30 days'";
+    let dateFilter = new Date();
+    if (period === '1d') {
+      dateFilter.setDate(dateFilter.getDate() - 1);
+    } else if (period === '30d') {
+      dateFilter.setDate(dateFilter.getDate() - 30);
+    } else { // default '7d'
+      dateFilter.setDate(dateFilter.getDate() - 7);
+    }
 
-    // Get account details
-    const accountQuery = `
-      SELECT id, name, email, total_sent, total_failed, last_used_at
-      FROM email_accounts 
-      WHERE id = $1
-    `;
+    // Get account details first
+    const account = await prisma.email_accounts.findUnique({
+      where: { id: id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        total_sent: true,
+        total_failed: true,
+        last_used_at: true
+      }
+    });
 
-    // Get period statistics
-    const statsQuery = `
-      SELECT 
-        COUNT(*) as total_emails,
-        COUNT(CASE WHEN status = 'sent' THEN 1 END) as sent_emails,
-        COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_emails,
-        ROUND(
-          (COUNT(CASE WHEN status = 'sent' THEN 1 END)::decimal / NULLIF(COUNT(*), 0)) * 100, 
-          2
-        ) as success_rate
-      FROM email_logs 
-      WHERE from_email = (SELECT email FROM email_accounts WHERE id = $1)
-        AND ${dateFilter}
-    `;
-
-    const [accountResult, statsResult] = await Promise.all([
-      req.pool.query(accountQuery, [id]),
-      req.pool.query(statsQuery, [id])
-    ]);
-
-    if (accountResult.rows.length === 0) {
+    if (!account) {
       return res.status(404).json({
         error: 'Email account not found',
         code: 'EMAIL_ACCOUNT_NOT_FOUND'
       });
     }
 
-    const account = accountResult.rows[0];
-    const stats = statsResult.rows[0];
+    // Get period statistics using the account email
+    const emailLogs = await prisma.email_logs.findMany({
+      where: {
+        from_email: account.email,
+        created_at: {
+          gte: dateFilter
+        }
+      },
+      select: {
+        status: true
+      }
+    });
+
+    // Calculate statistics manually since Prisma doesn't support conditional aggregation directly
+    const totalEmails = emailLogs.length;
+    const sentEmails = emailLogs.filter(log => log.status === 'sent').length;
+    const failedEmails = emailLogs.filter(log => log.status === 'failed').length;
+    const successRate = totalEmails > 0 ? ((sentEmails / totalEmails) * 100).toFixed(2) : 0;
 
     res.json({
       success: true,
@@ -561,11 +671,10 @@ router.get('/:id/stats',  async (req, res) => {
       },
       period_stats: {
         period,
-        ...stats,
-        total_emails: parseInt(stats.total_emails) || 0,
-        sent_emails: parseInt(stats.sent_emails) || 0,
-        failed_emails: parseInt(stats.failed_emails) || 0,
-        success_rate: parseFloat(stats.success_rate) || 0
+        total_emails: totalEmails,
+        sent_emails: sentEmails,
+        failed_emails: failedEmails,
+        success_rate: parseFloat(successRate)
       },
       lifetime_stats: {
         total_sent: parseInt(account.total_sent) || 0,

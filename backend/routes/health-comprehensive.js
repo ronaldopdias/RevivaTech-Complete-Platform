@@ -1,4 +1,5 @@
 const express = require('express');
+const { prisma } = require('../lib/prisma');
 const router = express.Router();
 
 /**
@@ -72,12 +73,10 @@ router.get('/', async (req, res) => {
 
   // Test database connection
   try {
-    if (req.pool) {
-      const result = await req.pool.query('SELECT NOW() as timestamp, COUNT(*) as table_count FROM information_schema.tables WHERE table_schema = \'public\'');
-      healthCheck.services.database.status = 'healthy';
-      healthCheck.services.database.lastCheck = result.rows[0].timestamp;
-      healthCheck.services.database.tableCount = parseInt(result.rows[0].table_count);
-    }
+    const result = await prisma.$queryRaw`SELECT NOW() as timestamp, COUNT(*) as table_count FROM information_schema.tables WHERE table_schema = 'public'`;
+    healthCheck.services.database.status = 'healthy';
+    healthCheck.services.database.lastCheck = result[0].timestamp;
+    healthCheck.services.database.tableCount = parseInt(result[0].table_count);
   } catch (error) {
     healthCheck.services.database.status = 'error';
     healthCheck.services.database.error = error.message;
@@ -106,10 +105,8 @@ router.get('/ready', async (req, res) => {
 
   // Check database connectivity
   try {
-    if (req.pool) {
-      await req.pool.query('SELECT 1');
-      readiness.checks.database = true;
-    }
+    await prisma.$queryRaw`SELECT 1`;
+    readiness.checks.database = true;
   } catch (error) {
     readiness.checks.database = false;
   }
@@ -172,21 +169,19 @@ router.get('/metrics', async (req, res) => {
 
   // Get database metrics if available
   try {
-    if (req.pool) {
-      const dbStats = await req.pool.query(`
-        SELECT 
-          COUNT(*) as total_connections,
-          COUNT(*) FILTER (WHERE state = 'active') as active_connections,
-          COUNT(*) FILTER (WHERE state = 'idle') as idle_connections
-        FROM pg_stat_activity 
-        WHERE datname = current_database()
-      `);
-      
-      metrics.database.status = 'connected';
-      metrics.database.totalConnections = parseInt(dbStats.rows[0].total_connections);
-      metrics.database.activeConnections = parseInt(dbStats.rows[0].active_connections);
-      metrics.database.idleConnections = parseInt(dbStats.rows[0].idle_connections);
-    }
+    const dbStats = await prisma.$queryRaw`
+      SELECT 
+        COUNT(*) as total_connections,
+        COUNT(*) FILTER (WHERE state = 'active') as active_connections,
+        COUNT(*) FILTER (WHERE state = 'idle') as idle_connections
+      FROM pg_stat_activity 
+      WHERE datname = current_database()
+    `;
+    
+    metrics.database.status = 'connected';
+    metrics.database.totalConnections = parseInt(dbStats[0].total_connections);
+    metrics.database.activeConnections = parseInt(dbStats[0].active_connections);
+    metrics.database.idleConnections = parseInt(dbStats[0].idle_connections);
   } catch (error) {
     metrics.database.status = 'error';
     metrics.database.error = error.message;
@@ -233,24 +228,16 @@ router.get('/status', async (req, res) => {
   // Check each component health
   try {
     // Database component check
-    if (req.pool) {
-      const dbResult = await req.pool.query('SELECT version(), current_database(), current_user');
-      status.components.database = {
-        status: 'healthy',
-        type: 'PostgreSQL',
-        version: dbResult.rows[0].version.split(' ')[1],
-        database: dbResult.rows[0].current_database,
-        user: dbResult.rows[0].current_user,
-        host: process.env.DB_HOST || 'localhost',
-        port: process.env.DB_PORT || 5435
-      };
-    } else {
-      status.components.database = {
-        status: 'error',
-        error: 'Database connection not available'
-      };
-      status.overall = 'degraded';
-    }
+    const dbResult = await prisma.$queryRaw`SELECT version(), current_database(), current_user`;
+    status.components.database = {
+      status: 'healthy',
+      type: 'PostgreSQL',
+      version: dbResult[0].version.split(' ')[1],
+      database: dbResult[0].current_database,
+      user: dbResult[0].current_user,
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5435
+    };
   } catch (error) {
     status.components.database = {
       status: 'error',

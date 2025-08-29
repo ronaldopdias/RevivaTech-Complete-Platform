@@ -4,10 +4,11 @@ const BACKEND_BASE_URL = process.env.BACKEND_URL || 'http://revivatech_backend:3
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const templateId = params.id;
+    const resolvedParams = await params;
+    const templateId = resolvedParams.id;
     const backendUrl = `${BACKEND_BASE_URL}/api/email-templates/${templateId}`;
     
     const response = await fetch(backendUrl, {
@@ -39,10 +40,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const templateId = params.id;
+    const resolvedParams = await params;
+    const templateId = resolvedParams.id;
     const body = await request.json();
     const backendUrl = `${BACKEND_BASE_URL}/api/email-templates/${templateId}`;
     
@@ -76,10 +78,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const templateId = params.id;
+    const resolvedParams = await params;
+    const templateId = resolvedParams.id;
     const url = new URL(request.url);
     const softDelete = url.searchParams.get('soft_delete') || 'true';
     

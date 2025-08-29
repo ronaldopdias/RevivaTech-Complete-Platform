@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/database');
+const { prisma, testConnection } = require('../lib/prisma');
 const redisClient = require('../config/redis');
 
 // Main health check
@@ -24,21 +24,18 @@ router.get('/', (req, res) => {
 router.get('/database', async (req, res) => {
   try {
     const startTime = Date.now();
-    const result = await pool.query('SELECT 1 as status');
+    const result = await prisma.$queryRaw`SELECT 1 as status`;
     const responseTime = Date.now() - startTime;
     
     res.json({
       status: 'healthy',
-      message: `Database connected (${responseTime}ms)`,
+      message: `Database connected via Prisma (${responseTime}ms)`,
       responseTime,
       details: {
         host: process.env.DB_HOST || 'localhost',
         database: process.env.DB_NAME || 'revivatech',
-        pool: {
-          totalCount: pool.totalCount,
-          idleCount: pool.idleCount,
-          waitingCount: pool.waitingCount
-        }
+        adapter: 'Prisma',
+        connectionType: 'Connection Pool'
       }
     });
   } catch (error) {
@@ -94,15 +91,15 @@ router.get('/all', async (req, res) => {
   
   // Check Database
   try {
-    await pool.query('SELECT 1');
+    await prisma.$queryRaw`SELECT 1`;
     checks.push({
-      service: 'Database',
+      service: 'Database (Prisma)',
       status: 'healthy',
       message: 'Connected'
     });
   } catch (error) {
     checks.push({
-      service: 'Database',
+      service: 'Database (Prisma)',
       status: 'unhealthy',
       message: error.message
     });

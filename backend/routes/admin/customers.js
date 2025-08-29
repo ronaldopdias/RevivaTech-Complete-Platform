@@ -1,7 +1,8 @@
 const express = require('express');
 const Joi = require('joi');
 const rateLimit = require('express-rate-limit');
-const { authenticateBetterAuth: authenticateToken, requireRole } = require('../../middleware/better-auth-official');
+const { requireAuth: authenticateToken, requireRole } = require('../../lib/auth-utils');
+const { prisma } = require('../../lib/prisma');
 const router = express.Router();
 
 // Rate limiting for admin endpoints
@@ -23,114 +24,123 @@ router.use(requireRole(['ADMIN', 'SUPER_ADMIN']));
  * Get all customers with admin-level details and filtering
  */
 router.get('/', async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
     // Get query parameters for filtering
     const { search, status, tier, limit = 50, offset = 0 } = req.query;
     
-    // Build dynamic query based on filters
-    let whereConditions = ['1=1'];
-    let queryParams = [];
-    let paramCount = 0;
+    // Build dynamic where clause for Prisma
+    const whereClause = {
+      role: 'CUSTOMER'
+    };
 
     // Search filter
     if (search) {
-      paramCount++;
-      whereConditions.push(`(
-        u."firstName" ILIKE $${paramCount} OR 
-        u."lastName" ILIKE $${paramCount} OR 
-        u.email ILIKE $${paramCount} OR
-        u.id::text ILIKE $${paramCount}
-      )`);
-      queryParams.push(`%${search}%`);
+      whereClause.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { id: { contains: search, mode: 'insensitive' } }
+      ];
     }
 
     // Status filter (active users with recent bookings vs inactive)
     if (status && status !== 'all') {
-      paramCount++;
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
       if (status.toLowerCase() === 'active') {
-        whereConditions.push(`u."createdAt" >= NOW() - INTERVAL '30 days'`);
+        whereClause.createdAt = { gte: thirtyDaysAgo };
       } else if (status.toLowerCase() === 'inactive') {
-        whereConditions.push(`u."createdAt" < NOW() - INTERVAL '30 days'`);
+        whereClause.createdAt = { lt: thirtyDaysAgo };
       }
     }
 
-    // Main query to get customers with aggregated booking data
-    const customersQuery = `
-      WITH customer_stats AS (
-        SELECT 
-          u.id,
-          u."firstName",
-          u."lastName", 
-          u.email,
-          u.phone,
-          u."createdAt" as join_date,
-          COUNT(b.id) as total_repairs,
-          COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) as total_spent,
-          MAX(b.updated_at) as last_repair,
-          CASE 
-            WHEN u."createdAt" >= NOW() - INTERVAL '30 days' THEN 'Active'
-            ELSE 'Inactive'
-          END as status,
-          CASE 
-            WHEN COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) >= 2000 THEN 'Platinum'
-            WHEN COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) >= 1000 THEN 'Gold'
-            WHEN COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) >= 500 THEN 'Silver'
-            ELSE 'Bronze'
-          END as tier,
-          COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) * 0.1 as loyalty_points
-        FROM "user" u
-        LEFT JOIN bookings b ON u.id::uuid = b.customer_id
-        WHERE u.role = 'CUSTOMER' AND ${whereConditions.join(' AND ')}
-        GROUP BY u.id, u."firstName", u."lastName", u.email, u.phone, u."createdAt"
-      )
-      SELECT * FROM customer_stats
-      ORDER BY total_spent DESC, join_date DESC
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-    `;
+    // Get customers with booking statistics using Prisma aggregations
+    const customers = await prisma.user.findMany({
+      where: whereClause,
+      include: {
+        bookings: {
+          select: {
+            id: true,
+            status: true,
+            finalPrice: true,
+            updatedAt: true,
+            createdAt: true
+          }
+        }
+      },
+      orderBy: [
+        { createdAt: 'desc' }
+      ],
+      take: parseInt(limit),
+      skip: parseInt(offset)
+    });
 
-    queryParams.push(parseInt(limit), parseInt(offset));
-    
-    const customersResult = await client.query(customersQuery, queryParams);
-    
-    // Transform data to match frontend interface
-    const customers = customersResult.rows.map(row => ({
-      id: `CUST-${String(row.id).padStart(3, '0')}`,
-      firstName: row.firstName,
-      lastName: row.lastName,
-      email: row.email,
-      phone: row.phone || '+44 0000 000000',
-      joinDate: row.join_date.toISOString().split('T')[0],
-      totalRepairs: parseInt(row.total_repairs),
-      totalSpent: parseFloat(row.total_spent),
-      lastRepair: row.last_repair ? row.last_repair.toISOString().split('T')[0] : '',
-      status: row.status,
-      tier: row.tier,
-      loyaltyPoints: Math.round(parseFloat(row.loyalty_points))
-    }));
+    // Transform data with calculated fields (replacing CTE with JS calculations)
+    const transformedCustomers = customers.map(user => {
+      const completedBookings = user.bookings.filter(b => b.status === 'COMPLETED');
+      const totalSpent = completedBookings.reduce((sum, booking) => 
+        sum + parseFloat(booking.finalPrice || 0), 0
+      );
+      
+      const lastRepair = user.bookings.length > 0 
+        ? Math.max(...user.bookings.map(b => new Date(b.updatedAt).getTime()))
+        : null;
+
+      // Status calculation
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const status = new Date(user.createdAt) >= thirtyDaysAgo ? 'Active' : 'Inactive';
+
+      // Tier calculation
+      let tier = 'Bronze';
+      if (totalSpent >= 2000) tier = 'Platinum';
+      else if (totalSpent >= 1000) tier = 'Gold';
+      else if (totalSpent >= 500) tier = 'Silver';
+
+      return {
+        id: `CUST-${String(user.id.slice(-3)).padStart(3, '0')}`,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone || '+44 0000 000000',
+        joinDate: user.createdAt.toISOString().split('T')[0],
+        totalRepairs: user.bookings.length,
+        totalSpent: parseFloat(totalSpent.toFixed(2)),
+        lastRepair: lastRepair ? new Date(lastRepair).toISOString().split('T')[0] : '',
+        status,
+        tier,
+        loyaltyPoints: Math.round(totalSpent * 0.1)
+      };
+    });
+
+    // Apply tier filter after transformation if specified
+    let filteredCustomers = transformedCustomers;
+    if (tier && tier !== 'all') {
+      filteredCustomers = transformedCustomers.filter(c => c.tier.toLowerCase() === tier.toLowerCase());
+    }
+
+    // Sort by totalSpent DESC, then by joinDate DESC (matching original query)
+    filteredCustomers.sort((a, b) => {
+      if (b.totalSpent !== a.totalSpent) {
+        return b.totalSpent - a.totalSpent;
+      }
+      return new Date(b.joinDate) - new Date(a.joinDate);
+    });
 
     // Get total count for pagination
-    const countQuery = `
-      SELECT COUNT(DISTINCT u.id) as total
-      FROM "user" u
-      LEFT JOIN bookings b ON u.id::uuid = b.customer_id
-      WHERE u.role = 'CUSTOMER' AND ${whereConditions.join(' AND ')}
-    `;
-    
-    const countResult = await client.query(countQuery, queryParams.slice(0, -2));
-    const totalCustomers = parseInt(countResult.rows[0].total);
+    const totalCustomers = await prisma.user.count({
+      where: whereClause
+    });
 
     // Calculate summary statistics
-    const activeCustomers = customers.filter(c => c.status === 'Active').length;
-    const totalRevenue = customers.reduce((sum, c) => sum + c.totalSpent, 0);
-    const averageValue = customers.length > 0 ? totalRevenue / customers.length : 0;
+    const activeCustomers = filteredCustomers.filter(c => c.status === 'Active').length;
+    const totalRevenue = filteredCustomers.reduce((sum, c) => sum + c.totalSpent, 0);
+    const averageValue = filteredCustomers.length > 0 ? totalRevenue / filteredCustomers.length : 0;
 
-    client.release();
-    
     res.json({
       success: true,
-      data: customers,
+      data: filteredCustomers,
       pagination: {
         total: totalCustomers,
         offset: parseInt(offset),
@@ -144,18 +154,17 @@ router.get('/', async (req, res) => {
         totalRevenue: Math.round(totalRevenue),
         averageValue: Math.round(averageValue),
         tierDistribution: {
-          Bronze: customers.filter(c => c.tier === 'Bronze').length,
-          Silver: customers.filter(c => c.tier === 'Silver').length,
-          Gold: customers.filter(c => c.tier === 'Gold').length,
-          Platinum: customers.filter(c => c.tier === 'Platinum').length,
+          Bronze: filteredCustomers.filter(c => c.tier === 'Bronze').length,
+          Silver: filteredCustomers.filter(c => c.tier === 'Silver').length,
+          Gold: filteredCustomers.filter(c => c.tier === 'Gold').length,
+          Platinum: filteredCustomers.filter(c => c.tier === 'Platinum').length,
         }
       },
       timestamp: new Date().toISOString()
     });
     
   } catch (error) {
-    client.release();
-    req.logger.error('Error fetching admin customers:', error);
+    req.logger?.error('Error fetching admin customers:', error);
     res.status(500).json({
       error: 'Failed to fetch customers',
       message: error.message
@@ -168,63 +177,77 @@ router.get('/', async (req, res) => {
  * Get specific customer details
  */
 router.get('/:id', async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
     const customerId = req.params.id.replace('CUST-', ''); // Remove prefix
     
-    const customerQuery = `
-      SELECT 
-        u.id,
-        u."firstName",
-        u."lastName", 
-        u.email,
-        u.phone,
-        u."createdAt",
-        COUNT(b.id) as total_repairs,
-        COALESCE(SUM(CASE WHEN b.booking_status = 'COMPLETED' THEN b.quote_total_price END), 0) as total_spent,
-        MAX(b.updated_at) as last_repair
-      FROM "user" u
-      LEFT JOIN bookings b ON u.id::uuid = b.customer_id
-      WHERE u.id = $1 AND u.role = 'CUSTOMER'
-      GROUP BY u.id, u."firstName", u."lastName", u.email, u.phone, u."createdAt"
-    `;
+    // Find user by partial ID match (since we're using the last 3 characters)
+    const customer = await prisma.user.findFirst({
+      where: {
+        id: { endsWith: customerId.padStart(3, '0') },
+        role: 'CUSTOMER'
+      },
+      include: {
+        bookings: {
+          select: {
+            id: true,
+            status: true,
+            finalPrice: true,
+            updatedAt: true,
+            createdAt: true
+          }
+        }
+      }
+    });
     
-    const customerResult = await client.query(customerQuery, [customerId]);
-    
-    if (customerResult.rows.length === 0) {
-      client.release();
+    if (!customer) {
       return res.status(404).json({
         error: 'Customer not found'
       });
     }
     
-    const row = customerResult.rows[0];
-    const customer = {
-      id: `CUST-${String(row.id).padStart(3, '0')}`,
-      firstName: row.firstName,
-      lastName: row.lastName,
-      email: row.email,
-      phone: row.phone || '+44 0000 000000',
-      joinDate: row.createdAt.toISOString().split('T')[0],
-      totalRepairs: parseInt(row.total_repairs),
-      totalSpent: parseFloat(row.total_spent),
-      lastRepair: row.last_repair ? row.last_repair.toISOString().split('T')[0] : '',
-      status: row.join_date >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? 'Active' : 'Inactive',
-      tier: row.total_spent >= 2000 ? 'Platinum' : row.total_spent >= 1000 ? 'Gold' : row.total_spent >= 500 ? 'Silver' : 'Bronze',
-      loyaltyPoints: Math.round(parseFloat(row.total_spent) * 0.1)
-    };
+    // Calculate statistics
+    const completedBookings = customer.bookings.filter(b => b.status === 'COMPLETED');
+    const totalSpent = completedBookings.reduce((sum, booking) => 
+      sum + parseFloat(booking.finalPrice || 0), 0
+    );
+    
+    const lastRepair = customer.bookings.length > 0 
+      ? Math.max(...customer.bookings.map(b => new Date(b.updatedAt).getTime()))
+      : null;
 
-    client.release();
+    // Status calculation
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const status = new Date(customer.createdAt) >= thirtyDaysAgo ? 'Active' : 'Inactive';
+
+    // Tier calculation
+    let tier = 'Bronze';
+    if (totalSpent >= 2000) tier = 'Platinum';
+    else if (totalSpent >= 1000) tier = 'Gold';
+    else if (totalSpent >= 500) tier = 'Silver';
+
+    const transformedCustomer = {
+      id: `CUST-${String(customer.id.slice(-3)).padStart(3, '0')}`,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      email: customer.email,
+      phone: customer.phone || '+44 0000 000000',
+      joinDate: customer.createdAt.toISOString().split('T')[0],
+      totalRepairs: customer.bookings.length,
+      totalSpent: parseFloat(totalSpent.toFixed(2)),
+      lastRepair: lastRepair ? new Date(lastRepair).toISOString().split('T')[0] : '',
+      status,
+      tier,
+      loyaltyPoints: Math.round(totalSpent * 0.1)
+    };
     
     res.json({
       success: true,
-      data: customer
+      data: transformedCustomer
     });
     
   } catch (error) {
-    client.release();
-    req.logger.error('Error fetching customer details:', error);
+    req.logger?.error('Error fetching customer details:', error);
     res.status(500).json({
       error: 'Failed to fetch customer details',
       message: error.message
@@ -237,8 +260,6 @@ router.get('/:id', async (req, res) => {
  * Update customer information
  */
 router.put('/:id', async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
     const customerId = req.params.id.replace('CUST-', '');
     const { firstName, lastName, email, phone } = req.body;
@@ -253,45 +274,47 @@ router.put('/:id', async (req, res) => {
     
     const { error } = schema.validate(req.body);
     if (error) {
-      client.release();
       return res.status(400).json({
         error: 'Validation error',
         message: error.details[0].message
       });
     }
     
-    // Update customer
-    const updateQuery = `
-      UPDATE "user" 
-      SET "firstName" = COALESCE($1, "firstName"),
-          "lastName" = COALESCE($2, "lastName"),
-          email = COALESCE($3, email),
-          phone = COALESCE($4, phone),
-          "updatedAt" = NOW()
-      WHERE id = $5 AND role = 'CUSTOMER'
-      RETURNING *
-    `;
-    
-    const updateResult = await client.query(updateQuery, [firstName, lastName, email, phone, customerId]);
-    
-    if (updateResult.rows.length === 0) {
-      client.release();
+    // Find customer first
+    const existingCustomer = await prisma.user.findFirst({
+      where: {
+        id: { endsWith: customerId.padStart(3, '0') },
+        role: 'CUSTOMER'
+      }
+    });
+
+    if (!existingCustomer) {
       return res.status(404).json({
         error: 'Customer not found'
       });
     }
     
-    client.release();
+    // Update customer with only provided fields
+    const updateData = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    updateData.updatedAt = new Date();
+
+    const updatedCustomer = await prisma.user.update({
+      where: { id: existingCustomer.id },
+      data: updateData
+    });
     
     res.json({
       success: true,
       message: 'Customer updated successfully',
-      data: updateResult.rows[0]
+      data: updatedCustomer
     });
     
   } catch (error) {
-    client.release();
-    req.logger.error('Error updating customer:', error);
+    req.logger?.error('Error updating customer:', error);
     res.status(500).json({
       error: 'Failed to update customer',
       message: error.message

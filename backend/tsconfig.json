@@ -4,7 +4,7 @@
     "module": "commonjs",
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -21,7 +21,7 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
-      "@/types/*": ["src/types/*"],
+      "@/types/*": ["types/*", "src/types/*"],
       "@/controllers/*": ["src/controllers/*"],
       "@/services/*": ["src/services/*"],
       "@/models/*": ["src/models/*"],
@@ -29,11 +29,14 @@
       "@/routes/*": ["src/routes/*"],
       "@/utils/*": ["src/utils/*"]
     },
-    "types": ["node", "jest"],
+    "types": ["node"],
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "types/**/*",
+    "lib/**/*",
+    "prisma/**/*"
   ],
   "exclude": [
     "node_modules",

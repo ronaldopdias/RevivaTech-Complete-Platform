@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
+const { prisma } = require('../lib/prisma');
 
 // Simple pricing calculation with WebSocket notifications
 router.post('/simple', [
@@ -21,48 +22,41 @@ router.post('/simple', [
 
     const { deviceId, repairType, urgencyLevel = 'STANDARD' } = req.body;
 
-    // Get device info from database
-    const deviceQuery = `
-      SELECT d.*, db.name as brand_name, dc.name as category_name
-      FROM devices d
-      LEFT JOIN device_brands db ON d.brand_id = db.id
-      LEFT JOIN device_categories dc ON d.category_id = dc.id
-      WHERE d.id = $1
-    `;
+    // Get device info from database using Prisma
+    const device = await prisma.deviceModel.findUnique({
+      where: { id: deviceId },
+      include: {
+        brand: {
+          include: {
+            category: true
+          }
+        }
+      }
+    });
 
-    const deviceResult = await req.pool.query(deviceQuery, [deviceId]);
-    if (deviceResult.rows.length === 0) {
+    if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
 
-    const device = deviceResult.rows[0];
+    // Get pricing rule using Prisma
+    const pricingRule = await prisma.pricingRule.findFirst({
+      where: {
+        isActive: true,
+        repairType: repairType
+      },
+      orderBy: [
+        { createdAt: 'desc' }
+      ]
+    });
 
-    // Get pricing rule (using new schema structure)
-    const pricingQuery = `
-      SELECT 
-        effects
-      FROM pricing_rules 
-      WHERE is_enabled = true
-        AND (conditions->>'repairType' = $2 OR conditions->>'repairType' IS NULL)
-      ORDER BY priority DESC, created_at DESC
-      LIMIT 1
-    `;
-
-    const pricingResult = await req.pool.query(pricingQuery, [repairType]);
-    if (pricingResult.rows.length === 0) {
+    if (!pricingRule) {
       return res.status(404).json({ error: `No pricing rule found for ${repairType}` });
     }
-
-    const pricingRule = pricingResult.rows[0];
     
-    // Debug: Log the pricing rule to see column names and values
-    console.log('🔍 PRICING DEBUG - Full pricingRule object:', JSON.stringify(pricingRule, null, 2));
-    console.log('🔍 PRICING DEBUG - pricingRule.basePrice:', pricingRule.basePrice);
-    console.log('🔍 PRICING DEBUG - typeof pricingRule.basePrice:', typeof pricingRule.basePrice);
 
-    // Calculate price with urgency multiplier
-    const basePrice = parseFloat(pricingRule.basePrice);
-    console.log('🔍 PRICING DEBUG - parsed basePrice:', basePrice);
+    // Calculate price with urgency multiplier using Prisma fields
+    const basePrice = parseFloat(pricingRule.basePrice || 50);
+    
     const urgencyMultipliers = {
       LOW: 0.9,
       STANDARD: 1.0,
@@ -76,35 +70,25 @@ router.post('/simple', [
     const marketDemand = parseFloat(pricingRule.marketDemand) || 1.0;
     const seasonalFactor = parseFloat(pricingRule.seasonalFactor) || 1.0;
 
-    console.log('🔍 PRICING DEBUG - Before finalPrice calculation:');
-    console.log('  basePrice:', basePrice, 'type:', typeof basePrice);
-    console.log('  urgencyMultiplier:', urgencyMultiplier);
-    console.log('  complexityMultiplier:', complexityMultiplier);
-    console.log('  marketDemand:', marketDemand);
-    console.log('  seasonalFactor:', seasonalFactor);
     
     const finalPrice = Math.round(
       basePrice * urgencyMultiplier * complexityMultiplier * marketDemand * seasonalFactor
     );
     
-    console.log('🔍 PRICING DEBUG - finalPrice calculated:', finalPrice);
 
     // Calculate quote validity
     const validityHours = urgencyLevel === 'URGENT' || urgencyLevel === 'EMERGENCY' ? 2 : 24;
     const validUntil = new Date();
     validUntil.setHours(validUntil.getHours() + validityHours);
 
-    console.log('🔍 PRICING DEBUG - About to create response with:');
-    console.log('  basePrice variable:', basePrice, 'type:', typeof basePrice);
-    console.log('  finalPrice variable:', finalPrice, 'type:', typeof finalPrice);
 
     const response = {
       success: true,
       deviceInfo: {
         id: device.id,
-        name: `${device.brand_name} ${device.name}`,
+        name: `${device.brand.name} ${device.name}`,
         year: device.year,
-        category: device.category_name,
+        category: device.brand.category.name,
       },
       pricing: {
         basePrice,
@@ -152,7 +136,6 @@ router.post('/simple', [
       req.logger.info('Pricing update emitted via WebSocket', pricingUpdateData);
     }
 
-    console.log('🔍 PRICING DEBUG - Final response.pricing:', JSON.stringify(response.pricing, null, 2));
     return res.json(response);
 
   } catch (error) {
@@ -213,21 +196,24 @@ router.post('/calculate', [
     } = req.body;
 
     // Get device information
-    const deviceQuery = `
-      SELECT d.*, dc.name as category_name, dc.slug as category_slug, 
-             db.name as brand_name, db.slug as brand_slug
-      FROM devices d
-      JOIN device_brands db ON d.brand_id = db.id
-      JOIN device_categories dc ON d.category_id = dc.id
-      WHERE d.id = $1 AND d.is_active = TRUE
-    `;
+    // SECURITY MIGRATION: Replace raw SQL with Prisma joins
+    const device = await prisma.deviceModel.findUnique({
+      where: { 
+        id: device_id,
+        isActive: true 
+      },
+      include: {
+        brand: {
+          include: {
+            category: true
+          }
+        }
+      }
+    });
 
-    const deviceResult = await req.pool.query(deviceQuery, [device_id]);
-    if (deviceResult.rows.length === 0) {
+    if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
-
-    const device = deviceResult.rows[0];
     const deviceAge = new Date().getFullYear() - device.year;
 
     // Initialize pricing calculation
@@ -252,10 +238,18 @@ router.post('/calculate', [
         WHERE di.id = $1 AND di.is_active = TRUE
       `;
 
-      const issueResult = await req.pool.query(issueQuery, [issueInput.id, device_id]);
+      const issueResult = await prisma.$queryRaw`
+        SELECT 
+          di.*,
+          dim.custom_price,
+          dim.custom_time_estimate
+        FROM device_issues di
+        LEFT JOIN device_issue_mappings dim ON di.id = dim.issue_id AND dim.device_id = ${device_id}
+        WHERE di.id = ${issueInput.id} AND di.is_active = TRUE
+      `;
       
-      if (issueResult.rows.length > 0) {
-        const issue = issueResult.rows[0];
+      if (issueResult.length > 0) {
+        const issue = issueResult[0];
         
         // Calculate issue base cost (average of min/max or fallback to category default)
         let issueCost = 0;
@@ -296,17 +290,20 @@ router.post('/calculate', [
     let finalCost = baseCost;
     let appliedRules = [];
 
-    const rulesQuery = `
-      SELECT * FROM repair_pricing_rules 
-      WHERE is_active = TRUE 
-      AND (valid_from IS NULL OR valid_from <= CURRENT_DATE)
-      AND (valid_until IS NULL OR valid_until >= CURRENT_DATE)
-      ORDER BY priority ASC
-    `;
+    // SECURITY MIGRATION: Replace raw SQL with Prisma date filtering
+    const pricingRules = await prisma.pricingRule.findMany({
+      where: {
+        isActive: true,
+        validFrom: { lte: new Date() },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: new Date() } }
+        ]
+      },
+      orderBy: { createdAt: 'asc' } // No priority field, using createdAt
+    });
 
-    const rulesResult = await req.pool.query(rulesQuery);
-
-    for (const rule of rulesResult.rows) {
+    for (const rule of pricingRules) {
       const conditions = rule.conditions || {};
       let ruleApplies = true;
 
@@ -443,14 +440,18 @@ router.post('/calculate', [
 // Get pricing rules (admin endpoint)
 router.get('/rules', async (req, res) => {
   try {
-    const query = `
-      SELECT * FROM repair_pricing_rules 
-      WHERE is_active = TRUE
-      ORDER BY priority ASC, name ASC
-    `;
+    // SECURITY MIGRATION: Replace raw SQL with Prisma to prevent injection
+    const pricingRules = await prisma.pricingRule.findMany({
+      where: {
+        isActive: true
+      },
+      orderBy: [
+        { repairType: 'asc' },
+        { createdAt: 'desc' }
+      ]
+    });
     
-    const result = await req.pool.query(query);
-    res.json(result.rows);
+    res.json(pricingRules);
 
   } catch (error) {
     req.logger.error('Pricing rules fetch error:', error);

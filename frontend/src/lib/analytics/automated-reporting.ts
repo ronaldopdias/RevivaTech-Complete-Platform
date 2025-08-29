@@ -180,7 +180,7 @@ class AutomatedReportingService {
       averageOrderValue: 91.61,
       topServices: [
         { service: 'iPhone Screen Repair', views: 345, conversions: 15, conversionRate: 4.3 },
-        { service: 'Laptop Screen Repair', views: 234, conversions: 8, conversions Rate: 3.4 },
+        { service: 'Laptop Screen Repair', views: 234, conversions: 8, conversionRate: 3.4 },
         { service: 'iPad Battery Replacement', views: 189, conversions: 6, conversionRate: 3.2 }
       ],
       funnelMetrics: {

@@ -1,23 +1,28 @@
 const express = require('express');
 const Joi = require('joi');
-const { authenticateBetterAuth: authenticateToken, optionalAuth, requireRole, requireAdmin } = require('../middleware/better-auth-official');
+const { requireAuth: authenticateToken, optionalAuth, requireRole, requireAdmin } = require('../lib/auth-utils');
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
 const router = express.Router();
+const { prisma, executeTransaction } = require('../lib/prisma');
 
 // Email confirmation helper function
-async function sendBookingConfirmationEmail(emailService, pool, logger, userId, bookingData) {
+async function sendBookingConfirmationEmail(emailService, userId, bookingData) {
   try {
-    // Get user information
-    const userQuery = 'SELECT email, "firstName", "lastName" FROM "user" WHERE id = $1';
-    const userResult = await pool.query(userQuery, [userId]);
+    // Get user information using Prisma
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        firstName: true,
+        lastName: true
+      }
+    });
     
-    if (userResult.rows.length === 0) {
+    if (!user) {
       throw new Error(`User not found: ${userId}`);
     }
-    
-    const user = userResult.rows[0];
     
     // Load email templates
     const templatePath = path.join(__dirname, '..', 'templates', 'booking-confirmation.html');
@@ -82,11 +87,11 @@ async function sendBookingConfirmationEmail(emailService, pool, logger, userId, 
     };
     
     const result = await emailService.sendEmail(emailData);
-    logger.info(`✅ Booking confirmation email sent: ${result.messageId} to ${user.email}`);
+    console.log(`✅ Booking confirmation email sent: ${result.messageId} to ${user.email}`);
     
     return result;
   } catch (error) {
-    logger.error(`❌ Failed to send booking confirmation email:`, error);
+    console.error(`❌ Failed to send booking confirmation email:`, error);
     throw error;
   }
 }
@@ -127,8 +132,7 @@ function getNestedValue(obj, path) {
 
 // Validation schemas
 const createBookingSchema = Joi.object({
-  deviceId: Joi.string().required(),
-  deviceVariantId: Joi.string().optional(),
+  deviceModelId: Joi.string().required(),
   repairType: Joi.string().valid('SCREEN_REPAIR', 'BATTERY_REPLACEMENT', 'WATER_DAMAGE', 'DATA_RECOVERY', 'SOFTWARE_ISSUE', 'HARDWARE_DIAGNOSTIC', 'MOTHERBOARD_REPAIR', 'CAMERA_REPAIR', 'SPEAKER_REPAIR', 'CHARGING_PORT', 'BUTTON_REPAIR', 'CUSTOM_REPAIR').required(),
   problemDescription: Joi.string().min(10).max(1000).required(),
   urgencyLevel: Joi.string().valid('STANDARD', 'URGENT', 'EMERGENCY').default('STANDARD'),
@@ -143,7 +147,7 @@ const updateBookingSchema = Joi.object({
   scheduledDate: Joi.date().iso().optional(),
   estimatedCompletion: Joi.date().iso().optional(),
   finalPrice: Joi.number().min(0).optional(),
-  assignedTechnicianId: Joi.string().optional(),
+  technicianId: Joi.string().optional(),
   internalNotes: Joi.string().max(1000).optional(),
   customerNotes: Joi.string().max(500).optional()
 });
@@ -153,62 +157,66 @@ router.get('/', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN', 'TECHNIC
   try {
     const { status, customerId, limit = 50, offset = 0, sortBy = 'createdAt', sortOrder = 'DESC' } = req.query;
     
-    let whereClause = 'WHERE 1=1';
-    const queryParams = [];
-    let paramIndex = 1;
-
+    // Build where clause
+    const where = {};
+    
     if (status) {
-      whereClause += ` AND status = $${paramIndex}`;
-      queryParams.push(status);
-      paramIndex++;
+      where.status = status;
     }
-
+    
     if (customerId) {
-      whereClause += ` AND "customerId" = $${paramIndex}`;
-      queryParams.push(customerId);
-      paramIndex++;
+      where.customerId = customerId;
     }
-
-    const validSortColumns = ['createdAt', 'updatedAt', 'status', 'preferredDate', 'finalPrice'];
-    const orderBy = validSortColumns.includes(sortBy) ? sortBy : 'createdAt';
-    const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-    const countQuery = `SELECT COUNT(*) FROM bookings ${whereClause}`;
-    const countResult = await req.pool.query(countQuery, queryParams);
-    const total = parseInt(countResult.rows[0].count);
-
-    const bookingsQuery = `
-      SELECT 
-        b.*,
-        u.email as "customerEmail",
-        u."firstName" as "customerFirstName",
-        u."lastName" as "customerLastName",
-        db.name as "deviceBrand",
-        d.name as "deviceModel",
-        dv.name as "deviceVariant",
-        dc.name as "deviceCategory"
-      FROM bookings b
-      JOIN users u ON b.customer_id = u.id
-      LEFT JOIN devices d ON b.device_id = d.id
-      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
-      LEFT JOIN device_brands db ON d.brand_id = db.id
-      LEFT JOIN device_categories dc ON d.category_id = dc.id
-      ${whereClause}
-      ORDER BY "${orderBy}" ${order}
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-
-    queryParams.push(parseInt(limit), parseInt(offset));
-    const bookingsResult = await req.pool.query(bookingsQuery, queryParams);
+    
+    // Count total bookings
+    const total = await prisma.booking.count({ where });
+    
+    // Fetch bookings with relations using Prisma
+    const bookings = await prisma.booking.findMany({
+      where,
+      include: {
+        customer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true
+          }
+        },
+        deviceModel: {
+          include: {
+            brand: {
+              include: {
+                category: true
+              }
+            }
+          }
+        },
+        technician: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        [sortBy]: sortOrder.toLowerCase()
+      },
+      skip: parseInt(offset),
+      take: parseInt(limit)
+    });
 
     res.json({
       success: true,
-      bookings: bookingsResult.rows,
+      data: bookings,
       pagination: {
         total,
         limit: parseInt(limit),
         offset: parseInt(offset),
-        pages: Math.ceil(total / parseInt(limit))
+        hasMore: total > parseInt(offset) + parseInt(limit)
       }
     });
 
@@ -221,108 +229,132 @@ router.get('/', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN', 'TECHNIC
   }
 });
 
-// Get customer's own bookings
-router.get('/my-bookings', authenticateToken, async (req, res) => {
+// Get customer's bookings
+router.get('/my', authenticateToken, async (req, res) => {
   try {
-    const { status, limit = 10, offset = 0 } = req.query;
+    const { status, limit = 50, offset = 0 } = req.query;
     
-    let whereClause = 'WHERE b."customerId" = $1';
-    const queryParams = [req.user.id];
-    let paramIndex = 2;
-
+    // Build where clause for current user's bookings
+    const where = {
+      customerId: req.user.id
+    };
+    
     if (status) {
-      whereClause += ` AND status = $${paramIndex}`;
-      queryParams.push(status);
-      paramIndex++;
+      where.status = status;
     }
-
-    const bookingsQuery = `
-      SELECT 
-        b.*,
-        db.name as "deviceBrand",
-        d.name as "deviceModel",
-        dv.name as "deviceVariant",
-        dc.name as "deviceCategory"
-      FROM bookings b
-      LEFT JOIN devices d ON b.device_id = d.id
-      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
-      LEFT JOIN device_brands db ON d.brand_id = db.id
-      LEFT JOIN device_categories dc ON d.category_id = dc.id
-      ${whereClause}
-      ORDER BY b."createdAt" DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-
-    queryParams.push(parseInt(limit), parseInt(offset));
-    const bookingsResult = await req.pool.query(bookingsQuery, queryParams);
+    
+    // Count total bookings for user
+    const total = await prisma.booking.count({ where });
+    
+    // Fetch user's bookings with relations using Prisma
+    const bookings = await prisma.booking.findMany({
+      where,
+      include: {
+        deviceModel: {
+          include: {
+            brand: {
+              include: {
+                category: true
+              }
+            }
+          }
+        },
+        technician: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip: parseInt(offset),
+      take: parseInt(limit)
+    });
 
     res.json({
       success: true,
-      bookings: bookingsResult.rows
+      data: bookings,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > parseInt(offset) + parseInt(limit)
+      }
     });
 
   } catch (error) {
     req.logger.error('Get customer bookings error:', error);
     res.status(500).json({
       error: 'Failed to fetch your bookings',
-      code: 'FETCH_CUSTOMER_BOOKINGS_ERROR'
+      code: 'FETCH_BOOKINGS_ERROR'
     });
   }
 });
 
-// Get single booking by ID
+// Get single booking
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-
-    const bookingQuery = `
-      SELECT 
-        b.*,
-        u.email as "customerEmail",
-        u."firstName" as "customerFirstName",
-        u."lastName" as "customerLastName",
-        u.phone as "customerPhone",
-        db.name as "deviceBrand",
-        d.name as "deviceModel",
-        dv.name as "deviceVariant",
-        dc.name as "deviceCategory",
-        tech."firstName" as "technicianFirstName",
-        tech."lastName" as "technicianLastName"
-      FROM bookings b
-      JOIN users u ON b.customer_id = u.id
-      LEFT JOIN devices d ON b.device_id = d.id
-      LEFT JOIN device_variants dv ON b.device_variant_id = dv.id
-      LEFT JOIN device_brands db ON d.brand_id = db.id
-      LEFT JOIN device_categories dc ON d.category_id = dc.id
-      LEFT JOIN users tech ON b."assignedTechnicianId" = tech.id
-      WHERE b.id = $1
-    `;
-
-    const result = await req.pool.query(bookingQuery, [id]);
-
-    if (result.rows.length === 0) {
+    
+    // Fetch booking with all relations using Prisma
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true
+          }
+        },
+        deviceModel: {
+          include: {
+            brand: {
+              include: {
+                category: true
+              }
+            }
+          }
+        },
+        technician: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+    
+    if (!booking) {
       return res.status(404).json({
         error: 'Booking not found',
         code: 'BOOKING_NOT_FOUND'
       });
     }
-
-    const booking = result.rows[0];
-
-    // Check if user has permission to view this booking
-    const isCustomer = req.user.role === 'CUSTOMER' && booking.customerId === req.user.id;
-    const isStaff = ['ADMIN', 'SUPER_ADMIN', 'TECHNICIAN'].includes(req.user.role);
-
-    if (!isCustomer && !isStaff) {
+    
+    // Check if user can access this booking
+    const canAccess = req.user.role === 'ADMIN' || 
+                     req.user.role === 'SUPER_ADMIN' || 
+                     req.user.role === 'TECHNICIAN' || 
+                     booking.customerId === req.user.id;
+    
+    if (!canAccess) {
       return res.status(403).json({
         error: 'Access denied',
         code: 'ACCESS_DENIED'
       });
     }
-
+    
     res.json({
       success: true,
-      booking
+      data: booking
     });
 
   } catch (error) {
@@ -336,10 +368,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Create new booking
 router.post('/', optionalAuth, async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
-    // Validate input
+    // Validate request body
     const { error, value } = createBookingSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
@@ -349,8 +379,7 @@ router.post('/', optionalAuth, async (req, res) => {
     }
 
     const {
-      deviceId,
-      deviceVariantId,
+      deviceModelId,
       repairType,
       problemDescription,
       urgencyLevel,
@@ -360,170 +389,158 @@ router.post('/', optionalAuth, async (req, res) => {
       customerNotes
     } = value;
 
-    await client.query('BEGIN');
-
-    // Verify device exists
-    const deviceCheck = await client.query(
-      'SELECT id FROM devices WHERE id = $1',
-      [deviceId]
-    );
-
-    if (deviceCheck.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({
-        error: 'Invalid device',
-        code: 'INVALID_DEVICE_MODEL'
-      });
-    }
-
-    // Calculate base price based on repair type
-    // TODO: Implement pricing rules table lookup
-    const basePriceMap = {
-      'SCREEN_REPAIR': 150.00,
-      'BATTERY_REPLACEMENT': 80.00,
-      'WATER_DAMAGE': 200.00,
-      'DATA_RECOVERY': 180.00,
-      'SOFTWARE_ISSUE': 60.00,
-      'HARDWARE_DIAGNOSTIC': 40.00,
-      'MOTHERBOARD_REPAIR': 250.00,
-      'CAMERA_REPAIR': 120.00,
-      'SPEAKER_REPAIR': 90.00,
-      'CHARGING_PORT': 100.00,
-      'BUTTON_REPAIR': 70.00,
-      'CUSTOM_REPAIR': 150.00
-    };
-    const basePrice = basePriceMap[repairType] || 100.00;
-
-    // Generate booking ID
-    const bookingId = crypto.randomBytes(16).toString('hex');
-
-    // Determine customer ID
-    let customerId = req.user?.id;
-    
-    if (!customerId) {
-      // For guest bookings, require customer info
-      if (!customerInfo || !customerInfo.email) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({
-          error: 'Customer information required for guest bookings',
-          code: 'CUSTOMER_INFO_REQUIRED'
-        });
-      }
-      
-      // Create or find guest customer
-      const guestEmail = customerInfo.email.toLowerCase();
-      const existingCustomer = await client.query(
-        'SELECT id FROM "user" WHERE email = $1',
-        [guestEmail]
-      );
-
-      if (existingCustomer.rows.length > 0) {
-        customerId = existingCustomer.rows[0].id;
-      } else {
-        // Create new guest customer
-        const guestId = crypto.randomBytes(16).toString('hex');
-        await client.query(
-          'INSERT INTO "user" (id, email, "firstName", "lastName", phone, role, "isActive", "emailVerified", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())',
-          [
-            guestId,
-            guestEmail,
-            customerInfo.firstName || 'Guest',
-            customerInfo.lastName || 'Customer',
-            customerInfo.phone || null,
-            'CUSTOMER',
-            true,
-            false
-          ]
-        );
-        customerId = guestId;
-      }
-    }
-
-    // Create booking
-    const bookingQuery = `
-      INSERT INTO bookings (
-        id, customer_id, device_id, device_variant_id, selected_repairs, issue_description,
-        urgency_level, booking_status, quote_base_price, quote_total_price, preferred_date,
-        device_condition, special_instructions
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *
-    `;
-
-    const bookingResult = await client.query(bookingQuery, [
-      bookingId,
-      customerId,
-      deviceId,
-      deviceVariantId || null,
-      JSON.stringify([repairType]), // selected_repairs is JSON array
-      problemDescription,
-      urgencyLevel || 'STANDARD',
-      'draft',
-      basePrice || 0,
-      basePrice || 0,
-      preferredDate || null,
-      deviceCondition || 'unknown',
-      customerNotes || null
-    ]);
-
-    await client.query('COMMIT');
-
-    req.logger.info(`Booking created: ${bookingId} for customer: ${customerId}`);
-
-    // Get device information for email
-    const deviceQuery = `
-      SELECT 
-        d.name as "deviceModel",
-        db.name as "deviceBrand"
-      FROM devices d
-      JOIN device_brands db ON d.brand_id = db.id
-      WHERE d.id = $1
-    `;
-    const deviceResult = await req.pool.query(deviceQuery, [deviceModelId]);
-    
-    // Prepare booking data for email
-    const emailBookingData = {
-      ...bookingResult.rows[0],
-      deviceModel: deviceResult.rows[0]?.deviceModel || 'Unknown',
-      deviceBrand: deviceResult.rows[0]?.deviceBrand || 'Unknown'
-    };
-
-    // Send booking confirmation email (async - don't wait for it)
-    if (req.emailService) {
-      // Send email asynchronously without blocking the response
-      setImmediate(async () => {
-        try {
-          await sendBookingConfirmationEmail(req.emailService, req.pool, req.logger, customerId, emailBookingData);
-          req.logger.info(`📧 Booking confirmation email sent for booking: ${bookingId}`);
-        } catch (emailError) {
-          req.logger.error(`⚠️ Failed to send confirmation email for booking ${bookingId}:`, emailError);
+    // Execute transaction using Prisma
+    const result = await executeTransaction(async (tx) => {
+      // Verify device model exists
+      const deviceModel = await tx.deviceModel.findUnique({
+        where: { id: deviceModelId },
+        include: {
+          brand: true,
+          pricingRules: {
+            where: {
+              repairType: repairType,
+              isActive: true
+            }
+          }
         }
       });
+
+      if (!deviceModel) {
+        throw new Error('Invalid device model');
+      }
+
+      // Determine customer
+      let customerId;
+      
+      if (req.user) {
+        // Authenticated user
+        customerId = req.user.id;
+      } else {
+        // Guest booking
+        if (!customerInfo || !customerInfo.email) {
+          throw new Error('Customer information required for guest bookings');
+        }
+
+        // Create or find guest customer
+        const guestEmail = customerInfo.email.toLowerCase();
+        let customer = await tx.user.findUnique({
+          where: { email: guestEmail }
+        });
+
+        if (!customer) {
+          // Create new guest customer
+          customer = await tx.user.create({
+            data: {
+              id: crypto.randomBytes(16).toString('hex'),
+              email: guestEmail,
+              firstName: customerInfo.firstName || 'Guest',
+              lastName: customerInfo.lastName || 'User',
+              phone: customerInfo.phone || null,
+              role: 'CUSTOMER',
+              isActive: true,
+              emailVerified: false
+            }
+          });
+        }
+        
+        customerId = customer.id;
+      }
+
+      // Calculate pricing
+      const pricingRule = deviceModel.pricingRules[0];
+      let basePrice = 50; // Default price
+      let finalPrice = 50;
+
+      if (pricingRule) {
+        basePrice = parseFloat(pricingRule.basePrice);
+        finalPrice = basePrice;
+
+        // Apply urgency multiplier
+        if (urgencyLevel === 'URGENT') {
+          finalPrice = basePrice * 1.5;
+        } else if (urgencyLevel === 'EMERGENCY') {
+          finalPrice = basePrice * 2;
+        }
+      }
+
+      // Create booking
+      const bookingId = crypto.randomBytes(16).toString('hex');
+      const booking = await tx.booking.create({
+        data: {
+          id: bookingId,
+          customerId: customerId,
+          deviceModelId: deviceModelId,
+          repairType: repairType,
+          problemDescription: problemDescription,
+          urgencyLevel: urgencyLevel,
+          preferredDate: preferredDate ? new Date(preferredDate) : null,
+          status: 'PENDING',
+          basePrice: basePrice,
+          finalPrice: finalPrice,
+          deviceCondition: deviceCondition || {},
+          customerNotes: customerNotes || null,
+          trackingNumber: `RT${Date.now().toString(36).toUpperCase()}`
+        },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          deviceModel: {
+            include: {
+              brand: {
+                include: {
+                  category: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      return booking;
+    });
+
+    req.logger.info(`Booking created: ${result.id} for customer: ${result.customerId}`);
+
+    // Send confirmation email (async - don't wait)
+    if (req.emailService) {
+      const bookingData = {
+        ...result,
+        deviceBrand: result.deviceModel.brand.name,
+        deviceModel: result.deviceModel.name
+      };
+      
+      sendBookingConfirmationEmail(req.emailService, result.customerId, bookingData)
+        .catch(error => req.logger.error('Email send error:', error));
     }
 
     res.status(201).json({
       success: true,
-      message: 'Booking created successfully',
-      booking: bookingResult.rows[0]
+      data: result,
+      message: 'Booking created successfully'
     });
 
   } catch (error) {
-    await client.query('ROLLBACK');
     req.logger.error('Create booking error:', error);
     res.status(500).json({
       error: 'Failed to create booking',
-      code: 'CREATE_BOOKING_ERROR'
+      code: 'CREATE_BOOKING_ERROR',
+      details: error.message
     });
-  } finally {
-    client.release();
   }
 });
 
-// Update booking (staff only)
-router.put('/:id', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN', 'TECHNICIAN']), async (req, res) => {
+// Update booking
+router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validate input
+    // Validate request body
     const { error, value } = updateBookingSchema.validate(req.body);
     if (error) {
       return res.status(400).json({
@@ -532,56 +549,87 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN', 'TECH
       });
     }
 
-    // Check if booking exists
-    const existingBooking = await req.pool.query(
-      'SELECT id FROM bookings WHERE id = $1',
-      [id]
-    );
+    // Check if booking exists using Prisma
+    const existingBooking = await prisma.booking.findUnique({
+      where: { id },
+      include: {
+        customer: true
+      }
+    });
 
-    if (existingBooking.rows.length === 0) {
+    if (!existingBooking) {
       return res.status(404).json({
         error: 'Booking not found',
         code: 'BOOKING_NOT_FOUND'
       });
     }
 
-    // Build update query dynamically
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
+    // Check permissions
+    const canUpdate = req.user.role === 'ADMIN' || 
+                     req.user.role === 'SUPER_ADMIN' || 
+                     req.user.role === 'TECHNICIAN' ||
+                     (existingBooking.customerId === req.user.id && 
+                      ['status', 'customerNotes'].every(field => !value[field] || field === 'customerNotes'));
 
-    for (const [key, val] of Object.entries(value)) {
-      if (val !== undefined) {
-        updates.push(`"${key}" = $${paramIndex}`);
-        values.push(val);
-        paramIndex++;
-      }
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({
-        error: 'No valid fields to update'
+    if (!canUpdate) {
+      return res.status(403).json({
+        error: 'Access denied',
+        code: 'ACCESS_DENIED'
       });
     }
 
-    updates.push('"updatedAt" = NOW()');
-    values.push(id);
+    // Build update data
+    const updateData = {
+      updatedAt: new Date()
+    };
 
-    const updateQuery = `
-      UPDATE bookings 
-      SET ${updates.join(', ')}
-      WHERE id = $${paramIndex}
-      RETURNING *
-    `;
+    // Add fields from validated data
+    if (value.status !== undefined) updateData.status = value.status;
+    if (value.scheduledDate !== undefined) updateData.scheduledDate = new Date(value.scheduledDate);
+    if (value.estimatedCompletion !== undefined) updateData.estimatedCompletion = new Date(value.estimatedCompletion);
+    if (value.finalPrice !== undefined) updateData.finalPrice = value.finalPrice;
+    if (value.technicianId !== undefined) updateData.technicianId = value.technicianId;
+    if (value.internalNotes !== undefined) updateData.internalNotes = value.internalNotes;
+    if (value.customerNotes !== undefined) updateData.customerNotes = value.customerNotes;
 
-    const result = await req.pool.query(updateQuery, values);
+    // Update booking using Prisma
+    const updatedBooking = await prisma.booking.update({
+      where: { id },
+      data: updateData,
+      include: {
+        customer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        deviceModel: {
+          include: {
+            brand: {
+              include: {
+                category: true
+              }
+            }
+          }
+        },
+        technician: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      }
+    });
 
     req.logger.info(`Booking updated: ${id} by user: ${req.user.id}`);
 
     res.json({
       success: true,
-      message: 'Booking updated successfully',
-      booking: result.rows[0]
+      data: updatedBooking,
+      message: 'Booking updated successfully'
     });
 
   } catch (error) {
@@ -594,33 +642,32 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN', 'TECH
 });
 
 // Cancel booking
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.post('/:id/cancel', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const { reason } = req.body;
 
-    // Get booking details
-    const bookingQuery = `
-      SELECT "customerId", status 
-      FROM bookings 
-      WHERE id = $1
-    `;
+    // Fetch booking using Prisma
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      include: {
+        customer: true
+      }
+    });
 
-    const bookingResult = await req.pool.query(bookingQuery, [id]);
-
-    if (bookingResult.rows.length === 0) {
+    if (!booking) {
       return res.status(404).json({
         error: 'Booking not found',
         code: 'BOOKING_NOT_FOUND'
       });
     }
 
-    const booking = bookingResult.rows[0];
-
     // Check permissions
-    const isOwner = req.user.role === 'CUSTOMER' && booking.customerId === req.user.id;
-    const isStaff = ['ADMIN', 'SUPER_ADMIN', 'TECHNICIAN'].includes(req.user.role);
+    const canCancel = req.user.role === 'ADMIN' || 
+                     req.user.role === 'SUPER_ADMIN' || 
+                     booking.customerId === req.user.id;
 
-    if (!isOwner && !isStaff) {
+    if (!canCancel) {
       return res.status(403).json({
         error: 'Access denied',
         code: 'ACCESS_DENIED'
@@ -631,22 +678,43 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     if (['COMPLETED', 'CANCELLED'].includes(booking.status)) {
       return res.status(400).json({
         error: 'Booking cannot be cancelled',
-        code: 'BOOKING_NOT_CANCELLABLE'
+        code: 'INVALID_STATUS'
       });
     }
 
-    // Update booking status to cancelled
-    const updateResult = await req.pool.query(
-      'UPDATE bookings SET status = $1, "updatedAt" = NOW() WHERE id = $2 RETURNING *',
-      ['CANCELLED', id]
-    );
+    // Update booking status to cancelled using Prisma
+    const updatedBooking = await prisma.booking.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        updatedAt: new Date(),
+        cancellationReason: reason || 'Cancelled by user',
+        cancelledAt: new Date(),
+        cancelledBy: req.user.id
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        deviceModel: {
+          include: {
+            brand: true
+          }
+        }
+      }
+    });
 
     req.logger.info(`Booking cancelled: ${id} by user: ${req.user.id}`);
 
     res.json({
       success: true,
-      message: 'Booking cancelled successfully',
-      booking: updateResult.rows[0]
+      data: updatedBooking,
+      message: 'Booking cancelled successfully'
     });
 
   } catch (error) {
@@ -661,91 +729,119 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 // Get booking statistics (admin only)
 router.get('/stats/overview', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Get comprehensive booking statistics
-    const statsQuery = `
-      SELECT 
-        COUNT(*) as total_bookings,
-        COUNT(CASE WHEN booking_status = 'pending' THEN 1 END) as pending_bookings,
-        COUNT(CASE WHEN booking_status = 'in_progress' THEN 1 END) as in_progress_bookings,
-        COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) as completed_bookings,
-        COUNT(CASE WHEN created_at::date = CURRENT_DATE AND booking_status = 'completed' THEN 1 END) as completed_today,
-        AVG(quote_total_price) as average_price,
-        SUM(CASE WHEN booking_status = 'completed' THEN quote_total_price ELSE 0 END) as total_revenue,
-        SUM(CASE WHEN created_at::date = CURRENT_DATE AND booking_status = 'completed' THEN quote_total_price ELSE 0 END) as revenue_today
-      FROM bookings
-      WHERE created_at >= NOW() - INTERVAL '30 days'
-    `;
-
-    // Get additional metrics (customer satisfaction, avg repair time)
-    const additionalStatsQuery = `
-      SELECT 
-        COUNT(DISTINCT customer_id) as total_customers,
-        AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_completion_days
-      FROM bookings 
-      WHERE booking_status = 'completed' 
-        AND created_at >= NOW() - INTERVAL '30 days'
-    `;
-
-    // Get user count statistics  
-    const userStatsQuery = `
-      SELECT 
-        COUNT(*) as total_users,
-        COUNT(CASE WHEN "createdAt"::date = CURRENT_DATE THEN 1 END) as new_users_today,
-        COUNT(CASE WHEN "updatedAt" >= NOW() - INTERVAL '7 days' THEN 1 END) as active_users_week
-      FROM "user"
-    `;
-
-    const [bookingResult, additionalResult, userResult] = await Promise.all([
-      req.pool.query(statsQuery),
-      req.pool.query(additionalStatsQuery),
-      req.pool.query(userStatsQuery)
+    // Get statistics using Prisma aggregations
+    const [
+      totalBookings,
+      pendingBookings,
+      inProgressBookings,
+      completedBookings,
+      cancelledBookings,
+      todayBookings,
+      monthRevenue
+    ] = await Promise.all([
+      // Total bookings
+      prisma.booking.count(),
+      
+      // Pending bookings
+      prisma.booking.count({
+        where: { status: 'PENDING' }
+      }),
+      
+      // In progress bookings
+      prisma.booking.count({
+        where: { status: 'IN_PROGRESS' }
+      }),
+      
+      // Completed bookings
+      prisma.booking.count({
+        where: { status: 'COMPLETED' }
+      }),
+      
+      // Cancelled bookings
+      prisma.booking.count({
+        where: { status: 'CANCELLED' }
+      }),
+      
+      // Today's bookings
+      prisma.booking.count({
+        where: {
+          createdAt: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0))
+          }
+        }
+      }),
+      
+      // This month's revenue
+      prisma.booking.aggregate({
+        where: {
+          status: 'COMPLETED',
+          completedAt: {
+            gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          }
+        },
+        _sum: {
+          finalPrice: true
+        }
+      })
     ]);
 
-    const bookingStats = bookingResult.rows[0];
-    const additionalStats = additionalResult.rows[0];
-    const userStats = userResult.rows[0];
-
-    // Convert and enhance stats to match frontend BookingStats interface
-    const stats = {
-      total_bookings: parseInt(bookingStats.total_bookings),
-      active_customers: parseInt(additionalStats.total_customers) || 0,
-      new_customers_today: parseInt(userStats.new_users_today),
-      pending_bookings: parseInt(bookingStats.pending_bookings),
-      in_progress_bookings: parseInt(bookingStats.in_progress_bookings),
-      completed_bookings: parseInt(bookingStats.completed_bookings),
-      cancelled_bookings: 0, // TODO: Add cancelled bookings count when available
-      avg_completion_time: parseFloat(additionalStats.avg_completion_days) || 0,
-      total_revenue: parseFloat(bookingStats.total_revenue) || 0,
-      avg_order_value: parseFloat(bookingStats.average_price) || 0,
-      completion_rate: bookingStats.total_bookings > 0 ? 
-        Math.round((bookingStats.completed_bookings / bookingStats.total_bookings) * 100) : 0,
-      low_stock_items: 3 // TODO: Connect to inventory system when available
-    };
+    // Get recent bookings
+    const recentBookings = await prisma.booking.findMany({
+      include: {
+        customer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        deviceModel: {
+          include: {
+            brand: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 10
+    });
 
     res.json({
       success: true,
-      stats,
-      metadata: {
-        period: '30 days',
-        generated_at: new Date().toISOString(),
-        data_sources: ['bookings', 'users']
+      data: {
+        overview: {
+          total: totalBookings,
+          pending: pendingBookings,
+          inProgress: inProgressBookings,
+          completed: completedBookings,
+          cancelled: cancelledBookings,
+          todayCount: todayBookings,
+          monthRevenue: monthRevenue._sum.finalPrice || 0
+        },
+        recentBookings
       }
     });
 
   } catch (error) {
-    console.error('🔥 BOOKING STATS ERROR:', {
-      message: error.message,
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    });
-    req.logger?.error('Get booking stats error:', error);
-    
+    req.logger.error('Get booking stats error:', error);
     res.status(500).json({
       error: 'Failed to fetch booking statistics',
-      code: 'FETCH_STATS_ERROR',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Database query failed'
+      code: 'FETCH_STATS_ERROR'
     });
   }
+});
+
+// Health check (open access)
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'bookings-service-prisma',
+    timestamp: new Date().toISOString(),
+    version: '2.0.0-prisma',
+    database: 'prisma'
+  });
 });
 
 module.exports = router;

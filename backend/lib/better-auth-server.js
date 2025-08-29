@@ -6,27 +6,28 @@
  */
 
 const { betterAuth } = require("better-auth");
-const { Pool } = require("pg");
+const { prismaAdapter } = require("better-auth/adapters/prisma");
 const { organization, twoFactor, customSession } = require("better-auth/plugins");
+const { PrismaClient } = require("@prisma/client");
 
-// PostgreSQL connection using official Better Auth pattern
-const pool = new Pool({
-  user: process.env.DB_USER || 'revivatech',
-  host: process.env.DB_HOST || 'revivatech_database',
-  database: process.env.DB_NAME || 'revivatech',
-  password: process.env.DB_PASSWORD || 'revivatech_password',
-  port: process.env.DB_PORT || 5432,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+// Initialize Prisma Client for Better Auth
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'revivatech'}:${process.env.DB_PASSWORD || 'revivatech_password'}@${process.env.DB_HOST || 'revivatech_database'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'revivatech'}`
+    }
+  }
 });
 
 /**
  * Better Auth Server Instance - Official Configuration with Origin Fix
  */
 const auth = betterAuth({
-  // Official PostgreSQL database adapter
-  database: pool,
+  // Prisma database adapter with proper provider configuration
+  database: prismaAdapter(prisma, {
+    provider: "postgresql"
+  }),
   
   // Email and password authentication
   emailAndPassword: {
@@ -55,9 +56,8 @@ const auth = betterAuth({
   // Security settings - using official Better Auth environment variables
   secret: process.env.BETTER_AUTH_SECRET || process.env.JWT_SECRET || "your-secret-key-here",
   
-  // Base URL configuration - FIXED: Frontend expects backend to accept requests from localhost:3010
-  // The baseURL should match where the backend is running, but we need trusted origins for frontend
-  baseURL: "http://localhost:3011",
+  // Base URL configuration - Must include the auth path for Better Auth 1.3.7
+  baseURL: "http://localhost:3011/api/auth",
   
   // FIXED: Add trusted origins to accept requests from frontend
   trustedOrigins: [

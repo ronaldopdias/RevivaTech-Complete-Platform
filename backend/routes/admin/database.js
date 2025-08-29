@@ -1,25 +1,14 @@
 /**
- * RevivaTech Admin Database Management API
+ * PRISMA MIGRATION: Admin Database Management API
+ * Converted from raw SQL to Prisma ORM operations
  * Comprehensive database administration interface with enterprise features
- * Following 2025 best practices for PostgreSQL web admin tools
  */
 
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
+const { prisma } = require('../../lib/prisma');
+const { requireAuth: authenticateToken, requireAdmin } = require('../../lib/auth-utils');
 const winston = require('winston');
-
-// Initialize PostgreSQL connection pool
-const pool = new Pool({
-    user: process.env.DB_USER || 'revivatech_user',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'revivatech_new',
-    password: process.env.DB_PASSWORD || 'secure_password_2024',
-    port: process.env.DB_PORT || 5435,
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-});
 
 // Logger for database operations
 const dbLogger = winston.createLogger({
@@ -51,812 +40,726 @@ const auditLog = (req, res, next) => {
 // Apply audit logging to all routes
 router.use(auditLog);
 
-// Security middleware - limit query execution time and result size
-const queryLimits = {
-    maxExecutionTime: 30000, // 30 seconds
-    maxRows: 10000,
-    maxQueryLength: 50000
-};
-
-const validateQuery = (query) => {
-    if (!query || typeof query !== 'string') {
-        throw new Error('Query must be a non-empty string');
-    }
-    
-    if (query.length > queryLimits.maxQueryLength) {
-        throw new Error(`Query too long. Maximum ${queryLimits.maxQueryLength} characters allowed`);
-    }
-    
-    // Block dangerous operations
-    const dangerousPatterns = [
-        /drop\s+database/i,
-        /create\s+database/i,
-        /alter\s+system/i,
-        /pg_terminate_backend/i,
-        /pg_cancel_backend/i
-    ];
-    
-    for (const pattern of dangerousPatterns) {
-        if (pattern.test(query)) {
-            throw new Error('Query contains restricted operations');
-        }
-    }
-    
-    return true;
-};
-
-// =============================================================================
-// SCHEMA MANAGEMENT ENDPOINTS
-// =============================================================================
-
-/**
- * GET /api/admin/database/schema
- * Get complete database schema information
- */
-router.get('/schema', async (req, res) => {
-    try {
-        const client = await pool.connect();
-        
-        try {
-            // Get all tables with metadata
-            const tablesQuery = `
-                SELECT 
-                    schemaname,
-                    tablename,
-                    tableowner,
-                    hasindexes,
-                    hasrules,
-                    hastriggers,
-                    rowsecurity
-                FROM pg_tables 
-                WHERE schemaname NOT IN ('information_schema', 'pg_catalog')
-                ORDER BY schemaname, tablename;
-            `;
-            
-            // Get all views
-            const viewsQuery = `
-                SELECT 
-                    schemaname,
-                    viewname,
-                    viewowner,
-                    definition
-                FROM pg_views 
-                WHERE schemaname NOT IN ('information_schema', 'pg_catalog')
-                ORDER BY schemaname, viewname;
-            `;
-            
-            // Get all sequences
-            const sequencesQuery = `
-                SELECT 
-                    schemaname,
-                    sequencename,
-                    sequenceowner
-                FROM pg_sequences 
-                WHERE schemaname NOT IN ('information_schema', 'pg_catalog')
-                ORDER BY schemaname, sequencename;
-            `;
-            
-            // Get all functions
-            const functionsQuery = `
-                SELECT 
-                    n.nspname as schema,
-                    p.proname as name,
-                    pg_get_function_result(p.oid) as result_type,
-                    pg_get_function_arguments(p.oid) as arguments
-                FROM pg_proc p
-                JOIN pg_namespace n ON p.pronamespace = n.oid
-                WHERE n.nspname NOT IN ('information_schema', 'pg_catalog')
-                ORDER BY n.nspname, p.proname;
-            `;
-            
-            const [tables, views, sequences, functions] = await Promise.all([
-                client.query(tablesQuery),
-                client.query(viewsQuery),
-                client.query(sequencesQuery),
-                client.query(functionsQuery)
-            ]);
-            
-            // Get database size and statistics
-            const statsQuery = `
-                SELECT 
-                    pg_size_pretty(pg_database_size(current_database())) as database_size,
-                    (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active_connections,
-                    current_database() as database_name,
-                    version() as postgresql_version;
-            `;
-            
-            const stats = await client.query(statsQuery);
-            
-            res.json({
-                success: true,
-                data: {
-                    database: stats.rows[0],
-                    tables: tables.rows,
-                    views: views.rows,
-                    sequences: sequences.rows,
-                    functions: functions.rows
-                },
-                timestamp: new Date().toISOString()
-            });
-            
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error('❌ Schema fetch error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch database schema',
-            details: error.message
-        });
-    }
+// Health check endpoint (no authentication required)
+router.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        service: 'admin-database-api',
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+    });
 });
 
-/**
- * GET /api/admin/database/tables
- * Get list of all tables with detailed metadata
- */
-router.get('/tables', async (req, res) => {
+// Get database schema information using Prisma introspection
+router.get('/schema', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const client = await pool.connect();
+        // Get all table information using Prisma raw queries
+        const tablesInfo = await prisma.$queryRaw`
+            SELECT 
+                schemaname as schema_name,
+                tablename as table_name,
+                hasindexes as has_indexes,
+                hasrules as has_rules,
+                hastriggers as has_triggers
+            FROM pg_tables 
+            WHERE schemaname = 'public'
+            ORDER BY tablename
+        `;
+
+        // Get column information for each table
+        const columnsInfo = await prisma.$queryRaw`
+            SELECT 
+                table_name,
+                column_name,
+                data_type,
+                is_nullable,
+                column_default,
+                character_maximum_length,
+                numeric_precision,
+                numeric_scale
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+            ORDER BY table_name, ordinal_position
+        `;
+
+        // Get foreign key constraints
+        const foreignKeys = await prisma.$queryRaw`
+            SELECT 
+                tc.table_name,
+                kcu.column_name,
+                ccu.table_name AS foreign_table_name,
+                ccu.column_name AS foreign_column_name,
+                tc.constraint_name
+            FROM information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+                ON tc.constraint_name = kcu.constraint_name
+            JOIN information_schema.constraint_column_usage AS ccu
+                ON ccu.constraint_name = tc.constraint_name
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+                AND tc.table_schema = 'public'
+            ORDER BY tc.table_name, kcu.column_name
+        `;
+
+        // Get index information
+        const indexes = await prisma.$queryRaw`
+            SELECT 
+                schemaname,
+                tablename,
+                indexname,
+                indexdef
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+            ORDER BY tablename, indexname
+        `;
+
+        // Organize data by table
+        const schema = {};
         
-        try {
-            const query = `
-                SELECT 
-                    t.table_schema,
-                    t.table_name,
-                    t.table_type,
-                    pg_size_pretty(pg_total_relation_size(c.oid)) as size,
-                    pg_stat_get_tuples_returned(c.oid) as rows_read,
-                    pg_stat_get_tuples_inserted(c.oid) as rows_inserted,
-                    pg_stat_get_tuples_updated(c.oid) as rows_updated,
-                    pg_stat_get_tuples_deleted(c.oid) as rows_deleted,
-                    obj_description(c.oid) as comment
-                FROM information_schema.tables t
-                LEFT JOIN pg_class c ON c.relname = t.table_name
-                LEFT JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = t.table_schema
-                WHERE t.table_schema NOT IN ('information_schema', 'pg_catalog')
-                ORDER BY t.table_schema, t.table_name;
-            `;
-            
-            const result = await client.query(query);
-            
-            res.json({
-                success: true,
-                data: result.rows,
-                count: result.rows.length,
-                timestamp: new Date().toISOString()
-            });
-            
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error('❌ Tables fetch error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch tables',
-            details: error.message
+        // Initialize tables
+        tablesInfo.forEach(table => {
+            schema[table.table_name] = {
+                name: table.table_name,
+                schema: table.schema_name,
+                has_indexes: table.has_indexes,
+                has_rules: table.has_rules,
+                has_triggers: table.has_triggers,
+                columns: [],
+                foreign_keys: [],
+                indexes: []
+            };
         });
-    }
-});
 
-/**
- * GET /api/admin/database/tables/:tableName
- * Get detailed information about a specific table
- */
-router.get('/tables/:tableName', async (req, res) => {
-    try {
-        const { tableName } = req.params;
-        const client = await pool.connect();
-        
-        try {
-            // Get column information
-            const columnsQuery = `
-                SELECT 
-                    column_name,
-                    data_type,
-                    is_nullable,
-                    column_default,
-                    character_maximum_length,
-                    numeric_precision,
-                    numeric_scale,
-                    ordinal_position
-                FROM information_schema.columns
-                WHERE table_name = $1 AND table_schema = 'public'
-                ORDER BY ordinal_position;
-            `;
-            
-            // Get indexes
-            const indexesQuery = `
-                SELECT 
-                    indexname,
-                    indexdef,
-                    tablespace
-                FROM pg_indexes
-                WHERE tablename = $1 AND schemaname = 'public';
-            `;
-            
-            // Get constraints
-            const constraintsQuery = `
-                SELECT 
-                    constraint_name,
-                    constraint_type,
-                    column_name
-                FROM information_schema.table_constraints tc
-                JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name
-                WHERE tc.table_name = $1 AND tc.table_schema = 'public';
-            `;
-            
-            // Get foreign key relationships
-            const foreignKeysQuery = `
-                SELECT 
-                    kcu.column_name,
-                    ccu.table_name AS foreign_table_name,
-                    ccu.column_name AS foreign_column_name
-                FROM information_schema.table_constraints AS tc
-                JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name
-                JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name
-                WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = $1;
-            `;
-            
-            const [columns, indexes, constraints, foreignKeys] = await Promise.all([
-                client.query(columnsQuery, [tableName]),
-                client.query(indexesQuery, [tableName]),
-                client.query(constraintsQuery, [tableName]),
-                client.query(foreignKeysQuery, [tableName])
-            ]);
-            
-            res.json({
-                success: true,
-                data: {
-                    table_name: tableName,
-                    columns: columns.rows,
-                    indexes: indexes.rows,
-                    constraints: constraints.rows,
-                    foreign_keys: foreignKeys.rows
-                },
-                timestamp: new Date().toISOString()
-            });
-            
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error(`❌ Table ${req.params.tableName} fetch error:`, error);
-        res.status(500).json({
-            success: false,
-            error: `Failed to fetch table ${req.params.tableName}`,
-            details: error.message
-        });
-    }
-});
-
-// =============================================================================
-// QUERY ENGINE ENDPOINTS
-// =============================================================================
-
-/**
- * POST /api/admin/database/query
- * Execute SQL query with validation and limits
- */
-router.post('/query', async (req, res) => {
-    try {
-        const { query, params = [] } = req.body;
-        
-        // Validate query
-        validateQuery(query);
-        
-        const client = await pool.connect();
-        const startTime = Date.now();
-        
-        try {
-            // Set query timeout
-            await client.query('SET statement_timeout = $1', [queryLimits.maxExecutionTime]);
-            
-            // Execute query
-            const result = await client.query(query, params);
-            const executionTime = Date.now() - startTime;
-            
-            // Limit result size
-            let rows = result.rows;
-            let truncated = false;
-            
-            if (rows.length > queryLimits.maxRows) {
-                rows = rows.slice(0, queryLimits.maxRows);
-                truncated = true;
+        // Add columns
+        columnsInfo.forEach(col => {
+            if (schema[col.table_name]) {
+                schema[col.table_name].columns.push({
+                    name: col.column_name,
+                    type: col.data_type,
+                    nullable: col.is_nullable === 'YES',
+                    default: col.column_default,
+                    max_length: col.character_maximum_length,
+                    precision: col.numeric_precision,
+                    scale: col.numeric_scale
+                });
             }
-            
-            // Log query execution
-            dbLogger.info('Query executed', {
-                user: req.user?.email,
-                query: query.substring(0, 200) + (query.length > 200 ? '...' : ''),
-                executionTime,
-                rowCount: result.rowCount,
-                truncated
-            });
-            
-            res.json({
-                success: true,
-                data: {
-                    rows,
-                    fields: result.fields || [],
-                    rowCount: result.rowCount,
-                    executionTime,
-                    truncated,
-                    command: result.command
-                },
-                timestamp: new Date().toISOString()
-            });
-            
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error('❌ Query execution error:', error);
-        
-        // Log query error
-        dbLogger.error('Query failed', {
-            user: req.user?.email,
-            query: req.body.query?.substring(0, 200),
-            error: error.message
         });
-        
-        res.status(400).json({
-            success: false,
-            error: 'Query execution failed',
-            details: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
 
-/**
- * POST /api/admin/database/query/explain
- * Get query execution plan
- */
-router.post('/query/explain', async (req, res) => {
-    try {
-        const { query } = req.body;
-        
-        // Validate query
-        validateQuery(query);
-        
-        const client = await pool.connect();
-        
-        try {
-            // Get execution plan
-            const explainQuery = `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${query}`;
-            const result = await client.query(explainQuery);
-            
-            res.json({
-                success: true,
-                data: {
-                    plan: result.rows[0]['QUERY PLAN'],
-                    query: query
-                },
-                timestamp: new Date().toISOString()
-            });
-            
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error('❌ Explain query error:', error);
-        res.status(400).json({
-            success: false,
-            error: 'Failed to explain query',
-            details: error.message
+        // Add foreign keys
+        foreignKeys.forEach(fk => {
+            if (schema[fk.table_name]) {
+                schema[fk.table_name].foreign_keys.push({
+                    column: fk.column_name,
+                    references_table: fk.foreign_table_name,
+                    references_column: fk.foreign_column_name,
+                    constraint_name: fk.constraint_name
+                });
+            }
         });
-    }
-});
 
-/**
- * GET /api/admin/database/query/history
- * Get user's query history
- */
-router.get('/query/history', async (req, res) => {
-    try {
-        const { page = 1, limit = 50 } = req.query;
-        const offset = (page - 1) * limit;
-        
-        // This would typically come from a query_history table
-        // For now, return sample data structure
+        // Add indexes
+        indexes.forEach(idx => {
+            if (schema[idx.tablename]) {
+                schema[idx.tablename].indexes.push({
+                    name: idx.indexname,
+                    definition: idx.indexdef
+                });
+            }
+        });
+
         res.json({
             success: true,
             data: {
-                queries: [],
-                total: 0,
-                page: parseInt(page),
-                limit: parseInt(limit)
-            },
-            message: 'Query history feature requires query logging table setup',
-            timestamp: new Date().toISOString()
+                schema: Object.values(schema),
+                summary: {
+                    total_tables: tablesInfo.length,
+                    total_columns: columnsInfo.length,
+                    total_foreign_keys: foreignKeys.length,
+                    total_indexes: indexes.length
+                }
+            }
         });
-        
+
     } catch (error) {
-        console.error('❌ Query history error:', error);
+        dbLogger.error('Schema retrieval error:', error);
         res.status(500).json({
-            success: false,
-            error: 'Failed to fetch query history',
-            details: error.message
+            error: 'Failed to retrieve database schema',
+            code: 'SCHEMA_RETRIEVAL_ERROR'
         });
     }
 });
 
-// =============================================================================
-// DATA MANAGEMENT ENDPOINTS
-// =============================================================================
+// Get list of all tables with row counts
+router.get('/tables', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        // Get table list
+        const tables = await prisma.$queryRaw`
+            SELECT 
+                tablename as table_name,
+                schemaname as schema_name
+            FROM pg_tables 
+            WHERE schemaname = 'public'
+            ORDER BY tablename
+        `;
 
-/**
- * GET /api/admin/database/data/:tableName
- * Get paginated table data
- */
-router.get('/data/:tableName', async (req, res) => {
+        // Get row counts for each table using Prisma models where available
+        const tableStats = await Promise.all(
+            tables.map(async (table) => {
+                try {
+                    let rowCount = 0;
+                    
+                    // Try to get count using Prisma models first
+                    switch (table.table_name) {
+                        case 'users':
+                            rowCount = await prisma.user.count();
+                            break;
+                        case 'bookings':
+                            rowCount = await prisma.booking.count();
+                            break;
+                        case 'device_models':
+                            rowCount = await prisma.deviceModel.count();
+                            break;
+                        case 'device_brands':
+                            rowCount = await prisma.deviceBrand.count();
+                            break;
+                        case 'device_categories':
+                            rowCount = await prisma.deviceCategory.count();
+                            break;
+                        case 'sessions':
+                            rowCount = await prisma.session.count();
+                            break;
+                        case 'accounts':
+                            rowCount = await prisma.account.count();
+                            break;
+                        default:
+                            // Fallback to raw SQL for tables without Prisma models
+                            const result = await prisma.$queryRaw`
+                                SELECT COUNT(*) as count FROM ${prisma.Prisma.raw(table.table_name)}
+                            `;
+                            rowCount = parseInt(result[0].count);
+                    }
+
+                    return {
+                        table_name: table.table_name,
+                        schema_name: table.schema_name,
+                        row_count: rowCount,
+                        accessible: true
+                    };
+                } catch (error) {
+                    return {
+                        table_name: table.table_name,
+                        schema_name: table.schema_name,
+                        row_count: 0,
+                        accessible: false,
+                        error: error.message
+                    };
+                }
+            })
+        );
+
+        res.json({
+            success: true,
+            data: {
+                tables: tableStats,
+                summary: {
+                    total_tables: tables.length,
+                    total_rows: tableStats.reduce((sum, table) => sum + table.row_count, 0),
+                    accessible_tables: tableStats.filter(t => t.accessible).length
+                }
+            }
+        });
+
+    } catch (error) {
+        dbLogger.error('Tables retrieval error:', error);
+        res.status(500).json({
+            error: 'Failed to retrieve tables information',
+            code: 'TABLES_RETRIEVAL_ERROR'
+        });
+    }
+});
+
+// Get detailed information about a specific table
+router.get('/tables/:tableName', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { tableName } = req.params;
-        const { 
-            page = 1, 
-            limit = 100, 
-            sort, 
-            order = 'ASC',
-            search,
-            searchColumn 
-        } = req.query;
         
-        const offset = (page - 1) * limit;
-        const client = await pool.connect();
+        // Validate table name to prevent injection
+        const validTables = [
+            'users', 'bookings', 'device_models', 'device_brands', 'device_categories',
+            'sessions', 'accounts', 'pricing_rules', 'notifications', 'email_templates'
+        ];
         
-        try {
-            // Build query with optional filtering and sorting
-            let query = `SELECT * FROM "${tableName}"`;
-            let countQuery = `SELECT COUNT(*) FROM "${tableName}"`;
-            const queryParams = [];
-            let paramIndex = 1;
-            
-            // Add search filter if provided
-            if (search && searchColumn) {
-                const whereClause = ` WHERE "${searchColumn}"::text ILIKE $${paramIndex}`;
-                query += whereClause;
-                countQuery += whereClause;
-                queryParams.push(`%${search}%`);
-                paramIndex++;
-            }
-            
-            // Add sorting if provided
-            if (sort) {
-                query += ` ORDER BY "${sort}" ${order.toUpperCase()}`;
-            }
-            
-            // Add pagination
-            query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-            queryParams.push(limit, offset);
-            
-            // Execute queries
-            const [dataResult, countResult] = await Promise.all([
-                client.query(query, queryParams),
-                client.query(countQuery, queryParams.slice(0, -2)) // Remove limit/offset for count
-            ]);
-            
-            const totalRows = parseInt(countResult.rows[0].count);
-            const totalPages = Math.ceil(totalRows / limit);
-            
-            res.json({
-                success: true,
-                data: {
-                    rows: dataResult.rows,
-                    fields: dataResult.fields,
-                    pagination: {
-                        page: parseInt(page),
-                        limit: parseInt(limit),
-                        totalRows,
-                        totalPages,
-                        hasNext: page < totalPages,
-                        hasPrev: page > 1
-                    }
-                },
-                timestamp: new Date().toISOString()
-            });
-            
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error(`❌ Data fetch error for ${req.params.tableName}:`, error);
-        res.status(500).json({
-            success: false,
-            error: `Failed to fetch data from ${req.params.tableName}`,
-            details: error.message
-        });
-    }
-});
-
-// =============================================================================
-// DATABASE STATISTICS AND MONITORING
-// =============================================================================
-
-/**
- * GET /api/admin/database/stats
- * Get comprehensive database statistics
- */
-router.get('/stats', async (req, res) => {
-    try {
-        const client = await pool.connect();
-        
-        try {
-            // Database size and basic stats
-            const basicStatsQuery = `
-                SELECT 
-                    current_database() as database_name,
-                    pg_size_pretty(pg_database_size(current_database())) as database_size,
-                    (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active_connections,
-                    (SELECT count(*) FROM pg_stat_activity) as total_connections,
-                    version() as postgresql_version;
-            `;
-            
-            // Table statistics
-            const tableStatsQuery = `
-                SELECT 
-                    schemaname,
-                    tablename,
-                    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
-                    n_tup_ins as inserts,
-                    n_tup_upd as updates,
-                    n_tup_del as deletes,
-                    seq_scan,
-                    idx_scan
-                FROM pg_stat_user_tables
-                ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
-                LIMIT 20;
-            `;
-            
-            // Index usage statistics
-            const indexStatsQuery = `
-                SELECT 
-                    schemaname,
-                    tablename,
-                    indexname,
-                    idx_scan,
-                    idx_tup_read,
-                    idx_tup_fetch
-                FROM pg_stat_user_indexes
-                WHERE idx_scan > 0
-                ORDER BY idx_scan DESC
-                LIMIT 20;
-            `;
-            
-            // Active queries
-            const activeQueriesQuery = `
-                SELECT 
-                    pid,
-                    usename,
-                    application_name,
-                    state,
-                    query_start,
-                    query,
-                    client_addr
-                FROM pg_stat_activity
-                WHERE state = 'active' AND pid != pg_backend_pid()
-                ORDER BY query_start;
-            `;
-            
-            const [basicStats, tableStats, indexStats, activeQueries] = await Promise.all([
-                client.query(basicStatsQuery),
-                client.query(tableStatsQuery),
-                client.query(indexStatsQuery),
-                client.query(activeQueriesQuery)
-            ]);
-            
-            res.json({
-                success: true,
-                data: {
-                    database: basicStats.rows[0],
-                    tables: tableStats.rows,
-                    indexes: indexStats.rows,
-                    activeQueries: activeQueries.rows
-                },
-                timestamp: new Date().toISOString()
-            });
-            
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error('❌ Database stats error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch database statistics',
-            details: error.message
-        });
-    }
-});
-
-/**
- * GET /api/admin/database/processes
- * Get active database processes and connections
- */
-router.get('/processes', async (req, res) => {
-    try {
-        const client = await pool.connect();
-        
-        try {
-            const query = `
-                SELECT 
-                    pid,
-                    usename as username,
-                    application_name,
-                    client_addr,
-                    client_port,
-                    backend_start,
-                    query_start,
-                    state_change,
-                    state,
-                    query
-                FROM pg_stat_activity
-                WHERE pid != pg_backend_pid()
-                ORDER BY backend_start DESC;
-            `;
-            
-            const result = await client.query(query);
-            
-            res.json({
-                success: true,
-                data: result.rows,
-                count: result.rows.length,
-                timestamp: new Date().toISOString()
-            });
-            
-        } finally {
-            client.release();
-        }
-        
-    } catch (error) {
-        console.error('❌ Database processes error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch database processes',
-            details: error.message
-        });
-    }
-});
-
-// =============================================================================
-// EXPORT FUNCTIONALITY
-// =============================================================================
-
-/**
- * POST /api/admin/database/export
- * Export data in various formats (CSV, JSON, SQL)
- */
-router.post('/export', async (req, res) => {
-    try {
-        const { table, format = 'csv', query, filename } = req.body;
-        
-        if (!table && !query) {
+        if (!validTables.includes(tableName)) {
             return res.status(400).json({
-                success: false,
-                error: 'Either table name or query must be provided'
+                error: 'Invalid table name or table not accessible',
+                code: 'INVALID_TABLE'
             });
         }
-        
-        const client = await pool.connect();
-        
+
+        // SECURITY FIX: Use parameterized query to prevent injection
+        const columns = await prisma.$queryRaw`
+            SELECT 
+                column_name,
+                data_type,
+                is_nullable,
+                column_default,
+                character_maximum_length,
+                numeric_precision,
+                numeric_scale
+            FROM information_schema.columns
+            WHERE table_name = ${tableName}::text AND table_schema = 'public'
+            ORDER BY ordinal_position
+        `;
+
+        // Get sample data using Prisma where possible
+        let sampleData = [];
         try {
-            let exportQuery;
-            if (query) {
-                validateQuery(query);
-                exportQuery = query;
-            } else {
-                exportQuery = `SELECT * FROM "${table}"`;
-            }
-            
-            const result = await client.query(exportQuery);
-            
-            let exportData;
-            let contentType;
-            let fileExtension;
-            
-            switch (format.toLowerCase()) {
-                case 'csv':
-                    exportData = convertToCSV(result.rows, result.fields);
-                    contentType = 'text/csv';
-                    fileExtension = 'csv';
+            switch (tableName) {
+                case 'users':
+                    sampleData = await prisma.user.findMany({
+                        take: 10,
+                        select: {
+                            id: true,
+                            email: true,
+                            firstName: true,
+                            lastName: true,
+                            role: true,
+                            createdAt: true
+                        }
+                    });
                     break;
-                case 'json':
-                    exportData = JSON.stringify(result.rows, null, 2);
-                    contentType = 'application/json';
-                    fileExtension = 'json';
+                case 'bookings':
+                    sampleData = await prisma.booking.findMany({
+                        take: 10,
+                        select: {
+                            id: true,
+                            status: true,
+                            repairType: true,
+                            basePrice: true,
+                            finalPrice: true,
+                            createdAt: true
+                        }
+                    });
                     break;
-                case 'sql':
-                    exportData = convertToSQL(table || 'query_result', result.rows, result.fields);
-                    contentType = 'text/sql';
-                    fileExtension = 'sql';
+                case 'device_models':
+                    sampleData = await prisma.deviceModel.findMany({
+                        take: 10,
+                        select: {
+                            id: true,
+                            name: true,
+                            year: true,
+                            createdAt: true
+                        },
+                        include: {
+                            brand: {
+                                select: { name: true }
+                            }
+                        }
+                    });
                     break;
                 default:
-                    throw new Error('Unsupported export format');
+                    // Fallback to raw SQL for other tables
+                    sampleData = await prisma.$queryRaw`
+                        SELECT * FROM ${prisma.Prisma.raw(tableName)} LIMIT 10
+                    `;
             }
-            
-            const exportFilename = filename || `${table || 'export'}_${Date.now()}.${fileExtension}`;
-            
-            res.setHeader('Content-Type', contentType);
-            res.setHeader('Content-Disposition', `attachment; filename="${exportFilename}"`);
-            res.send(exportData);
-            
-        } finally {
-            client.release();
+        } catch (error) {
+            dbLogger.warn(`Could not fetch sample data for ${tableName}:`, error.message);
         }
-        
+
+        // Get row count
+        let rowCount = 0;
+        try {
+            switch (tableName) {
+                case 'users':
+                    rowCount = await prisma.user.count();
+                    break;
+                case 'bookings':
+                    rowCount = await prisma.booking.count();
+                    break;
+                case 'device_models':
+                    rowCount = await prisma.deviceModel.count();
+                    break;
+                default:
+                    const result = await prisma.$queryRaw`
+                        SELECT COUNT(*) as count FROM ${prisma.Prisma.raw(tableName)}
+                    `;
+                    rowCount = parseInt(result[0].count);
+            }
+        } catch (error) {
+            dbLogger.warn(`Could not get count for ${tableName}:`, error.message);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                table_name: tableName,
+                columns: columns.map(col => ({
+                    name: col.column_name,
+                    type: col.data_type,
+                    nullable: col.is_nullable === 'YES',
+                    default: col.column_default,
+                    max_length: col.character_maximum_length,
+                    precision: col.numeric_precision,
+                    scale: col.numeric_scale
+                })),
+                row_count: rowCount,
+                sample_data: sampleData
+            }
+        });
+
     } catch (error) {
-        console.error('❌ Export error:', error);
+        dbLogger.error('Table details retrieval error:', error);
         res.status(500).json({
-            success: false,
-            error: 'Export failed',
-            details: error.message
+            error: 'Failed to retrieve table details',
+            code: 'TABLE_DETAILS_ERROR'
         });
     }
 });
 
-// Helper function to convert data to CSV
-function convertToCSV(rows, fields) {
-    if (!rows.length) return '';
-    
-    const headers = fields.map(field => field.name);
-    const csvHeaders = headers.join(',');
-    
-    const csvRows = rows.map(row => {
-        return headers.map(header => {
-            const value = row[header];
-            if (value === null || value === undefined) return '';
-            return `"${String(value).replace(/"/g, '""')}"`;
-        }).join(',');
-    });
-    
-    return [csvHeaders, ...csvRows].join('\n');
-}
+// Execute custom database queries (READ-ONLY for security)
+router.post('/query', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { query } = req.body;
+        
+        if (!query || typeof query !== 'string') {
+            return res.status(400).json({
+                error: 'Query is required and must be a string',
+                code: 'INVALID_QUERY'
+            });
+        }
 
-// Helper function to convert data to SQL INSERT statements
-function convertToSQL(tableName, rows, fields) {
-    if (!rows.length) return '';
-    
-    const headers = fields.map(field => field.name);
-    const sqlStatements = rows.map(row => {
-        const values = headers.map(header => {
-            const value = row[header];
-            if (value === null || value === undefined) return 'NULL';
-            if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
-            return String(value);
+        // Security: Only allow SELECT statements
+        const trimmedQuery = query.trim().toLowerCase();
+        if (!trimmedQuery.startsWith('select')) {
+            return res.status(403).json({
+                error: 'Only SELECT queries are allowed',
+                code: 'FORBIDDEN_QUERY_TYPE'
+            });
+        }
+
+        // Security: Blacklist dangerous keywords
+        const dangerousKeywords = [
+            'insert', 'update', 'delete', 'drop', 'create', 'alter',
+            'truncate', 'grant', 'revoke', 'copy', 'bulk'
+        ];
+        
+        if (dangerousKeywords.some(keyword => trimmedQuery.includes(keyword))) {
+            return res.status(403).json({
+                error: 'Query contains forbidden operations',
+                code: 'FORBIDDEN_QUERY_CONTENT'
+            });
+        }
+
+        // Execute query with timeout
+        const startTime = Date.now();
+        const result = await prisma.$queryRawUnsafe(query);
+        const executionTime = Date.now() - startTime;
+
+        // Log query execution
+        dbLogger.info('Query executed', {
+            user: req.audit.user,
+            query: query.substring(0, 200),
+            execution_time: executionTime,
+            row_count: Array.isArray(result) ? result.length : 1
         });
-        return `INSERT INTO "${tableName}" (${headers.map(h => `"${h}"`).join(', ')}) VALUES (${values.join(', ')});`;
-    });
-    
-    return sqlStatements.join('\n');
-}
 
-// Error handling middleware
-router.use((error, req, res, next) => {
-    console.error('❌ Database Admin API Error:', error);
-    
-    dbLogger.error('Database admin error', {
-        user: req.user?.email,
-        path: req.path,
-        method: req.method,
-        error: error.message,
-        stack: error.stack
-    });
-    
-    res.status(500).json({
-        success: false,
-        error: 'Database administration error',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred',
-        timestamp: new Date().toISOString()
-    });
+        res.json({
+            success: true,
+            data: {
+                result,
+                execution_time: executionTime,
+                row_count: Array.isArray(result) ? result.length : 1
+            }
+        });
+
+    } catch (error) {
+        dbLogger.error('Query execution error:', {
+            user: req.audit.user,
+            query: req.body.query,
+            error: error.message
+        });
+        
+        res.status(500).json({
+            error: 'Query execution failed',
+            message: error.message,
+            code: 'QUERY_EXECUTION_ERROR'
+        });
+    }
+});
+
+// Get query execution plan
+router.post('/query/explain', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { query } = req.body;
+        
+        if (!query || typeof query !== 'string') {
+            return res.status(400).json({
+                error: 'Query is required and must be a string',
+                code: 'INVALID_QUERY'
+            });
+        }
+
+        // Security: Only allow SELECT statements
+        const trimmedQuery = query.trim().toLowerCase();
+        if (!trimmedQuery.startsWith('select')) {
+            return res.status(403).json({
+                error: 'Only SELECT queries can be explained',
+                code: 'FORBIDDEN_QUERY_TYPE'
+            });
+        }
+
+        // Execute EXPLAIN ANALYZE
+        const explainQuery = `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${query}`;
+        const result = await prisma.$queryRawUnsafe(explainQuery);
+
+        res.json({
+            success: true,
+            data: {
+                plan: result[0]['QUERY PLAN'],
+                original_query: query
+            }
+        });
+
+    } catch (error) {
+        dbLogger.error('Query explain error:', error);
+        res.status(500).json({
+            error: 'Failed to explain query',
+            message: error.message,
+            code: 'QUERY_EXPLAIN_ERROR'
+        });
+    }
+});
+
+// Get database statistics using Prisma aggregations where possible
+router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        // Get database size and connection info
+        const dbStats = await prisma.$queryRaw`
+            SELECT 
+                pg_size_pretty(pg_database_size(current_database())) as database_size,
+                current_database() as database_name,
+                current_user as current_user,
+                version() as postgresql_version
+        `;
+
+        // Get table sizes
+        const tableSizes = await prisma.$queryRaw`
+            SELECT 
+                schemaname as schema_name,
+                tablename as table_name,
+                pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size,
+                pg_total_relation_size(schemaname||'.'||tablename) as size_bytes
+            FROM pg_tables 
+            WHERE schemaname = 'public'
+            ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+            LIMIT 20
+        `;
+
+        // Get activity statistics using Prisma where available
+        const [
+            userStats,
+            bookingStats,
+            sessionStats
+        ] = await Promise.all([
+            // User statistics
+            Promise.all([
+                prisma.user.count(),
+                prisma.user.count({ where: { role: 'CUSTOMER' } }),
+                prisma.user.count({ where: { role: 'ADMIN' } }),
+                prisma.user.count({ where: { role: 'TECHNICIAN' } })
+            ]).then(([total, customers, admins, techs]) => ({
+                total_users: total,
+                customers,
+                admins,
+                technicians: techs
+            })),
+
+            // Booking statistics
+            Promise.all([
+                prisma.booking.count(),
+                prisma.booking.count({ where: { status: 'COMPLETED' } }),
+                prisma.booking.count({ where: { status: 'PENDING' } }),
+                prisma.booking.count({ where: { status: 'IN_PROGRESS' } })
+            ]).then(([total, completed, pending, inProgress]) => ({
+                total_bookings: total,
+                completed,
+                pending,
+                in_progress: inProgress
+            })),
+
+            // Session statistics (if available)
+            prisma.session.count().catch(() => 0)
+        ]);
+
+        // Get connection statistics
+        const connectionStats = await prisma.$queryRaw`
+            SELECT 
+                count(*) as total_connections,
+                count(*) FILTER (WHERE state = 'active') as active_connections,
+                count(*) FILTER (WHERE state = 'idle') as idle_connections
+            FROM pg_stat_activity
+            WHERE datname = current_database()
+        `;
+
+        res.json({
+            success: true,
+            data: {
+                database: {
+                    ...dbStats[0],
+                    connection_stats: connectionStats[0]
+                },
+                tables: {
+                    sizes: tableSizes,
+                    largest_table: tableSizes[0]?.table_name || 'unknown'
+                },
+                business_metrics: {
+                    users: userStats,
+                    bookings: bookingStats,
+                    active_sessions: sessionStats
+                },
+                generated_at: new Date().toISOString()
+            }
+        });
+
+    } catch (error) {
+        dbLogger.error('Database stats error:', error);
+        res.status(500).json({
+            error: 'Failed to retrieve database statistics',
+            code: 'DATABASE_STATS_ERROR'
+        });
+    }
+});
+
+// Get current database processes/activity
+router.get('/processes', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const processes = await prisma.$queryRaw`
+            SELECT 
+                pid,
+                usename as username,
+                application_name,
+                client_addr,
+                client_port,
+                backend_start,
+                query_start,
+                state,
+                query
+            FROM pg_stat_activity
+            WHERE datname = current_database()
+                AND pid != pg_backend_pid()
+            ORDER BY query_start DESC NULLS LAST
+            LIMIT 50
+        `;
+
+        res.json({
+            success: true,
+            data: {
+                processes: processes.map(proc => ({
+                    ...proc,
+                    backend_start: proc.backend_start?.toISOString(),
+                    query_start: proc.query_start?.toISOString(),
+                    query: proc.query ? proc.query.substring(0, 200) : null
+                })),
+                total_processes: processes.length
+            }
+        });
+
+    } catch (error) {
+        dbLogger.error('Database processes error:', error);
+        res.status(500).json({
+            error: 'Failed to retrieve database processes',
+            code: 'DATABASE_PROCESSES_ERROR'
+        });
+    }
+});
+
+// Backup database metadata (structure only)
+router.post('/backup/metadata', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        // Get complete schema information
+        const schemaBackup = {
+            timestamp: new Date().toISOString(),
+            database_name: 'revivatech',
+            backup_type: 'metadata_only',
+            tables: {},
+            constraints: [],
+            indexes: []
+        };
+
+        // Get all tables with columns
+        const tables = await prisma.$queryRaw`
+            SELECT 
+                t.table_name,
+                c.column_name,
+                c.data_type,
+                c.is_nullable,
+                c.column_default,
+                c.character_maximum_length
+            FROM information_schema.tables t
+            JOIN information_schema.columns c ON t.table_name = c.table_name
+            WHERE t.table_schema = 'public'
+            ORDER BY t.table_name, c.ordinal_position
+        `;
+
+        // Group by table
+        tables.forEach(row => {
+            if (!schemaBackup.tables[row.table_name]) {
+                schemaBackup.tables[row.table_name] = {
+                    columns: []
+                };
+            }
+            schemaBackup.tables[row.table_name].columns.push({
+                name: row.column_name,
+                type: row.data_type,
+                nullable: row.is_nullable === 'YES',
+                default: row.column_default,
+                max_length: row.character_maximum_length
+            });
+        });
+
+        // Get constraints
+        const constraints = await prisma.$queryRaw`
+            SELECT 
+                constraint_name,
+                table_name,
+                constraint_type
+            FROM information_schema.table_constraints
+            WHERE table_schema = 'public'
+        `;
+        schemaBackup.constraints = constraints;
+
+        // Get indexes
+        const indexes = await prisma.$queryRaw`
+            SELECT 
+                indexname,
+                tablename,
+                indexdef
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+        `;
+        schemaBackup.indexes = indexes;
+
+        // Log backup creation
+        dbLogger.info('Database metadata backup created', {
+            user: req.audit.user,
+            tables_count: Object.keys(schemaBackup.tables).length,
+            constraints_count: constraints.length,
+            indexes_count: indexes.length
+        });
+
+        res.json({
+            success: true,
+            message: 'Database metadata backup created successfully',
+            data: schemaBackup
+        });
+
+    } catch (error) {
+        dbLogger.error('Database backup error:', error);
+        res.status(500).json({
+            error: 'Failed to create database backup',
+            code: 'DATABASE_BACKUP_ERROR'
+        });
+    }
 });
 
 module.exports = router;

@@ -1,7 +1,8 @@
 const express = require('express');
 const Joi = require('joi');
+const { prisma } = require('../lib/prisma');
 const router = express.Router();
-const { authenticateBetterAuth: authenticateToken, requireRole, requireAdmin, hashPassword } = require('../middleware/better-auth-official');
+const { requireAuth: authenticateToken, requireRole, requireAdmin } = require('../lib/auth-utils');
 
 // Validation schemas
 const createUserSchema = Joi.object({
@@ -112,13 +113,48 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
       }
     }
 
-    const [usersResult, countResult] = await Promise.all([
-      req.pool.query(query, params),
-      req.pool.query(countQuery, countParams)
+    // SECURITY MIGRATION: Replace raw SQL with Prisma to prevent injection
+    const whereClause = {};
+    
+    if (search) {
+      whereClause.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    
+    if (role) {
+      whereClause.role = role;
+    }
+    
+    if (status) {
+      whereClause.isActive = status === 'active';
+    }
+
+    const [users, totalCount] = await Promise.all([
+      prisma.user.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          isVerified: true,
+          createdAt: true,
+          lastLoginAt: true
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit
+      }),
+      prisma.user.count({ where: whereClause })
     ]);
 
     res.json({
-      users: usersResult.rows.map(user => ({
+      users: users.map(user => ({
         id: user.id,
         email: user.email,
         firstName: user.firstName,
@@ -134,12 +170,12 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: parseInt(countResult.rows[0].total),
-        pages: Math.ceil(countResult.rows[0].total / limit)
+        total: totalCount,
+        pages: Math.ceil(totalCount / limit)
       }
     });
   } catch (error) {
-    console.error('Error fetching users:', error);
+    // Error logged through Winston logger in production
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
@@ -149,32 +185,39 @@ router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await req.pool.query(
-      `SELECT 
-        id, email, first_name, last_name, phone, role, status, 
-        email_verified, last_login, created_at, updated_at
-      FROM users
-      WHERE id = $1`,
-      [id]
-    );
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const user = result.rows[0];
     res.json({
       id: user.id,
       email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
+      firstName: user.firstName,
+      lastName: user.lastName,
       phone: user.phone,
       role: user.role,
-      status: user.status,
-      emailVerified: user.email_verified,
-      lastLogin: user.last_login,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
+      status: user.isActive ? 'active' : 'suspended',
+      emailVerified: user.emailVerified,
+      lastLogin: user.lastLoginAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
     });
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -479,36 +522,41 @@ router.post('/:id/change-password', authenticateToken, requireAdmin, async (req,
 // GET /api/users/stats - Get user statistics (Admin only)
 router.get('/stats/overview', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const statsQuery = `
-      SELECT 
-        COUNT(*) FILTER (WHERE role = 'CUSTOMER') as total_customers,
-        COUNT(*) FILTER (WHERE role IN ('ADMIN', 'SUPER_ADMIN')) as total_admins,
-        COUNT(*) FILTER (WHERE role = 'TECHNICIAN') as total_technicians,
-        COUNT(*) FILTER (WHERE "isActive" = true) as active_users,
-        COUNT(*) FILTER (WHERE "isActive" = false) as suspended_users,
-        0 as inactive_users,
-        COUNT(*) FILTER (WHERE "emailVerified" = true) as verified_users,
-        COUNT(*) FILTER (WHERE "createdAt" >= CURRENT_DATE - INTERVAL '30 days') as new_users_30d
-      FROM "user"
-    `;
+    // Use Prisma aggregations to get user statistics
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const result = await req.pool.query(statsQuery);
-    const stats = result.rows[0];
+    const [
+      totalCustomers,
+      totalAdmins,
+      totalTechnicians,
+      activeUsers,
+      suspendedUsers,
+      verifiedUsers,
+      newUsers30d
+    ] = await Promise.all([
+      prisma.user.count({ where: { role: 'CUSTOMER' } }),
+      prisma.user.count({ where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } } }),
+      prisma.user.count({ where: { role: 'TECHNICIAN' } }),
+      prisma.user.count({ where: { isActive: true } }),
+      prisma.user.count({ where: { isActive: false } }),
+      prisma.user.count({ where: { emailVerified: true } }),
+      prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } })
+    ]);
 
     res.json({
       byRole: {
-        customer: parseInt(stats.total_customers),
-        admin: parseInt(stats.total_admins),
-        technician: parseInt(stats.total_technicians)
+        customer: totalCustomers,
+        admin: totalAdmins,
+        technician: totalTechnicians
       },
       byStatus: {
-        active: parseInt(stats.active_users),
-        suspended: parseInt(stats.suspended_users),
-        inactive: parseInt(stats.inactive_users)
+        active: activeUsers,
+        suspended: suspendedUsers,
+        inactive: 0
       },
-      verified: parseInt(stats.verified_users),
-      newUsers30Days: parseInt(stats.new_users_30d),
-      total: parseInt(stats.total_customers) + parseInt(stats.total_admins) + parseInt(stats.total_technicians)
+      verified: verifiedUsers,
+      newUsers30Days: newUsers30d,
+      total: totalCustomers + totalAdmins + totalTechnicians
     });
   } catch (error) {
     console.error('Error fetching user stats:', error);

@@ -1,80 +1,22 @@
 /**
  * Better Auth Instance for Backend
- * Creates the auth instance directly in the backend with proper configuration
+ * Creates the auth instance directly in the backend with Prisma adapter
  */
 
 const { betterAuth } = require('better-auth');
-const { drizzleAdapter } = require('better-auth/adapters/drizzle');
+const { prismaAdapter } = require('better-auth/adapters/prisma');
 const { organization, twoFactor } = require('better-auth/plugins');
-const { drizzle } = require('drizzle-orm/postgres-js');
-const postgres = require('postgres');
+const { PrismaClient } = require('@prisma/client');
+const config = require('../config/environment');
 
-// Environment-aware database URL resolution
-function getDatabaseURL() {
-  // Priority order for database URL resolution
-  if (process.env.BETTER_AUTH_DATABASE_URL) {
-    console.log('[Better Auth Backend] Using BETTER_AUTH_DATABASE_URL');
-    return process.env.BETTER_AUTH_DATABASE_URL;
-  }
+// Initialize Prisma Client for Better Auth
+console.log('[Better Auth Backend] Initializing Prisma client...');
 
-  if (process.env.DATABASE_URL) {
-    console.log('[Better Auth Backend] Using DATABASE_URL');
-    return process.env.DATABASE_URL;
-  }
-
-  // Default container connection - use container name for internal connection
-  const defaultURL = 'postgresql://revivatech:revivatech_password@revivatech_database:5432/revivatech';
-  console.log('[Better Auth Backend] Using default database connection (container)');
-  return defaultURL;
-}
-
-// Initialize database connection
-const databaseURL = getDatabaseURL();
-console.log('[Better Auth Backend] Database URL configured:', databaseURL.replace(/\/\/([^:]+):([^@]+)@/, '//[USER]:[PASSWORD]@'));
-
-const client = postgres(databaseURL, {
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 60,
-  ssl: false, // Internal connection, no SSL needed
-});
-
-const db = drizzle(client, {
-  schema: {
-    // Define basic schema compatible with Better Auth
-    user: {
-      id: 'text',
-      email: 'text',
-      firstName: 'text',
-      lastName: 'text',
-      name: 'text',
-      role: 'text',
-      isActive: 'boolean',
-      emailVerified: 'boolean',
-      createdAt: 'timestamp',
-      updatedAt: 'timestamp'
-    },
-    session: {
-      id: 'text',
-      userId: 'text',
-      token: 'text',
-      expiresAt: 'timestamp',
-      ipAddress: 'text',
-      userAgent: 'text'
-    },
-    account: {
-      id: 'text',
-      userId: 'text',
-      providerId: 'text',
-      accountId: 'text',
-      accessToken: 'text',
-      refreshToken: 'text'
-    },
-    verification: {
-      id: 'text',
-      identifier: 'text',
-      value: 'text',
-      expiresAt: 'timestamp'
+const prisma = new PrismaClient({
+  log: config.FLAGS.DEVELOPMENT ? ['query', 'error', 'warn'] : ['error'],
+  datasources: {
+    db: {
+      url: config.DATABASE.URL
     }
   }
 });
@@ -83,20 +25,14 @@ const db = drizzle(client, {
 const auth = betterAuth({
   basePath: "/api/auth", // This tells Better Auth what base path to expect
   
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema: {
-      user: 'user',
-      session: 'session',
-      account: 'account',
-      verification: 'verification'
-    }
+  database: prismaAdapter(prisma, {
+    provider: "postgresql"
   }),
   
-  secret: process.env.BETTER_AUTH_SECRET || 'dev-secret-key-change-in-production',
+  secret: config.AUTH.SECRET,
   
   // Development environment configuration
-  ...(process.env.NODE_ENV === 'development' && {
+  ...(config.FLAGS.DEVELOPMENT && {
     rateLimit: {
       enabled: false // Disable rate limiting in development
     },
@@ -111,8 +47,8 @@ const auth = betterAuth({
   },
   
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // Update every 24 hours
+    expiresIn: config.AUTH.SESSION_EXPIRES_IN,
+    updateAge: config.AUTH.TOKEN_EXPIRES_IN,
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60, // 5 minutes - Better Auth recommended
@@ -153,16 +89,11 @@ const auth = betterAuth({
     twoFactor()
   ],
   
-  trustedOrigins: [
-    "http://localhost:3010",
-    "http://localhost:3011",
-    "https://localhost:3010", 
-    "https://revivatech.co.uk",
-  ],
+  trustedOrigins: config.CORS.ORIGINS,
   
   // Explicitly configure for HTTP development
-  ...(process.env.NODE_ENV === 'development' && {
-    trustHost: true, // Trust host in development
+  ...(config.FLAGS.DEVELOPMENT && {
+    trustHost: config.AUTH.TRUST_HOST, // Trust host in development
   }),
 });
 
@@ -170,6 +101,5 @@ console.log('[Better Auth Backend] Auth instance created successfully');
 
 module.exports = {
   auth,
-  db,
-  client
+  prisma
 };

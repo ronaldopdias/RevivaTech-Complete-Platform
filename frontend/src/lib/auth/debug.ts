@@ -47,6 +47,7 @@ export function logAuthState(authHook: any, context: string = 'Unknown') {
   const debugInfo = captureAuthState(authHook);
   
   console.group(`🔍 Auth Debug - ${context}`);
+  console.log('Relevant cookies:', Object.keys(debugInfo.cookies).filter(k =>
     k.includes('auth') || k.includes('session') || k.includes('role')
   ).reduce((obj, key) => {
     obj[key] = debugInfo.cookies[key];

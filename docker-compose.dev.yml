@@ -1,5 +1,3 @@
-version: '3.8'
-
 # RevivaTech Development Environment with Hot Reload
 # ⚠️  DEVELOPMENT MODE - DO NOT USE IN PRODUCTION
 # Use docker-compose.production.yml for production deployment

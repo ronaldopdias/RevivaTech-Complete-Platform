@@ -17,25 +17,9 @@ const repairsRoutes = require('../repairs');
 const bookingsRoutes = require('../bookings');
 
 // Import hybrid authentication middleware (supports both JWT and Better Auth)
-const { authenticateBetterAuth: authenticateHybrid, requireAdmin } = require('../../middleware/better-auth-official');
+const { requireAuth: authenticateHybrid, requireAdmin } = require('../../lib/auth-utils');
 
-// Debug authentication middleware to understand what's happening
-const debugAuth = (req, res, next) => {
-    console.log(`🔍 DEBUG: Auth header:`, req.headers.authorization ? 'Present' : 'Missing');
-    console.log(`🔍 DEBUG: req.user before auth:`, req.user ? 'Present' : 'Missing');
-    next();
-};
-
-const debugAfterAuth = (req, res, next) => {
-    console.log(`🔍 DEBUG: After authenticateToken - req.user:`, req.user ? `${req.user.email} (${req.user.role})` : 'Still missing');
-    next();
-};
-
-const debugAfterRoleCheck = (req, res, next) => {
-    console.log(`🔍 DEBUG: After requireAdmin - req.user:`, req.user ? `${req.user.email} (${req.user.role})` : 'Still missing');
-    console.log(`🔐 Admin API Access: ${req.method} ${req.originalUrl} - User: ${req.user ? req.user.email : 'UNAUTHENTICATED'} (${req.user ? req.user.role : 'NO_ROLE'})`);
-    next();
-};
+// Production authentication middleware - debug code removed for security
 
 // Apply hybrid authentication middleware to all admin routes
 router.use(authenticateHybrid);

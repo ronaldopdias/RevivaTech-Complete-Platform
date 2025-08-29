@@ -1,0 +1,1499 @@
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                                                String                   @id @default(cuid())
+  email                                             String                   @unique
+  name                                              String                   // REQUIRED by Better Auth
+  image                                             String?                  // REQUIRED by Better Auth  
+  username                                          String?                  @unique
+  firstName                                         String?
+  lastName                                          String?
+  phone                                             String?
+  role                                              UserRole                 @default(CUSTOMER)
+  isActive                                          Boolean                  @default(true)
+  isVerified                                        Boolean                  @default(false)
+  emailVerified                                     Boolean                  @default(false)
+  lastLoginAt                                       DateTime?
+  createdAt                                         DateTime                 @default(now())
+  updatedAt                                         DateTime                 @updatedAt
+  password                                          String?               @map("password_hash")
+  login_attempts                                    Int?                     @default(0)
+  locked_until                                      DateTime?                @db.Timestamp(6)
+  analytics_events                                  analytics_events[]
+  analytics_sessions                                analytics_sessions[]
+  auditLogs                                         AuditLog[]
+  bookings                                          Booking[]
+  conversion_funnels                                conversion_funnels[]
+  customer_journeys                                 customer_journeys[]
+  email_accounts_email_accounts_created_byTousers   email_accounts[]         @relation("email_accounts_created_byTousers")
+  email_accounts_email_accounts_updated_byTousers   email_accounts[]         @relation("email_accounts_updated_byTousers")
+  email_logs                                        email_logs[]
+  email_settings_email_settings_created_byTousers   email_settings[]         @relation("email_settings_created_byTousers")
+  email_settings_email_settings_updated_byTousers   email_settings[]         @relation("email_settings_updated_byTousers")
+  email_templates_email_templates_created_byTousers email_templates[]        @relation("email_templates_created_byTousers")
+  email_templates_email_templates_updated_byTousers email_templates[]        @relation("email_templates_updated_byTousers")
+  ml_predictions                                    ml_predictions[]
+  notifications                                     Notification[]
+  user_behavior_profiles                            user_behavior_profiles[]
+  userSessions                                      UserSession[]
+  // Better Auth relations
+  accounts      Account[]
+  sessions      Session[]
+  authenticator Authenticator[]
+  twoFactor     UserTwoFactor?
+  roleAssignments RoleAssignment[]
+  
+  // Realtime Repair Tracking relations
+  repairBookings              RepairBooking[]
+  repairStatusUpdates         RepairStatusUpdate[]
+  repairProgress              RepairProgress[]
+  repairNotes                 RepairNote[]
+  repairPhotos                RepairPhoto[]
+  repairQualityChecks         RepairQualityCheck[]
+  technicianAssignments       TechnicianAssignment[]  @relation("TechnicianAssignments")
+  assignedTechnicianAssignments TechnicianAssignment[] @relation("AssignedTechnicianAssignments")
+  repairTimeline              RepairTimeline[]
+  repairNotificationsReceived RepairNotification[]    @relation("RecipientRepairNotifications")
+
+  @@map("users")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model DeviceCategory {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  slug        String        @unique
+  description String?
+  iconName    String?
+  sortOrder   Int           @default(0)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  brands      DeviceBrand[]
+
+  @@map("device_categories")
+}
+
+model DeviceBrand {
+  id         String         @id @default(cuid())
+  categoryId String
+  name       String
+  slug       String
+  logoUrl    String?
+  isActive   Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  category   DeviceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  models     DeviceModel[]
+
+  @@unique([categoryId, slug])
+  @@map("device_brands")
+}
+
+model DeviceModel {
+  id           String        @id @default(cuid())
+  brandId      String
+  name         String
+  slug         String
+  year         Int
+  screenSize   Float?
+  specs        Json?
+  imageUrl     String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  bookings     Booking[]
+  brand        DeviceBrand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  pricingRules PricingRule[]
+
+  @@unique([brandId, slug])
+  @@map("device_models")
+}
+
+model PricingRule {
+  id                   String       @id @default(cuid())
+  deviceModelId        String?
+  repairType           RepairType
+  basePrice            Decimal      @db.Decimal(10, 2)
+  urgencyMultiplier    Decimal      @default(1.00) @db.Decimal(3, 2)
+  complexityMultiplier Decimal      @default(1.00) @db.Decimal(3, 2)
+  marketDemand         Float        @default(1.0)
+  seasonalFactor       Float        @default(1.0)
+  isActive             Boolean      @default(true)
+  validFrom            DateTime     @default(now())
+  validUntil           DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  deviceModel          DeviceModel? @relation(fields: [deviceModelId], references: [id], onDelete: Cascade)
+
+  @@map("pricing_rules")
+}
+
+model Booking {
+  id                   String                 @id @default(cuid())
+  customerId           String
+  deviceModelId        String
+  repairType           RepairType
+  problemDescription   String
+  urgencyLevel         UrgencyLevel           @default(STANDARD)
+  status               BookingStatus          @default(PENDING)
+  basePrice            Decimal                @db.Decimal(10, 2)
+  finalPrice           Decimal                @db.Decimal(10, 2)
+  priceCalculatedAt    DateTime               @default(now())
+  preferredDate        DateTime?
+  scheduledDate        DateTime?
+  estimatedCompletion  DateTime?
+  completedAt          DateTime?
+  customerInfo         Json
+  deviceCondition      Json?
+  photoUrls            String[]
+  assignedTechnicianId String?
+  internalNotes        String?
+  customerNotes        String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  statusHistory        BookingStatusHistory[]
+  customer             User                   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deviceModel          DeviceModel            @relation(fields: [deviceModelId], references: [id])
+  email_logs           email_logs[]
+  notifications        Notification[]
+  payment              Payment?
+
+  @@map("bookings")
+}
+
+model BookingStatusHistory {
+  id        String        @id @default(cuid())
+  bookingId String
+  status    BookingStatus
+  notes     String?
+  createdBy String
+  createdAt DateTime      @default(now())
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_status_history")
+}
+
+model Notification {
+  id           String              @id @default(cuid())
+  userId       String
+  bookingId    String?
+  type         NotificationType
+  channel      NotificationChannel
+  title        String
+  message      String
+  data         Json?
+  isRead       Boolean             @default(false)
+  sentAt       DateTime?
+  scheduledFor DateTime?
+  status       NotificationStatus  @default(PENDING)
+  retryCount   Int                 @default(0)
+  maxRetries   Int                 @default(3)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  booking      Booking?            @relation(fields: [bookingId], references: [id])
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model WebSocketSession {
+  id         String   @id @default(cuid())
+  userId     String?
+  sessionId  String   @unique
+  isActive   Boolean  @default(true)
+  lastPingAt DateTime @default(now())
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("websocket_sessions")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Payment {
+  id                     String                @id @default(cuid())
+  bookingId              String                @unique
+  amount                 Int
+  currency               String                @default("gbp")
+  paymentMethod          PaymentMethod
+  status                 PaymentStatus         @default(PENDING)
+  gatewayTransactionId   String?
+  gatewayPaymentMethodId String?
+  refundedAmount         Int?
+  refundReason           String?
+  stripeMetadata         Json?
+  paypalMetadata         Json?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  paidAt                 DateTime?
+  refundedAt             DateTime?
+  invoices               Invoice[]
+  webhookEvents          PaymentWebhookEvent[]
+  booking                Booking               @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  paymentId      String
+  invoiceNumber  String        @unique
+  amount         Int
+  currency       String        @default("gbp")
+  description    String?
+  pdfPath        String?
+  pdfUrl         String?
+  status         InvoiceStatus @default(DRAFT)
+  sentTo         String?
+  sentAt         DateTime?
+  emailDelivered Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  payment        Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
+}
+
+model PaymentWebhookEvent {
+  id           String    @id @default(cuid())
+  paymentId    String?
+  gateway      String
+  eventType    String
+  eventId      String
+  payload      Json
+  processed    Boolean   @default(false)
+  processedAt  DateTime?
+  errorMessage String?
+  retryCount   Int       @default(0)
+  receivedAt   DateTime  @default(now())
+  payment      Payment?  @relation(fields: [paymentId], references: [id])
+
+  @@unique([gateway, eventId])
+  @@map("payment_webhook_events")
+}
+
+model ab_test_assignments {
+  id                  Int                  @id @default(autoincrement())
+  experiment_id       Int?
+  user_id             String               @db.VarChar(255)
+  variant_name        String               @db.VarChar(100)
+  assigned_at         DateTime?            @default(now()) @db.Timestamp(6)
+  conversion_events   Json?
+  is_converted        Boolean?             @default(false)
+  conversion_value    Decimal?             @db.Decimal(10, 2)
+  ab_test_experiments ab_test_experiments? @relation(fields: [experiment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([experiment_id, user_id], map: "unique_ab_assignment")
+  @@index([experiment_id], map: "idx_ab_assignment_exp")
+  @@index([user_id], map: "idx_ab_assignment_user")
+  @@index([variant_name], map: "idx_ab_assignment_variant")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model ab_test_experiments {
+  id                  Int                   @id @default(autoincrement())
+  experiment_name     String                @unique @db.VarChar(100)
+  description         String?
+  start_date          DateTime              @db.Timestamp(6)
+  end_date            DateTime?             @db.Timestamp(6)
+  status              String?               @default("draft") @db.VarChar(50)
+  traffic_allocation  Decimal?              @default(100.00) @db.Decimal(5, 2)
+  variants            Json
+  success_metrics     Json?
+  target_audience     Json?
+  created_by          String?               @db.VarChar(255)
+  created_at          DateTime?             @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?             @default(now()) @db.Timestamp(6)
+  ab_test_assignments ab_test_assignments[]
+
+  @@index([start_date, end_date], map: "idx_ab_experiment_dates")
+  @@index([status], map: "idx_ab_experiment_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model analytics_aggregations {
+  id              Int       @id @default(autoincrement())
+  metric_name     String    @db.VarChar(100)
+  dimension_name  String?   @db.VarChar(100)
+  dimension_value String?   @db.VarChar(255)
+  time_period     String?   @db.VarChar(50)
+  period_start    DateTime  @db.Timestamp(6)
+  period_end      DateTime  @db.Timestamp(6)
+  metric_value    Decimal   @db.Decimal(15, 4)
+  record_count    Int?      @default(0)
+  last_updated    DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([metric_name, dimension_name, dimension_value, time_period, period_start], map: "unique_analytics_agg")
+  @@index([dimension_name, dimension_value], map: "idx_agg_dimension")
+  @@index([metric_name], map: "idx_agg_metric")
+  @@index([time_period, period_start], map: "idx_agg_period")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model analytics_events {
+  id                String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  user_fingerprint  String
+  session_id        String
+  user_id           String?
+  event_type        String
+  event_name        String
+  event_data        Json?     @default("{}")
+  page_url          String?
+  referrer_url      String?
+  utm_source        String?
+  utm_medium        String?
+  utm_campaign      String?
+  utm_content       String?
+  utm_term          String?
+  device_type       String?
+  browser           String?
+  os                String?
+  screen_resolution String?
+  ip_address        String?   @db.Inet
+  geo_country       String?
+  geo_city          String?
+  created_at        DateTime? @default(now())
+  processed_at      DateTime?
+  users             User?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_analytics_events_created_at")
+  @@index([user_fingerprint], map: "idx_analytics_events_fingerprint")
+  @@index([user_fingerprint, event_type], map: "idx_analytics_events_fingerprint_type")
+  @@index([page_url], map: "idx_analytics_events_page_url")
+  @@index([session_id], map: "idx_analytics_events_session")
+  @@index([session_id, created_at], map: "idx_analytics_events_session_created")
+  @@index([event_type], map: "idx_analytics_events_type")
+  @@index([user_id], map: "idx_analytics_events_user_id")
+  @@index([utm_source], map: "idx_analytics_events_utm_source")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model analytics_sessions {
+  id                           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  session_id                   String    @unique
+  user_fingerprint             String
+  user_id                      String?
+  session_start                DateTime? @default(now())
+  session_end                  DateTime?
+  duration_seconds             Int?      @default(0)
+  traffic_source               String?
+  traffic_medium               String?
+  traffic_campaign             String?
+  referrer_domain              String?
+  landing_page                 String?
+  exit_page                    String?
+  device_type                  String?
+  device_brand                 String?
+  browser                      String?
+  browser_version              String?
+  os                           String?
+  os_version                   String?
+  screen_resolution            String?
+  viewport_size                String?
+  user_agent                   String?
+  ip_address                   String?   @db.Inet
+  geo_country                  String?
+  geo_region                   String?
+  geo_city                     String?
+  timezone                     String?
+  page_views                   Int?      @default(0)
+  unique_page_views            Int?      @default(0)
+  events_count                 Int?      @default(0)
+  scroll_depth_max             Decimal?  @default(0) @db.Decimal(5, 2)
+  clicks_count                 Int?      @default(0)
+  form_submissions             Int?      @default(0)
+  engagement_score             Decimal?  @default(0) @db.Decimal(5, 2)
+  bounce                       Boolean?  @default(false)
+  time_to_first_interaction_ms Int?
+  pages_before_conversion      Int?      @default(0)
+  goals_completed              String[]  @default([])
+  conversion_events            Json?     @default("{}")
+  revenue_generated            Decimal?  @default(0) @db.Decimal(12, 2)
+  quality_score                Decimal?  @default(0) @db.Decimal(5, 2)
+  spam_score                   Decimal?  @default(0) @db.Decimal(5, 2)
+  bot_probability              Decimal?  @default(0) @db.Decimal(5, 4)
+  created_at                   DateTime? @default(now())
+  users                        User?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([bounce], map: "idx_analytics_sessions_bounce")
+  @@index([user_fingerprint], map: "idx_analytics_sessions_fingerprint")
+  @@index([session_id], map: "idx_analytics_sessions_session_id")
+  @@index([session_start], map: "idx_analytics_sessions_start")
+  @@index([traffic_source], map: "idx_analytics_sessions_traffic_source")
+  @@index([user_id], map: "idx_analytics_sessions_user_id")
+}
+
+model content_versions {
+  id                Int                @id @default(autoincrement())
+  procedure_id      Int?
+  version_number    Int
+  changes_summary   String?
+  changed_by        String?            @db.VarChar(100)
+  change_type       String?            @db.VarChar(50)
+  version_data      Json?
+  created_at        DateTime?          @default(now()) @db.Timestamp(6)
+  repair_procedures repair_procedures? @relation(fields: [procedure_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([procedure_id], map: "idx_versions_procedure")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model conversion_funnels {
+  id                   String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  user_fingerprint     String
+  session_id           String
+  user_id              String?
+  funnel_name          String
+  funnel_version       String?   @default("v1")
+  step_name            String
+  step_number          Int
+  step_category        String?
+  entered_step_at      DateTime? @default(now())
+  exited_step_at       DateTime?
+  time_in_step_seconds Decimal?  @db.Decimal(10, 2)
+  completed_step       Boolean?  @default(false)
+  dropped_off          Boolean?  @default(false)
+  drop_off_reason      String?
+  next_step            String?
+  entry_source         String?
+  step_data            Json?     @default("{}")
+  conversion_value     Decimal?  @default(0) @db.Decimal(10, 2)
+  created_at           DateTime? @default(now())
+  users                User?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([completed_step], map: "idx_conversion_funnels_completed")
+  @@index([dropped_off], map: "idx_conversion_funnels_dropped")
+  @@index([user_fingerprint], map: "idx_conversion_funnels_fingerprint")
+  @@index([user_fingerprint, funnel_name], map: "idx_conversion_funnels_fingerprint_funnel")
+  @@index([funnel_name], map: "idx_conversion_funnels_name")
+  @@index([funnel_name, step_number], map: "idx_conversion_funnels_name_step")
+  @@index([session_id], map: "idx_conversion_funnels_session")
+  @@index([step_number], map: "idx_conversion_funnels_step")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model customer_journeys {
+  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  user_fingerprint    String
+  session_id          String
+  user_id             String?
+  journey_stage       String
+  touchpoint          String
+  sequence_number     Int
+  time_spent_seconds  Decimal?  @default(0) @db.Decimal(10, 2)
+  interactions_count  Int?      @default(0)
+  page_views_in_stage Int?      @default(0)
+  events_in_stage     Int?      @default(0)
+  entry_method        String?
+  traffic_source      String?
+  campaign_id         String?
+  content_consumed    Json?     @default("{}")
+  actions_taken       Json?     @default("{}")
+  converted_in_stage  Boolean?  @default(false)
+  conversion_value    Decimal?  @default(0) @db.Decimal(10, 2)
+  conversion_type     String?
+  exit_point          String?
+  exit_reason         String?
+  next_stage          String?
+  stage_entered_at    DateTime? @default(now())
+  stage_exited_at     DateTime?
+  created_at          DateTime? @default(now())
+  users               User?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_customer_journeys_created_at")
+  @@index([user_fingerprint], map: "idx_customer_journeys_fingerprint")
+  @@index([user_fingerprint, sequence_number], map: "idx_customer_journeys_fingerprint_sequence")
+  @@index([sequence_number], map: "idx_customer_journeys_sequence")
+  @@index([session_id], map: "idx_customer_journeys_session")
+  @@index([journey_stage], map: "idx_customer_journeys_stage")
+  @@index([journey_stage, stage_entered_at], map: "idx_customer_journeys_stage_entered")
+  @@index([touchpoint], map: "idx_customer_journeys_touchpoint")
+}
+
+model diagnostic_rules {
+  id                     Int       @id @default(autoincrement())
+  rule_name              String    @db.VarChar(255)
+  device_types           String[]  @db.VarChar(50)
+  symptom_keywords       String[]  @db.VarChar(100)
+  problem_category       String?   @db.VarChar(100)
+  confidence_threshold   Decimal?  @db.Decimal(3, 2)
+  condition_logic        Json?
+  recommended_procedures Int[]
+  priority_score         Int?      @default(50)
+  success_rate           Decimal?  @db.Decimal(5, 2)
+  created_at             DateTime? @default(now()) @db.Timestamp(6)
+  updated_at             DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model email_accounts {
+  id                                     String        @id @default(dbgenerated("gen_random_uuid()"))
+  name                                   String        @db.VarChar(100)
+  email                                  String        @unique @db.VarChar(255)
+  purpose                                String?
+  provider                               String        @default("zoho") @db.VarChar(50)
+  smtp_host                              String        @default("smtp.zoho.com") @db.VarChar(255)
+  smtp_port                              Int           @default(587)
+  smtp_secure                            Boolean       @default(false)
+  smtp_user                              String        @db.VarChar(255)
+  smtp_password                          String?       @db.VarChar(255)
+  from_name                              String        @default("RevivaTech") @db.VarChar(100)
+  reply_to_email                         String?       @db.VarChar(255)
+  is_active                              Boolean       @default(true)
+  is_primary                             Boolean       @default(false)
+  priority                               Int           @default(1)
+  daily_limit                            Int?          @default(1000)
+  hourly_limit                           Int?          @default(100)
+  created_at                             DateTime?     @default(now()) @db.Timestamp(6)
+  updated_at                             DateTime?     @default(now()) @db.Timestamp(6)
+  created_by                             String?
+  updated_by                             String?
+  last_used_at                           DateTime?     @db.Timestamp(6)
+  total_sent                             Int?          @default(0)
+  total_failed                           Int?          @default(0)
+  last_error                             String?
+  users_email_accounts_created_byTousers User?         @relation("email_accounts_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_email_accounts_updated_byTousers User?         @relation("email_accounts_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  email_queue                            email_queue[]
+
+  @@index([is_active], map: "idx_email_accounts_active")
+  @@index([email], map: "idx_email_accounts_email")
+  @@index([priority], map: "idx_email_accounts_priority")
+}
+
+model email_logs {
+  id            Int       @id @default(autoincrement())
+  to_email      String    @db.VarChar(255)
+  from_email    String    @db.VarChar(255)
+  subject       String    @db.VarChar(500)
+  provider      String    @db.VarChar(50)
+  status        String    @db.VarChar(20)
+  error_message String?
+  message_id    String?   @db.VarChar(255)
+  sent_at       DateTime? @db.Timestamp(6)
+  retry_count   Int?      @default(0)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  booking_id    String?
+  user_id       String?
+  bookings      Booking?  @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users         User?     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([booking_id], map: "idx_email_logs_booking_id")
+  @@index([sent_at], map: "idx_email_logs_sent_at")
+  @@index([status], map: "idx_email_logs_status")
+}
+
+model email_queue {
+  id              String           @id @default(dbgenerated("uuid_generate_v4()"))
+  account_id      String?          
+  template_id     String?          
+  to_email        String           @db.VarChar(255)
+  to_name         String?          @db.VarChar(255)
+  subject         String           @db.VarChar(500)
+  html_content    String
+  text_content    String?
+  template_data   Json?            @default("{}")
+  status          String           @default("pending") @db.VarChar(20)
+  priority        Int              @default(1)
+  scheduled_at    DateTime?        @default(now()) @db.Timestamp(6)
+  attempts        Int?             @default(0)
+  max_attempts    Int?             @default(3)
+  sent_at         DateTime?        @db.Timestamp(6)
+  error_message   String?
+  message_id      String?          @db.VarChar(255)
+  created_at      DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?        @default(now()) @db.Timestamp(6)
+  created_by      String?
+  booking_id      String?
+  customer_id     String?
+  email_accounts  email_accounts?  @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  email_templates email_templates? @relation(fields: [template_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([account_id], map: "idx_email_queue_account")
+  @@index([priority(sort: Desc)], map: "idx_email_queue_priority")
+  @@index([scheduled_at], map: "idx_email_queue_scheduled")
+  @@index([status], map: "idx_email_queue_status")
+}
+
+model email_settings {
+  id                                     Int       @id @default(autoincrement())
+  provider                               String    @default("zoho") @db.VarChar(50)
+  smtp_host                              String    @default("smtppro.zoho.com") @db.VarChar(255)
+  smtp_port                              Int       @default(587)
+  smtp_secure                            Boolean   @default(false)
+  smtp_user                              String    @db.VarChar(255)
+  smtp_password                          String?   @db.VarChar(255)
+  from_email                             String    @db.VarChar(255)
+  from_name                              String    @default("RevivaTech") @db.VarChar(100)
+  reply_to_email                         String?   @db.VarChar(255)
+  is_active                              Boolean   @default(true)
+  test_email                             String?   @db.VarChar(255)
+  backup_provider                        String?   @db.VarChar(50)
+  retry_attempts                         Int?      @default(3)
+  queue_enabled                          Boolean?  @default(true)
+  created_at                             DateTime? @default(now()) @db.Timestamp(6)
+  updated_at                             DateTime? @default(now()) @db.Timestamp(6)
+  created_by                             String?
+  updated_by                             String?
+  users_email_settings_created_byTousers User?     @relation("email_settings_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_email_settings_updated_byTousers User?     @relation("email_settings_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([is_active], map: "idx_email_settings_active")
+}
+
+model email_templates {
+  id                                      String        @id @default(dbgenerated("gen_random_uuid()"))
+  name                                    String        @db.VarChar(100)
+  slug                                    String        @unique @db.VarChar(100)
+  category                                String        @db.VarChar(50)
+  subject                                 String        @db.VarChar(500)
+  html_content                            String
+  text_content                            String?
+  variables                               Json?         @default("[]")
+  sample_data                             Json?         @default("{}")
+  is_active                               Boolean       @default(true)
+  version                                 Int           @default(1)
+  created_at                              DateTime?     @default(now()) @db.Timestamp(6)
+  updated_at                              DateTime?     @default(now()) @db.Timestamp(6)
+  created_by                              String?
+  updated_by                              String?
+  usage_count                             Int?          @default(0)
+  last_used_at                            DateTime?     @db.Timestamp(6)
+  email_queue                             email_queue[]
+  users_email_templates_created_byTousers User?         @relation("email_templates_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_email_templates_updated_byTousers User?         @relation("email_templates_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([is_active], map: "idx_email_templates_active")
+  @@index([category], map: "idx_email_templates_category")
+  @@index([slug], map: "idx_email_templates_slug")
+}
+
+model knowledge_base_analytics {
+  id                      Int                @id @default(autoincrement())
+  event_type              String?            @db.VarChar(50)
+  procedure_id            Int?
+  search_query            String?
+  user_agent              String?
+  device_detected         String?            @db.VarChar(100)
+  problem_detected        String?            @db.VarChar(100)
+  response_time_ms        Int?
+  results_count           Int?
+  result_clicked_position Int?
+  session_id              String?            @db.VarChar(100)
+  ip_address              String?            @db.Inet
+  created_at              DateTime?          @default(now()) @db.Timestamp(6)
+  repair_procedures       repair_procedures? @relation(fields: [procedure_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_analytics_created_at")
+  @@index([event_type], map: "idx_analytics_event_type")
+  @@index([procedure_id], map: "idx_analytics_procedure")
+}
+
+model media_files {
+  id                 Int       @id @default(autoincrement())
+  uuid               String?   @unique @default(dbgenerated("uuid_generate_v4()"))
+  filename           String    @db.VarChar(255)
+  original_filename  String?   @db.VarChar(255)
+  file_type          String?   @db.VarChar(10)
+  file_size_bytes    BigInt?
+  storage_path       String?   @db.VarChar(500)
+  storage_provider   String?   @default("local") @db.VarChar(50)
+  title              String?   @db.VarChar(255)
+  description        String?
+  alt_text           String?   @db.VarChar(255)
+  used_in_procedures Int[]
+  processing_status  String?   @default("pending") @db.VarChar(20)
+  thumbnail_url      String?   @db.VarChar(500)
+  compressed_url     String?   @db.VarChar(500)
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model ml_feature_store {
+  id              Int       @id @default(autoincrement())
+  feature_name    String    @db.VarChar(100)
+  feature_type    String    @db.VarChar(50)
+  entity_id       String    @db.VarChar(255)
+  entity_type     String    @db.VarChar(50)
+  feature_value   Json
+  feature_version Int?      @default(1)
+  computed_at     DateTime? @default(now()) @db.Timestamp(6)
+  expires_at      DateTime? @db.Timestamp(6)
+  tags            Json?
+
+  @@unique([feature_name, entity_id, feature_version], map: "unique_ml_features")
+  @@index([computed_at], map: "idx_feature_computed")
+  @@index([entity_type, entity_id], map: "idx_feature_entity")
+  @@index([expires_at], map: "idx_feature_expires")
+  @@index([feature_name], map: "idx_feature_name")
+  @@index([feature_value], map: "idx_ml_feature_value", type: Gin)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model ml_model_metrics {
+  id                        Int       @id @default(autoincrement())
+  model_name                String    @db.VarChar(100)
+  model_version             String    @db.VarChar(50)
+  metric_name               String    @db.VarChar(100)
+  metric_value              Decimal   @db.Decimal(10, 4)
+  evaluation_date           DateTime? @default(now()) @db.Timestamp(6)
+  dataset_size              Int?
+  training_duration_seconds Int?
+  hyperparameters           Json?
+  performance_notes         String?
+  is_production             Boolean?  @default(false)
+  created_at                DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([model_name, model_version, metric_name, evaluation_date], map: "unique_ml_metrics")
+  @@index([evaluation_date], map: "idx_ml_metrics_date")
+  @@index([model_name, model_version], map: "idx_ml_metrics_model")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model ml_predictions {
+  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  user_fingerprint    String
+  user_id             String?
+  model_type          String
+  model_version       String
+  prediction_value    Decimal   @db.Decimal(10, 6)
+  prediction_label    String?
+  confidence_score    Decimal   @db.Decimal(5, 4)
+  probability_scores  Json?     @default("{}")
+  features_used       Json
+  feature_importance  Json?     @default("{}")
+  input_data_hash     String?
+  actual_outcome      String?
+  prediction_accuracy Decimal?  @db.Decimal(5, 4)
+  validated_at        DateTime?
+  prediction_context  Json?     @default("{}")
+  expires_at          DateTime?
+  created_at          DateTime? @default(now())
+  users               User?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_ml_predictions_created_at")
+  @@index([expires_at], map: "idx_ml_predictions_expires_at")
+  @@index([user_fingerprint], map: "idx_ml_predictions_fingerprint")
+  @@index([user_fingerprint, model_type], map: "idx_ml_predictions_fingerprint_model")
+  @@index([model_type, created_at], map: "idx_ml_predictions_model_created")
+  @@index([model_type], map: "idx_ml_predictions_model_type")
+  @@index([model_version], map: "idx_ml_predictions_model_version")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model ml_training_data {
+  id                Int       @id @default(autoincrement())
+  session_id        String?   @db.VarChar(255)
+  user_id           String?   @db.VarChar(255)
+  query_text        String
+  response_text     String
+  feedback_score    Int?
+  confidence_score  Decimal?  @db.Decimal(5, 2)
+  response_time_ms  Int?
+  user_context      Json?
+  device_type       String?   @db.VarChar(100)
+  issue_category    String?   @db.VarChar(100)
+  resolution_status String?   @default("pending") @db.VarChar(50)
+  ml_model_version  String?   @db.VarChar(50)
+  features          Json?
+  labels            Json?
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+  updated_at        DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([issue_category], map: "idx_ml_training_category")
+  @@index([created_at], map: "idx_ml_training_created")
+  @@index([device_type], map: "idx_ml_training_device")
+  @@index([features], map: "idx_ml_training_features", type: Gin)
+  @@index([query_text], map: "idx_ml_training_query")
+  @@index([user_context], map: "idx_ml_training_user_context", type: Gin)
+}
+
+model parts_catalog {
+  id                   Int       @id @default(autoincrement())
+  name                 String    @db.VarChar(255)
+  part_number          String?   @db.VarChar(100)
+  manufacturer         String?   @db.VarChar(100)
+  compatible_devices   Json?
+  part_category        String?   @db.VarChar(100)
+  cost_price           Decimal?  @db.Decimal(10, 2)
+  retail_price         Decimal?  @db.Decimal(10, 2)
+  availability_status  String?   @db.VarChar(20)
+  supplier_info        Json?
+  quality_grade        String?   @db.VarChar(20)
+  warranty_period_days Int?
+  specifications       Json?
+  created_at           DateTime? @default(now()) @db.Timestamp(6)
+  updated_at           DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+
+model procedure_feedback {
+  id                     Int                @id @default(autoincrement())
+  procedure_id           Int?
+  rating                 Int?
+  was_successful         Boolean?
+  actual_time_minutes    Int?
+  difficulty_rating      Int?
+  feedback_text          String?
+  suggested_improvements String?
+  missing_steps          String?
+  feedback_source        String?            @db.VarChar(50)
+  technician_level       String?            @db.VarChar(20)
+  created_at             DateTime?          @default(now()) @db.Timestamp(6)
+  repair_procedures      repair_procedures? @relation(fields: [procedure_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([procedure_id], map: "idx_feedback_procedure")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model procedure_performance_analytics {
+  id                   Int       @id @default(autoincrement())
+  procedure_id         Int?
+  metric_type          String    @db.VarChar(100)
+  metric_value         Decimal   @db.Decimal(10, 4)
+  measurement_period   String?   @db.VarChar(50)
+  period_start         DateTime  @db.Timestamp(6)
+  period_end           DateTime  @db.Timestamp(6)
+  sample_size          Int?      @default(0)
+  confidence_interval  Json?
+  benchmark_comparison Decimal?  @db.Decimal(10, 4)
+  created_at           DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([procedure_id, metric_type, measurement_period, period_start], map: "unique_proc_analytics")
+  @@index([procedure_id], map: "idx_proc_analytics_id")
+  @@index([metric_type], map: "idx_proc_analytics_metric")
+  @@index([measurement_period, period_start], map: "idx_proc_analytics_period")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+
+model procedure_steps {
+  id                         Int                @id @default(autoincrement())
+  procedure_id               Int?
+  step_number                Int
+  title                      String?            @db.VarChar(255)
+  description                String
+  primary_image_url          String?            @db.VarChar(500)
+  additional_images          Json?
+  video_url                  String?            @db.VarChar(500)
+  diagram_data               Json?
+  estimated_duration_minutes Int?
+  difficulty_rating          Int?
+  caution_level              String?            @db.VarChar(20)
+  tips_and_tricks            String?
+  common_mistakes            String?
+  troubleshooting_notes      String?
+  step_group                 String?            @db.VarChar(100)
+  is_optional                Boolean?           @default(false)
+  prerequisites              Int[]
+  created_at                 DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at                 DateTime?          @default(now()) @db.Timestamp(6)
+  repair_procedures          repair_procedures? @relation(fields: [procedure_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([procedure_id], map: "idx_steps_procedure")
+}
+
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+
+model repair_procedures {
+  id                       Int                        @id @default(autoincrement())
+  uuid                     String?                    @unique @default(dbgenerated("uuid_generate_v4()"))
+  title                    String                     @db.VarChar(255)
+  description              String?
+  difficulty_level         Int?
+  estimated_time_minutes   Int?
+  repair_type              String?                    @db.VarChar(100)
+  device_compatibility     Json
+  tools_required           Json?
+  parts_required           Json?
+  overview                 String?
+  safety_warnings          Json?
+  completion_tips          String?
+  status                   String?                    @default("draft") @db.VarChar(20)
+  quality_score            Decimal?                   @db.Decimal(3, 2)
+  view_count               Int?                       @default(0)
+  success_rate             Decimal?                   @db.Decimal(5, 2)
+  created_at               DateTime?                  @default(now()) @db.Timestamp(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamp(6)
+  published_at             DateTime?                  @db.Timestamp(6)
+  version                  Int?                       @default(1)
+  ai_keywords              String[]
+  problem_categories       String[]                   @db.VarChar(100)
+  diagnostic_tags          String[]                   @db.VarChar(100)
+  content_versions         content_versions[]
+  knowledge_base_analytics knowledge_base_analytics[]
+  procedure_feedback       procedure_feedback[]
+  procedure_steps          procedure_steps[]
+
+  @@index([device_compatibility], map: "idx_procedures_device_compat", type: Gin)
+  @@index([difficulty_level], map: "idx_procedures_difficulty")
+  @@index([problem_categories], map: "idx_procedures_problem_cats", type: Gin)
+  @@index([quality_score(sort: Desc)], map: "idx_procedures_quality")
+  @@index([status], map: "idx_procedures_status")
+  @@index([diagnostic_tags], map: "idx_procedures_tags", type: Gin)
+  @@index([repair_type], map: "idx_procedures_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model system_performance_logs {
+  id                  Int       @id @default(autoincrement())
+  service_name        String    @db.VarChar(100)
+  endpoint            String?   @db.VarChar(255)
+  request_method      String?   @db.VarChar(10)
+  response_time_ms    Int
+  status_code         Int?
+  request_size_bytes  Int?
+  response_size_bytes Int?
+  memory_usage_mb     Decimal?  @db.Decimal(10, 2)
+  cpu_usage_percent   Decimal?  @db.Decimal(5, 2)
+  error_message       String?
+  trace_id            String?   @db.VarChar(255)
+  user_id             String?   @db.VarChar(255)
+  timestamp           DateTime? @default(now()) @db.Timestamp(6)
+  additional_metrics  Json?
+
+  @@index([endpoint], map: "idx_perf_endpoint")
+  @@index([response_time_ms], map: "idx_perf_response_time")
+  @@index([service_name], map: "idx_perf_service")
+  @@index([status_code], map: "idx_perf_status")
+  @@index([timestamp], map: "idx_perf_timestamp")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+
+model tools_catalog {
+  id                   Int       @id @default(autoincrement())
+  name                 String    @db.VarChar(255)
+  tool_type            String?   @db.VarChar(100)
+  brand                String?   @db.VarChar(100)
+  model                String?   @db.VarChar(100)
+  typical_use_cases    String[]  @db.VarChar(200)
+  skill_level_required Int?
+  approximate_cost     Decimal?  @db.Decimal(10, 2)
+  where_to_buy         Json?
+  created_at           DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model user_behavior_profiles {
+  id                           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  user_fingerprint             String    @unique
+  user_id                      String?
+  total_sessions               Int?      @default(0)
+  avg_session_duration_seconds Decimal?  @default(0) @db.Decimal(10, 2)
+  total_page_views             Int?      @default(0)
+  pages_per_session            Decimal?  @default(0) @db.Decimal(6, 2)
+  bounce_rate                  Decimal?  @default(0) @db.Decimal(5, 4)
+  total_events                 Int?      @default(0)
+  scroll_depth_avg             Decimal?  @default(0) @db.Decimal(5, 2)
+  click_through_rate           Decimal?  @default(0) @db.Decimal(5, 4)
+  form_completion_rate         Decimal?  @default(0) @db.Decimal(5, 4)
+  time_on_site_total_seconds   Int?      @default(0)
+  booking_conversion_rate      Decimal?  @default(0) @db.Decimal(5, 4)
+  total_bookings               Int?      @default(0)
+  total_booking_value          Decimal?  @default(0) @db.Decimal(12, 2)
+  avg_booking_value            Decimal?  @default(0) @db.Decimal(10, 2)
+  price_check_frequency        Int?      @default(0)
+  service_comparison_count     Int?      @default(0)
+  engagement_score             Decimal?  @default(0) @db.Decimal(5, 2)
+  lead_score                   Decimal?  @default(0) @db.Decimal(5, 2)
+  conversion_probability       Decimal?  @default(0) @db.Decimal(5, 4)
+  churn_risk_score             Decimal?  @default(0) @db.Decimal(5, 2)
+  price_sensitivity_score      Decimal?  @default(0) @db.Decimal(5, 2)
+  customer_segment             String?   @default("Unknown")
+  behavioral_traits            Json?     @default("{}")
+  preferred_device_types       String[]  @default([])
+  preferred_contact_methods    String[]  @default([])
+  days_since_first_visit       Int?      @default(0)
+  days_since_last_visit        Int?      @default(0)
+  visit_frequency_score        Decimal?  @default(0) @db.Decimal(5, 2)
+  monetary_value_score         Decimal?  @default(0) @db.Decimal(5, 2)
+  primary_browser              String?
+  primary_os                   String?
+  primary_device_type          String?
+  mobile_usage_rate            Decimal?  @default(0) @db.Decimal(5, 4)
+  first_seen_at                DateTime? @default(now())
+  last_seen_at                 DateTime? @default(now())
+  last_updated_at              DateTime? @default(now())
+  created_at                   DateTime? @default(now())
+  users                        User?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([engagement_score], map: "idx_user_behavior_profiles_engagement")
+  @@index([user_fingerprint], map: "idx_user_behavior_profiles_fingerprint")
+  @@index([last_seen_at], map: "idx_user_behavior_profiles_last_seen")
+  @@index([lead_score], map: "idx_user_behavior_profiles_lead_score")
+  @@index([customer_segment], map: "idx_user_behavior_profiles_segment")
+  @@index([user_id], map: "idx_user_behavior_profiles_user_id")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+
+model user_interaction_analytics {
+  id                 Int       @id @default(autoincrement())
+  user_id            String?   @db.VarChar(255)
+  session_id         String?   @db.VarChar(255)
+  interaction_type   String    @db.VarChar(100)
+  interaction_target String?   @db.VarChar(255)
+  interaction_data   Json?
+  timestamp          DateTime? @default(now()) @db.Timestamp(6)
+  page_url           String?   @db.VarChar(500)
+  user_agent         String?
+  device_info        Json?
+  engagement_score   Decimal?  @db.Decimal(5, 2)
+  conversion_value   Decimal?  @db.Decimal(10, 2)
+
+  @@index([interaction_data], map: "idx_interaction_data", type: Gin)
+  @@index([session_id], map: "idx_interaction_session")
+  @@index([timestamp], map: "idx_interaction_timestamp")
+  @@index([interaction_type], map: "idx_interaction_type")
+  @@index([user_id], map: "idx_interaction_user")
+}
+
+enum UserRole {
+  CUSTOMER
+  TECHNICIAN
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum RepairType {
+  SCREEN_REPAIR
+  BATTERY_REPLACEMENT
+  WATER_DAMAGE
+  DATA_RECOVERY
+  SOFTWARE_ISSUE
+  HARDWARE_DIAGNOSTIC
+  MOTHERBOARD_REPAIR
+  CAMERA_REPAIR
+  SPEAKER_REPAIR
+  CHARGING_PORT
+  BUTTON_REPAIR
+  CUSTOM_REPAIR
+}
+
+enum UrgencyLevel {
+  LOW
+  STANDARD
+  HIGH
+  URGENT
+  EMERGENCY
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  WAITING_PARTS
+  WAITING_APPROVAL
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  READY_FOR_PICKUP
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMATION
+  STATUS_UPDATE
+  PAYMENT_REQUEST
+  COMPLETION_NOTICE
+  REMINDER
+  PROMOTIONAL
+  SYSTEM_ALERT
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  WEBSOCKET
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  STRIPE_CARD
+  STRIPE_BANK_TRANSFER
+  PAYPAL
+  BANK_TRANSFER
+  CASH
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+// Better Auth required tables
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("accounts")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Authenticator {
+  credentialID         String  @unique @map("credential_id")
+  userId               String  @map("user_id")
+  providerAccountId    String  @map("provider_account_id")
+  credentialPublicKey  String  @map("credential_public_key")
+  counter              Int
+  credentialDeviceType String  @map("credential_device_type")
+  credentialBackedUp   Boolean @map("credential_backed_up")
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+  @@map("authenticators")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// Enhanced Two-Factor Authentication Model
+model UserTwoFactor {
+  id              String    @id @default(cuid())
+  userId          String    @unique @map("user_id")
+  totpSecret      String?   @map("totp_secret")
+  isEnabled       Boolean   @default(false) @map("is_enabled")
+  backupCodes     String[]  @map("backup_codes")
+  enabledAt       DateTime? @map("enabled_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_two_factor")
+}
+
+// Advanced Role Management Models
+model Role {
+  id              String           @id @default(cuid())
+  name            String           @unique // e.g., ADMIN, TECHNICIAN, CUSTOM_ROLE_1
+  displayName     String           @map("display_name") // e.g., "Administrator", "Senior Technician"
+  description     String?
+  permissions     String[]         // Array of permission strings
+  isSystemRole    Boolean          @default(false) @map("is_system_role") // Cannot be deleted
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  
+  // Relations
+  roleAssignments RoleAssignment[]
+  
+  @@map("roles")
+}
+
+model RoleAssignment {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  roleId      String    @map("role_id")
+  assignedBy  String?   @map("assigned_by") // User ID who assigned this role
+  assignedAt  DateTime  @default(now()) @map("assigned_at")
+  expiresAt   DateTime? @map("expires_at") // Optional expiration
+  isActive    Boolean   @default(true) @map("is_active")
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, roleId])
+  @@map("role_assignments")
+}
+
+// Realtime Repair Tracking Models
+
+model RepairBooking {
+  id                  String    @id @default(cuid())
+  customerId          String    @map("customer_id")
+  deviceInfo          Json      @map("device_info")
+  serviceType         String    @default("general_repair") @map("service_type") @db.VarChar(100)
+  issueDescription    String?   @map("issue_description")
+  status              String    @default("received") @db.VarChar(50)
+  priority            String?   @default("normal") @db.VarChar(20)
+  estimatedCompletion DateTime? @map("estimated_completion")
+  actualCompletion    DateTime? @map("actual_completion")
+  totalCost           Decimal?  @map("total_cost") @db.Decimal(10, 2)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at")
+  
+  // Relations
+  customer            User                    @relation(fields: [customerId], references: [id])
+  statusUpdates       RepairStatusUpdate[]
+  progress            RepairProgress?
+  notes               RepairNote[]
+  photos              RepairPhoto[]
+  qualityChecks       RepairQualityCheck[]
+  technicianAssignments TechnicianAssignment[]
+  timeline            RepairTimeline[]
+  notifications       RepairNotification[]
+
+  @@map("repair_bookings")
+}
+
+model RepairStatusUpdate {
+  id                  String    @id @default(cuid())
+  repairId            String    @map("repair_id")
+  status              String    @db.VarChar(50)
+  message             String?
+  estimatedCompletion DateTime? @map("estimated_completion")
+  photos              Json      @default("[]")
+  updatedBy           String    @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  
+  // Relations
+  repair              RepairBooking @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  updatedByUser       User          @relation(fields: [updatedBy], references: [id])
+
+  @@map("repair_status_updates")
+}
+
+model RepairProgress {
+  id          String   @id @default(cuid())
+  repairId    String   @unique @map("repair_id")
+  milestone   String   @db.VarChar(100)
+  progress    Int
+  notes       String?
+  timeSpent   Decimal? @map("time_spent") @db.Decimal(5, 2)
+  nextSteps   String?  @map("next_steps")
+  updatedBy   String   @map("updated_by")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  
+  // Relations
+  repair      RepairBooking @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  updatedByUser User        @relation(fields: [updatedBy], references: [id])
+
+  @@map("repair_progress")
+}
+
+model RepairNote {
+  id          String   @id @default(cuid())
+  repairId    String   @map("repair_id")
+  note        String
+  priority    String?  @default("normal") @db.VarChar(20)
+  isPrivate   Boolean  @default(false) @map("is_private")
+  addedBy     String   @map("added_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  repair      RepairBooking @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  addedByUser User          @relation(fields: [addedBy], references: [id])
+
+  @@map("repair_notes")
+}
+
+model RepairPhoto {
+  id           String   @id @default(cuid())
+  repairId     String   @map("repair_id")
+  photoUrl     String   @map("photo_url") @db.VarChar(500)
+  description  String?
+  category     String?  @default("progress") @db.VarChar(50)
+  fileSize     Int?     @map("file_size")
+  mimeType     String?  @map("mime_type") @db.VarChar(100)
+  uploadedBy   String   @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  repair       RepairBooking @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  uploadedByUser User        @relation(fields: [uploadedBy], references: [id])
+
+  @@map("repair_photos")
+}
+
+model RepairQualityCheck {
+  id              String   @id @default(cuid())
+  repairId        String   @map("repair_id")
+  passed          Boolean
+  score           Int
+  issues          Json     @default("[]")
+  recommendations Json     @default("[]")
+  checkedBy       String   @map("checked_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  repair          RepairBooking @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  checkedByUser   User          @relation(fields: [checkedBy], references: [id])
+
+  @@map("repair_quality_checks")
+}
+
+model TechnicianAssignment {
+  id            String    @id @default(cuid())
+  repairId      String    @map("repair_id")
+  technicianId  String    @map("technician_id")
+  assignedAt    DateTime  @default(now()) @map("assigned_at")
+  unassignedAt  DateTime? @map("unassigned_at")
+  isPrimary     Boolean   @default(true) @map("is_primary")
+  notes         String?
+  assignedBy    String    @map("assigned_by")
+  
+  // Relations
+  repair        RepairBooking @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  technician    User          @relation("TechnicianAssignments", fields: [technicianId], references: [id])
+  assignedByUser User         @relation("AssignedTechnicianAssignments", fields: [assignedBy], references: [id])
+
+  @@map("technician_assignments")
+}
+
+model RepairMilestone {
+  id                     String    @id @default(cuid())
+  name                   String    @unique @db.VarChar(100)
+  description            String?
+  typicalDurationHours   Decimal?  @map("typical_duration_hours") @db.Decimal(5, 2)
+  orderSequence          Int       @map("order_sequence")
+  isActive               Boolean?  @default(true) @map("is_active")
+  createdAt              DateTime  @default(now()) @map("created_at")
+
+  @@map("repair_milestones")
+}
+
+model RepairTimeline {
+  id          String   @id @default(cuid())
+  repairId    String   @map("repair_id")
+  eventType   String   @map("event_type") @db.VarChar(50)
+  eventData   Json     @map("event_data")
+  performedBy String?  @map("performed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  repair      RepairBooking @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  performedByUser User?     @relation(fields: [performedBy], references: [id])
+
+  @@map("repair_timeline")
+}
+
+model RepairNotification {
+  id               String    @id @default(cuid())
+  repairId         String    @map("repair_id")
+  recipientId      String    @map("recipient_id")
+  notificationType String    @map("notification_type") @db.VarChar(50)
+  title            String    @db.VarChar(200)
+  message          String
+  sentAt           DateTime  @default(now()) @map("sent_at")
+  readAt           DateTime? @map("read_at")
+  deliveryMethod   String?   @default("websocket") @map("delivery_method") @db.VarChar(20)
+  deliveryStatus   String?   @default("pending") @map("delivery_status") @db.VarChar(20)
+  
+  // Relations
+  repair           RepairBooking @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  recipient        User          @relation("RecipientRepairNotifications", fields: [recipientId], references: [id])
+
+  @@map("repair_notifications")
+}

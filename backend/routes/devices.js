@@ -1,6 +1,7 @@
 const express = require('express');
 const Joi = require('joi');
-const { optionalAuth } = require('../middleware/better-auth-official');
+const { optionalAuth } = require('../lib/auth-utils');
+const { prisma } = require('../lib/prisma');
 const router = express.Router();
 
 // Validation schemas
@@ -16,28 +17,31 @@ const searchSchema = Joi.object({
 // Get all device categories
 router.get('/categories', optionalAuth, async (req, res) => {
   try {
-    const categoriesQuery = `
-      SELECT 
-        id, 
-        name, 
-        slug, 
-        description, 
-        icon as "iconName", 
-        display_order as "sortOrder"
-      FROM device_categories 
-      WHERE is_active = true 
-      ORDER BY display_order ASC, name ASC
-    `;
-
-    const result = await req.pool.query(categoriesQuery);
+    const categories = await prisma.deviceCategory.findMany({
+      where: {
+        isActive: true
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        iconName: true,
+        sortOrder: true
+      },
+      orderBy: [
+        { sortOrder: 'asc' },
+        { name: 'asc' }
+      ]
+    });
 
     res.json({
       success: true,
-      categories: result.rows
+      categories: categories
     });
 
   } catch (error) {
-    req.logger.error('Get categories error:', error);
+    req.logger?.error('Get categories error:', error);
     res.status(500).json({
       error: 'Failed to fetch device categories',
       code: 'FETCH_CATEGORIES_ERROR'
@@ -50,27 +54,32 @@ router.get('/categories/:categoryId/brands', optionalAuth, async (req, res) => {
   try {
     const { categoryId } = req.params;
 
-    const brandsQuery = `
-      SELECT DISTINCT
-        b.id, 
-        b.name, 
-        b.slug, 
-        b.logo_url as "logoUrl"
-      FROM device_brands b
-      JOIN devices d ON d.brand_id = b.id
-      WHERE d.category_id = $1 AND b.is_active = true 
-      ORDER BY b.name ASC
-    `;
-
-    const result = await req.pool.query(brandsQuery, [categoryId]);
+    const brands = await prisma.deviceBrand.findMany({
+      where: {
+        categoryId: categoryId,
+        isActive: true,
+        models: {
+          some: {} // Only brands that have at least one model
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    });
 
     res.json({
       success: true,
-      brands: result.rows
+      brands: brands
     });
 
   } catch (error) {
-    req.logger.error('Get brands error:', error);
+    req.logger?.error('Get brands error:', error);
     res.status(500).json({
       error: 'Failed to fetch device brands',
       code: 'FETCH_BRANDS_ERROR'
@@ -81,33 +90,46 @@ router.get('/categories/:categoryId/brands', optionalAuth, async (req, res) => {
 // Get all brands (with category info)
 router.get('/brands', optionalAuth, async (req, res) => {
   try {
-    const brandsQuery = `
-      SELECT DISTINCT
-        b.id,
-        b.name,
-        b.slug,
-        b.logo_url as "logoUrl",
-        c.id as "categoryId",
-        c.name as "categoryName",
-        c.slug as "categorySlug"
-      FROM device_brands b
-      JOIN devices d ON d.brand_id = b.id
-      JOIN device_categories c ON d.category_id = c.id
-      WHERE b.is_active = true AND c.is_active = true
-      ORDER BY c.display_order ASC, c.name ASC, b.name ASC
-    `;
-
-    const result = await req.pool.query(brandsQuery);
+    const brands = await prisma.deviceBrand.findMany({
+      where: {
+        isActive: true,
+        category: {
+          isActive: true
+        },
+        models: {
+          some: {} // Only brands that have at least one model
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            sortOrder: true
+          }
+        }
+      },
+      orderBy: [
+        { category: { sortOrder: 'asc' } },
+        { category: { name: 'asc' } },
+        { name: 'asc' }
+      ]
+    });
 
     // Group brands by category
     const brandsByCategory = {};
-    result.rows.forEach(brand => {
-      const categoryKey = brand.categoryId;
+    brands.forEach(brand => {
+      const categoryKey = brand.category.id;
       if (!brandsByCategory[categoryKey]) {
         brandsByCategory[categoryKey] = {
-          categoryId: brand.categoryId,
-          categoryName: brand.categoryName,
-          categorySlug: brand.categorySlug,
+          categoryId: brand.category.id,
+          categoryName: brand.category.name,
+          categorySlug: brand.category.slug,
           brands: []
         };
       }
@@ -125,7 +147,7 @@ router.get('/brands', optionalAuth, async (req, res) => {
     });
 
   } catch (error) {
-    req.logger.error('Get all brands error:', error);
+    req.logger?.error('Get all brands error:', error);
     res.status(500).json({
       error: 'Failed to fetch brands',
       code: 'FETCH_ALL_BRANDS_ERROR'
@@ -139,47 +161,65 @@ router.get('/brands/:brandId/models', optionalAuth, async (req, res) => {
     const { brandId } = req.params;
     const { year, limit = 50, offset = 0 } = req.query;
 
-    let whereClause = 'WHERE dm."brandId" = $1 AND dm."isActive" = true';
-    const queryParams = [brandId];
-    let paramIndex = 2;
+    const whereClause = {
+      brandId: brandId,
+      isActive: true,
+      ...(year && { year: parseInt(year) })
+    };
 
-    if (year) {
-      whereClause += ` AND dm.year = $${paramIndex}`;
-      queryParams.push(parseInt(year));
-      paramIndex++;
-    }
+    const models = await prisma.deviceModel.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        year: true,
+        screenSize: true,
+        specs: true,
+        imageUrl: true,
+        brand: {
+          select: {
+            name: true,
+            slug: true,
+            category: {
+              select: {
+                name: true,
+                slug: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { year: 'desc' },
+        { name: 'asc' }
+      ],
+      take: parseInt(limit),
+      skip: parseInt(offset)
+    });
 
-    const modelsQuery = `
-      SELECT 
-        dm.id,
-        dm.name,
-        dm.slug,
-        dm.year,
-        dm."screenSize",
-        dm.specs,
-        dm."imageUrl",
-        b.name as "brandName",
-        b.slug as "brandSlug",
-        c.name as "categoryName",
-        c.slug as "categorySlug"
-      FROM device_models dm
-      JOIN device_brands b ON dm."brandId" = b.id
-      JOIN device_categories c ON b."categoryId" = c.id
-      ${whereClause}
-      ORDER BY dm.year DESC, dm.name ASC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-
-    queryParams.push(parseInt(limit), parseInt(offset));
-    const result = await req.pool.query(modelsQuery, queryParams);
+    // Transform to match expected structure
+    const transformedModels = models.map(model => ({
+      id: model.id,
+      name: model.name,
+      slug: model.slug,
+      year: model.year,
+      screenSize: model.screenSize,
+      specs: model.specs,
+      imageUrl: model.imageUrl,
+      brandName: model.brand.name,
+      brandSlug: model.brand.slug,
+      categoryName: model.brand.category.name,
+      categorySlug: model.brand.category.slug
+    }));
 
     res.json({
       success: true,
-      models: result.rows
+      models: transformedModels
     });
 
   } catch (error) {
-    req.logger.error('Get models error:', error);
+    req.logger?.error('Get models error:', error);
     res.status(500).json({
       error: 'Failed to fetch device models',
       code: 'FETCH_MODELS_ERROR'
@@ -200,76 +240,88 @@ router.get('/models/search', optionalAuth, async (req, res) => {
 
     const { search, categoryId, brandId, year, limit, offset } = value;
 
-    let whereClause = 'WHERE dm."isActive" = true AND b."isActive" = true AND c."isActive" = true';
-    const queryParams = [];
-    let paramIndex = 1;
+    // Build where clause
+    const whereClause = {
+      isActive: true,
+      brand: {
+        isActive: true,
+        ...(brandId && { id: brandId }),
+        category: {
+          isActive: true,
+          ...(categoryId && { id: categoryId })
+        }
+      },
+      ...(year && { year: year })
+    };
 
+    // Add search condition
     if (search) {
-      whereClause += ` AND (dm.name ILIKE $${paramIndex} OR b.name ILIKE $${paramIndex})`;
-      queryParams.push(`%${search}%`);
-      paramIndex++;
-    }
-
-    if (categoryId) {
-      whereClause += ` AND c.id = $${paramIndex}`;
-      queryParams.push(categoryId);
-      paramIndex++;
-    }
-
-    if (brandId) {
-      whereClause += ` AND b.id = $${paramIndex}`;
-      queryParams.push(brandId);
-      paramIndex++;
-    }
-
-    if (year) {
-      whereClause += ` AND dm.year = $${paramIndex}`;
-      queryParams.push(year);
-      paramIndex++;
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { brand: { name: { contains: search, mode: 'insensitive' } } }
+      ];
     }
 
     // Get total count
-    const countQuery = `
-      SELECT COUNT(*)
-      FROM device_models dm
-      JOIN device_brands b ON dm."brandId" = b.id
-      JOIN device_categories c ON b."categoryId" = c.id
-      ${whereClause}
-    `;
-
-    const countResult = await req.pool.query(countQuery, queryParams);
-    const total = parseInt(countResult.rows[0].count);
+    const total = await prisma.deviceModel.count({
+      where: whereClause
+    });
 
     // Get models
-    const modelsQuery = `
-      SELECT 
-        dm.id,
-        dm.name,
-        dm.slug,
-        dm.year,
-        dm."screenSize",
-        dm.specs,
-        dm."imageUrl",
-        b.id as "brandId",
-        b.name as "brandName",
-        b.slug as "brandSlug",
-        c.id as "categoryId",
-        c.name as "categoryName",
-        c.slug as "categorySlug"
-      FROM device_models dm
-      JOIN device_brands b ON dm."brandId" = b.id
-      JOIN device_categories c ON b."categoryId" = c.id
-      ${whereClause}
-      ORDER BY dm.year DESC, b.name ASC, dm.name ASC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
+    const models = await prisma.deviceModel.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        year: true,
+        screenSize: true,
+        specs: true,
+        imageUrl: true,
+        brand: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { year: 'desc' },
+        { brand: { name: 'asc' } },
+        { name: 'asc' }
+      ],
+      take: limit,
+      skip: offset
+    });
 
-    queryParams.push(limit, offset);
-    const modelsResult = await req.pool.query(modelsQuery, queryParams);
+    // Transform to match expected structure
+    const transformedModels = models.map(model => ({
+      id: model.id,
+      name: model.name,
+      slug: model.slug,
+      year: model.year,
+      screenSize: model.screenSize,
+      specs: model.specs,
+      imageUrl: model.imageUrl,
+      brandId: model.brand.id,
+      brandName: model.brand.name,
+      brandSlug: model.brand.slug,
+      categoryId: model.brand.category.id,
+      categoryName: model.brand.category.name,
+      categorySlug: model.brand.category.slug
+    }));
 
     res.json({
       success: true,
-      models: modelsResult.rows,
+      models: transformedModels,
       pagination: {
         total,
         limit,
@@ -279,7 +331,7 @@ router.get('/models/search', optionalAuth, async (req, res) => {
     });
 
   } catch (error) {
-    req.logger.error('Search models error:', error);
+    req.logger?.error('Search models error:', error);
     res.status(500).json({
       error: 'Failed to search device models',
       code: 'SEARCH_MODELS_ERROR'
@@ -292,26 +344,21 @@ router.get('/models/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const modelQuery = `
-      SELECT 
-        dm.*,
-        b.id as "brandId",
-        b.name as "brandName",
-        b.slug as "brandSlug",
-        b."logoUrl" as "brandLogoUrl",
-        c.id as "categoryId",
-        c.name as "categoryName",
-        c.slug as "categorySlug",
-        c.description as "categoryDescription"
-      FROM device_models dm
-      JOIN device_brands b ON dm."brandId" = b.id
-      JOIN device_categories c ON b."categoryId" = c.id
-      WHERE dm.id = $1 AND dm."isActive" = true
-    `;
+    const model = await prisma.deviceModel.findUnique({
+      where: {
+        id: id,
+        isActive: true
+      },
+      include: {
+        brand: {
+          include: {
+            category: true
+          }
+        }
+      }
+    });
 
-    const result = await req.pool.query(modelQuery, [id]);
-
-    if (result.rows.length === 0) {
+    if (!model) {
       return res.status(404).json({
         error: 'Device model not found',
         code: 'MODEL_NOT_FOUND'
@@ -319,36 +366,48 @@ router.get('/models/:id', optionalAuth, async (req, res) => {
     }
 
     // Get related models (same brand, different years or similar models)
-    const relatedQuery = `
-      SELECT 
-        dm.id,
-        dm.name,
-        dm.slug,
-        dm.year,
-        dm."imageUrl"
-      FROM device_models dm
-      WHERE dm."brandId" = $1 
-        AND dm.id != $2 
-        AND dm."isActive" = true
-      ORDER BY ABS(dm.year - $3) ASC, dm.name ASC
-      LIMIT 5
-    `;
+    const relatedModels = await prisma.deviceModel.findMany({
+      where: {
+        brandId: model.brandId,
+        id: { not: model.id },
+        isActive: true
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        year: true,
+        imageUrl: true
+      },
+      orderBy: [
+        // Sort by year difference (closest years first)
+        { year: model.year > 2020 ? 'desc' : 'asc' },
+        { name: 'asc' }
+      ],
+      take: 5
+    });
 
-    const currentModel = result.rows[0];
-    const relatedResult = await req.pool.query(relatedQuery, [
-      currentModel.brandId,
-      currentModel.id,
-      currentModel.year
-    ]);
+    // Transform current model to match expected structure
+    const transformedModel = {
+      ...model,
+      brandId: model.brand.id,
+      brandName: model.brand.name,
+      brandSlug: model.brand.slug,
+      brandLogoUrl: model.brand.logoUrl,
+      categoryId: model.brand.category.id,
+      categoryName: model.brand.category.name,
+      categorySlug: model.brand.category.slug,
+      categoryDescription: model.brand.category.description
+    };
 
     res.json({
       success: true,
-      model: currentModel,
-      relatedModels: relatedResult.rows
+      model: transformedModel,
+      relatedModels: relatedModels
     });
 
   } catch (error) {
-    req.logger.error('Get model error:', error);
+    req.logger?.error('Get model error:', error);
     res.status(500).json({
       error: 'Failed to fetch device model',
       code: 'FETCH_MODEL_ERROR'
@@ -361,46 +420,72 @@ router.get('/models/featured/popular', optionalAuth, async (req, res) => {
   try {
     const { limit = 20 } = req.query;
 
-    // Get most booked device models in the last 3 months
-    const popularQuery = `
-      SELECT 
-        dm.id,
-        dm.name,
-        dm.slug,
-        dm.year,
-        dm."imageUrl",
-        b.name as "brandName",
-        c.name as "categoryName",
-        COUNT(bo.id) as booking_count
-      FROM device_models dm
-      JOIN device_brands b ON dm."brandId" = b.id
-      JOIN device_categories c ON b."categoryId" = c.id
-      LEFT JOIN bookings bo ON dm.id = bo."deviceModelId" 
-        AND bo."createdAt" >= NOW() - INTERVAL '3 months'
-      WHERE dm."isActive" = true AND b."isActive" = true AND c."isActive" = true
-      GROUP BY dm.id, dm.name, dm.slug, dm.year, dm."imageUrl", b.name, c.name
-      ORDER BY booking_count DESC, dm.year DESC, dm.name ASC
-      LIMIT $1
-    `;
+    // Calculate date 3 months ago
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    const result = await req.pool.query(popularQuery, [parseInt(limit)]);
+    // Get models with booking counts using Prisma aggregation
+    const models = await prisma.deviceModel.findMany({
+      where: {
+        isActive: true,
+        brand: {
+          isActive: true,
+          category: {
+            isActive: true
+          }
+        }
+      },
+      include: {
+        brand: {
+          include: {
+            category: true
+          }
+        },
+        bookings: {
+          where: {
+            createdAt: {
+              gte: threeMonthsAgo
+            }
+          },
+          select: {
+            id: true
+          }
+        }
+      },
+      take: parseInt(limit) * 2 // Get more than needed to sort properly
+    });
 
-    res.json({
-      success: true,
-      popularModels: result.rows.map(model => ({
+    // Sort by booking count and transform
+    const popularModels = models
+      .map(model => ({
         id: model.id,
         name: model.name,
         slug: model.slug,
         year: model.year,
         imageUrl: model.imageUrl,
-        brandName: model.brandName,
-        categoryName: model.categoryName,
-        bookingCount: parseInt(model.booking_count)
+        brandName: model.brand.name,
+        categoryName: model.brand.category.name,
+        bookingCount: model.bookings.length
       }))
+      .sort((a, b) => {
+        // Sort by booking count desc, then by year desc, then by name asc
+        if (b.bookingCount !== a.bookingCount) {
+          return b.bookingCount - a.bookingCount;
+        }
+        if (b.year !== a.year) {
+          return b.year - a.year;
+        }
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, parseInt(limit));
+
+    res.json({
+      success: true,
+      popularModels: popularModels
     });
 
   } catch (error) {
-    req.logger.error('Get popular models error:', error);
+    req.logger?.error('Get popular models error:', error);
     res.status(500).json({
       error: 'Failed to fetch popular device models',
       code: 'FETCH_POPULAR_MODELS_ERROR'
@@ -413,22 +498,29 @@ router.get('/brands/:brandId/years', optionalAuth, async (req, res) => {
   try {
     const { brandId } = req.params;
 
-    const yearsQuery = `
-      SELECT DISTINCT year
-      FROM device_models
-      WHERE "brandId" = $1 AND "isActive" = true
-      ORDER BY year DESC
-    `;
+    const yearsResult = await prisma.deviceModel.findMany({
+      where: {
+        brandId: brandId,
+        isActive: true
+      },
+      select: {
+        year: true
+      },
+      distinct: ['year'],
+      orderBy: {
+        year: 'desc'
+      }
+    });
 
-    const result = await req.pool.query(yearsQuery, [brandId]);
+    const years = yearsResult.map(result => result.year);
 
     res.json({
       success: true,
-      years: result.rows.map(row => row.year)
+      years: years
     });
 
   } catch (error) {
-    req.logger.error('Get years error:', error);
+    req.logger?.error('Get years error:', error);
     res.status(500).json({
       error: 'Failed to fetch device years',
       code: 'FETCH_YEARS_ERROR'

@@ -1,7 +1,8 @@
 const express = require('express');
 const Joi = require('joi');
 const bcrypt = require('bcryptjs');
-const { authenticateBetterAuth: authenticateToken, requireRole } = require('../middleware/better-auth-official');
+const { requireAuth: authenticateToken, requireRole } = require('../lib/auth-utils');
+const { prisma } = require('../lib/prisma');
 const router = express.Router();
 
 // Validation schemas
@@ -30,29 +31,40 @@ const testEmailSchema = Joi.object({
 // Get current email settings (admin only)
 router.get('/settings', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), async (req, res) => {
   try {
-    const query = `
-      SELECT 
-        id, provider, smtp_host, smtp_port, smtp_secure, smtp_user,
-        from_email, from_name, reply_to_email, test_email, is_active,
-        backup_provider, retry_attempts, queue_enabled, created_at, updated_at
-      FROM email_settings 
-      WHERE is_active = true 
-      ORDER BY created_at DESC 
-      LIMIT 1
-    `;
-
-    const result = await req.pool.query(query);
+    const settings = await prisma.email_settings.findFirst({
+      where: {
+        is_active: true
+      },
+      select: {
+        id: true,
+        provider: true,
+        smtp_host: true,
+        smtp_port: true,
+        smtp_secure: true,
+        smtp_user: true,
+        from_email: true,
+        from_name: true,
+        reply_to_email: true,
+        test_email: true,
+        is_active: true,
+        backup_provider: true,
+        retry_attempts: true,
+        queue_enabled: true,
+        created_at: true,
+        updated_at: true
+        // Explicitly exclude smtp_password for security
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    });
     
-    if (result.rows.length === 0) {
+    if (!settings) {
       return res.status(404).json({
         error: 'No email configuration found',
         code: 'NO_EMAIL_CONFIG'
       });
     }
-
-    const settings = result.rows[0];
-    // Don't expose password in response
-    delete settings.smtp_password;
 
     res.json({
       success: true,
@@ -70,8 +82,6 @@ router.get('/settings', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN'])
 
 // Update email settings (admin only)
 router.put('/settings', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), async (req, res) => {
-  const client = await req.pool.connect();
-  
   try {
     // Validate input
     const { error, value } = emailSettingsSchema.validate(req.body);
@@ -82,53 +92,75 @@ router.put('/settings', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN'])
       });
     }
 
-    await client.query('BEGIN');
-
-    // Deactivate current settings
-    await client.query('UPDATE email_settings SET is_active = false');
-
     // Encrypt password before storing (simple encryption for demo)
     const encryptedPassword = await bcrypt.hash(value.smtp_password, 10);
 
-    // Insert new settings
-    const insertQuery = `
-      INSERT INTO email_settings (
-        provider, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password,
-        from_email, from_name, reply_to_email, test_email, backup_provider,
-        retry_attempts, queue_enabled, is_active, created_by, updated_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, $14, $14)
-      RETURNING id, provider, smtp_host, smtp_port, smtp_secure, smtp_user,
-                from_email, from_name, reply_to_email, test_email, is_active,
-                backup_provider, retry_attempts, queue_enabled, created_at
-    `;
+    // Use Prisma transaction to ensure atomicity
+    const result = await prisma.$transaction(async (prismaTransaction) => {
+      // Deactivate current settings
+      await prismaTransaction.email_settings.updateMany({
+        data: {
+          is_active: false
+        }
+      });
 
-    const result = await client.query(insertQuery, [
-      value.provider, value.smtp_host, value.smtp_port, value.smtp_secure,
-      value.smtp_user, encryptedPassword, value.from_email, value.from_name,
-      value.reply_to_email, value.test_email, value.backup_provider,
-      value.retry_attempts, value.queue_enabled, req.user.id
-    ]);
+      // Insert new settings
+      const newSettings = await prismaTransaction.email_settings.create({
+        data: {
+          provider: value.provider,
+          smtp_host: value.smtp_host,
+          smtp_port: value.smtp_port,
+          smtp_secure: value.smtp_secure,
+          smtp_user: value.smtp_user,
+          smtp_password: encryptedPassword,
+          from_email: value.from_email,
+          from_name: value.from_name,
+          reply_to_email: value.reply_to_email,
+          test_email: value.test_email,
+          backup_provider: value.backup_provider,
+          retry_attempts: value.retry_attempts,
+          queue_enabled: value.queue_enabled,
+          is_active: true,
+          created_by: req.user.id,
+          updated_by: req.user.id
+        },
+        select: {
+          id: true,
+          provider: true,
+          smtp_host: true,
+          smtp_port: true,
+          smtp_secure: true,
+          smtp_user: true,
+          from_email: true,
+          from_name: true,
+          reply_to_email: true,
+          test_email: true,
+          is_active: true,
+          backup_provider: true,
+          retry_attempts: true,
+          queue_enabled: true,
+          created_at: true
+          // Explicitly exclude smtp_password for security
+        }
+      });
 
-    await client.query('COMMIT');
+      return newSettings;
+    });
 
-    const newSettings = result.rows[0];
     req.logger.info(`Email settings updated by: ${req.user.email}`);
 
     res.json({
       success: true,
       message: 'Email settings updated successfully',
-      settings: newSettings
+      settings: result
     });
 
   } catch (error) {
-    await client.query('ROLLBACK');
     req.logger.error('Update email settings error:', error);
     res.status(500).json({
       error: 'Failed to update email settings',
       code: 'UPDATE_EMAIL_SETTINGS_ERROR'
     });
-  } finally {
-    client.release();
   }
 });
 
@@ -145,25 +177,31 @@ router.post('/test', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), a
     }
 
     // Get current email settings
-    const settingsQuery = `
-      SELECT smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password,
-             from_email, from_name, provider
-      FROM email_settings 
-      WHERE is_active = true 
-      ORDER BY created_at DESC 
-      LIMIT 1
-    `;
-
-    const settingsResult = await req.pool.query(settingsQuery);
+    const settings = await prisma.email_settings.findFirst({
+      where: {
+        is_active: true
+      },
+      select: {
+        smtp_host: true,
+        smtp_port: true,
+        smtp_secure: true,
+        smtp_user: true,
+        smtp_password: true,
+        from_email: true,
+        from_name: true,
+        provider: true
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    });
     
-    if (settingsResult.rows.length === 0) {
+    if (!settings) {
       return res.status(400).json({
         error: 'No active email configuration found',
         code: 'NO_ACTIVE_EMAIL_CONFIG'
       });
     }
-
-    const settings = settingsResult.rows[0];
 
     // Import nodemailer dynamically
     const nodemailer = require('nodemailer');
@@ -212,10 +250,18 @@ router.post('/test', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), a
     const info = await transporter.sendMail(mailOptions);
 
     // Log the test email
-    await req.pool.query(`
-      INSERT INTO email_logs (to_email, from_email, subject, provider, status, message_id, sent_at, user_id)
-      VALUES ($1, $2, $3, $4, 'sent', $5, NOW(), $6)
-    `, [value.to_email, settings.from_email, value.subject, settings.provider, info.messageId, req.user.id]);
+    await prisma.email_logs.create({
+      data: {
+        to_email: value.to_email,
+        from_email: settings.from_email,
+        subject: value.subject,
+        provider: settings.provider,
+        status: 'sent',
+        message_id: info.messageId,
+        sent_at: new Date(),
+        user_id: req.user.id
+      }
+    });
 
     req.logger.info(`Test email sent successfully to: ${value.to_email} by: ${req.user.email}`);
 
@@ -236,17 +282,17 @@ router.post('/test', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), a
     
     // Log failed email attempt
     try {
-      await req.pool.query(`
-        INSERT INTO email_logs (to_email, from_email, subject, provider, status, error_message, user_id)
-        VALUES ($1, $2, $3, $4, 'failed', $5, $6)
-      `, [
-        req.body.to_email || 'unknown',
-        'system',
-        req.body.subject || 'Test Email',
-        'unknown',
-        error.message,
-        req.user.id
-      ]);
+      await prisma.email_logs.create({
+        data: {
+          to_email: req.body.to_email || 'unknown',
+          from_email: 'system',
+          subject: req.body.subject || 'Test Email',
+          provider: 'unknown',
+          status: 'failed',
+          error_message: error.message,
+          user_id: req.user.id
+        }
+      });
     } catch (logError) {
       req.logger.error('Failed to log email error:', logError);
     }
@@ -264,51 +310,55 @@ router.get('/logs', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), as
   try {
     const { limit = 50, offset = 0, status, provider } = req.query;
 
-    let whereClause = '1=1';
-    const queryParams = [];
-    let paramIndex = 1;
-
+    // Build where conditions
+    const whereConditions = {};
+    
     if (status) {
-      whereClause += ` AND status = $${paramIndex++}`;
-      queryParams.push(status);
+      whereConditions.status = status;
     }
 
     if (provider) {
-      whereClause += ` AND provider = $${paramIndex++}`;
-      queryParams.push(provider);
+      whereConditions.provider = provider;
     }
 
-    queryParams.push(parseInt(limit), parseInt(offset));
-
-    const query = `
-      SELECT id, to_email, from_email, subject, provider, status, 
-             error_message, message_id, sent_at, retry_count, created_at,
-             booking_id, user_id
-      FROM email_logs 
-      WHERE ${whereClause}
-      ORDER BY created_at DESC 
-      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
-    `;
-
-    const countQuery = `
-      SELECT COUNT(*) as total 
-      FROM email_logs 
-      WHERE ${whereClause}
-    `;
-
-    const [logsResult, countResult] = await Promise.all([
-      req.pool.query(query, queryParams),
-      req.pool.query(countQuery, queryParams.slice(0, -2))
+    // Execute both queries in parallel
+    const [logs, total] = await Promise.all([
+      prisma.email_logs.findMany({
+        where: whereConditions,
+        select: {
+          id: true,
+          to_email: true,
+          from_email: true,
+          subject: true,
+          provider: true,
+          status: true,
+          error_message: true,
+          message_id: true,
+          sent_at: true,
+          retry_count: true,
+          created_at: true,
+          booking_id: true,
+          user_id: true
+        },
+        orderBy: {
+          created_at: 'desc'
+        },
+        take: parseInt(limit),
+        skip: parseInt(offset)
+      }),
+      prisma.email_logs.count({
+        where: whereConditions
+      })
     ]);
 
     res.json({
       success: true,
-      logs: logsResult.rows,
+      logs,
       pagination: {
-        total: parseInt(countResult.rows[0].total),
+        total,
         limit: parseInt(limit),
         offset: parseInt(offset),
-        hasMore: parseInt(offset) + parseInt(limit) < parseInt(countResult.rows[0].total)
+        hasMore: parseInt(offset) + parseInt(limit) < total
       }
     });
 
@@ -327,38 +377,107 @@ router.get('/stats', authenticateToken, requireRole(['ADMIN', 'SUPER_ADMIN']), a
     const { period = '7d' } = req.query;
     
     // Calculate date range based on period
-    let dateFilter = "created_at >= NOW() - INTERVAL '7 days'";
-    if (period === '1d') dateFilter = "created_at >= NOW() - INTERVAL '1 day'";
-    if (period === '30d') dateFilter = "created_at >= NOW() - INTERVAL '30 days'";
-    if (period === '90d') dateFilter = "created_at >= NOW() - INTERVAL '90 days'";
+    let dateThreshold;
+    const now = new Date();
+    
+    switch (period) {
+      case '1d':
+        dateThreshold = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+        break;
+      case '30d':
+        dateThreshold = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+        break;
+      case '90d':
+        dateThreshold = new Date(now.getTime() - (90 * 24 * 60 * 60 * 1000));
+        break;
+      default: // '7d'
+        dateThreshold = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+    }
 
-    const query = `
-      SELECT 
-        COUNT(*) as total_emails,
-        COUNT(CASE WHEN status = 'sent' THEN 1 END) as sent_emails,
-        COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_emails,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_emails,
-        ROUND(
-          (COUNT(CASE WHEN status = 'sent' THEN 1 END)::decimal / NULLIF(COUNT(*), 0)) * 100, 
-          2
-        ) as success_rate,
-        COUNT(DISTINCT provider) as providers_used,
-        COUNT(DISTINCT to_email) as unique_recipients
-      FROM email_logs 
-      WHERE ${dateFilter}
-    `;
+    // Use Prisma aggregation with complex counting
+    const [
+      totalEmails,
+      sentEmails, 
+      failedEmails,
+      pendingEmails,
+      uniqueProviders,
+      uniqueRecipients
+    ] = await Promise.all([
+      // Total emails in period
+      prisma.email_logs.count({
+        where: {
+          created_at: {
+            gte: dateThreshold
+          }
+        }
+      }),
+      // Sent emails
+      prisma.email_logs.count({
+        where: {
+          created_at: {
+            gte: dateThreshold
+          },
+          status: 'sent'
+        }
+      }),
+      // Failed emails
+      prisma.email_logs.count({
+        where: {
+          created_at: {
+            gte: dateThreshold
+          },
+          status: 'failed'
+        }
+      }),
+      // Pending emails
+      prisma.email_logs.count({
+        where: {
+          created_at: {
+            gte: dateThreshold
+          },
+          status: 'pending'
+        }
+      }),
+      // Unique providers
+      prisma.email_logs.findMany({
+        where: {
+          created_at: {
+            gte: dateThreshold
+          }
+        },
+        select: {
+          provider: true
+        },
+        distinct: ['provider']
+      }),
+      // Unique recipients
+      prisma.email_logs.findMany({
+        where: {
+          created_at: {
+            gte: dateThreshold
+          }
+        },
+        select: {
+          to_email: true
+        },
+        distinct: ['to_email']
+      })
+    ]);
 
-    const result = await req.pool.query(query);
-    const stats = result.rows[0];
+    // Calculate success rate
+    const successRate = totalEmails > 0 
+      ? Math.round((sentEmails / totalEmails) * 100 * 100) / 100 
+      : 0;
 
-    // Convert counts to numbers
-    Object.keys(stats).forEach(key => {
-      if (key !== 'success_rate') {
-        stats[key] = parseInt(stats[key]) || 0;
-      } else {
-        stats[key] = parseFloat(stats[key]) || 0;
-      }
-    });
+    const stats = {
+      total_emails: totalEmails,
+      sent_emails: sentEmails,
+      failed_emails: failedEmails,
+      pending_emails: pendingEmails,
+      success_rate: successRate,
+      providers_used: uniqueProviders.length,
+      unique_recipients: uniqueRecipients.length
+    };
 
     res.json({
       success: true,

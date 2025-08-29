@@ -141,17 +141,27 @@ const corsOptions = {
 app.use(cors(corsOptions));
 logger.info('✅ CORS middleware mounted successfully');
 
-// Better Auth Implementation - Production Ready
+// Better Auth Implementation - Official Custom Express Handler
 try {
-  const { toNodeHandler } = require("better-auth/node");
-  const auth = require('./lib/better-auth-server');
-  const handler = toNodeHandler(auth);
+  console.log('🔄 Starting Better Auth with custom Express handler...');
   
-  app.use("/api/auth", handler);
-  logger.info('✅ Better Auth mounted at /api/auth');
+  const { betterAuthHandler } = require('./lib/better-auth-express-handler');
+  
+  console.log('✅ Better Auth Express handler loaded');
+  
+  // Add JSON body parsing specifically for Better Auth routes
+  app.use('/api/auth/*', express.json());
+  console.log('✅ JSON body parsing enabled for Better Auth routes');
+  
+  // Use custom Express handler that creates proper Web API Request objects
+  // This approach uses Better Auth's official handler method
+  app.all('/api/auth/*', betterAuthHandler);
+  
+  console.log('✅ Better Auth mounted at /api/auth/* using official handler API');
+  logger.info('✅ Better Auth integration successful - using official APIs');
 } catch (error) {
-  logger.error('❌ Better Auth mount failed:', error.message);
-  console.error('Better Auth error:', error.stack);
+  logger.error('❌ Better Auth integration failed:', error.message);
+  console.error('❌ Error details:', error.stack);
 }
 
 // Body parsing middleware (AFTER Better Auth)
@@ -159,17 +169,45 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Better Auth Test Routes (for development testing)
+// API Contract Validation Middleware (PRISMA MIGRATION ENHANCEMENT)
 try {
-  const testBetterAuthRoutes = require('./routes/test-better-auth');
-  app.use('/api/test-auth', (req, res, next) => {
-    req.pool = pool;
-    req.logger = logger;
-    next();
-  }, testBetterAuthRoutes);
-  logger.info('✅ Better Auth test routes mounted at /api/test-auth');
+  const { checkApiCompliance, handlePrismaErrors, validateHealthEndpoint } = require('./middleware/api-contract-validation');
+  
+  // Add API compliance headers to all responses
+  app.use(checkApiCompliance());
+  
+  // Add Prisma error handling for all routes
+  app.use(handlePrismaErrors);
+  
+  // Special handling for health endpoints
+  app.use('/health', validateHealthEndpoint);
+  app.use('/api/health', validateHealthEndpoint);
+  
+  logger.info('✅ API Contract Validation middleware loaded successfully');
 } catch (error) {
-  logger.error('❌ Failed to mount Better Auth test routes:', error);
+  logger.error('❌ API Contract Validation middleware failed to load:', error.message);
+}
+
+// Better Auth Test Routes (for development testing) - DISABLED - file not needed
+// try {
+//   const testBetterAuthRoutes = require('./routes/test-better-auth');
+//   app.use('/api/test-auth', (req, res, next) => {
+//   
+//     req.logger = logger;
+//     next();
+//   }, testBetterAuthRoutes);
+//   logger.info('✅ Better Auth test routes mounted at /api/test-auth');
+// } catch (error) {
+//   logger.error('❌ Failed to mount Better Auth test routes:', error);
+// }
+
+// Prisma Test Routes (for migration testing)
+try {
+  const testPrismaRoutes = require('./routes/test-prisma');
+  app.use('/api/test-prisma', testPrismaRoutes);
+  logger.info('✅ Prisma test routes mounted at /api/test-prisma');
+} catch (error) {
+  logger.error('❌ Failed to mount Prisma test routes:', error);
 }
 
 // Request logging
@@ -203,7 +241,7 @@ app.get('/health', async (req, res) => {
 // Comprehensive Health Monitoring System
 const healthRoutes = require('./routes/health-comprehensive');
 app.use('/api/health', (req, res, next) => {
-  req.pool = pool;
+
   req.logger = logger;
   next();
 }, healthRoutes);
@@ -224,7 +262,7 @@ app.get('/api/info', (req, res) => {
 // Import and mount analytics routes
 const { router: analyticsRoutes } = require('./routes/analytics');
 app.use('/api/analytics', (req, res, next) => {
-  req.pool = pool;
+
   req.logger = logger;
   next();
 }, analyticsRoutes);
@@ -233,7 +271,7 @@ app.use('/api/analytics', (req, res, next) => {
 try {
   const printTemplateRoutes = require('./routes/printTemplateRoutes');
   app.use('/api/print-templates', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, printTemplateRoutes);
@@ -246,7 +284,7 @@ try {
 try {
   const aiSuggestionsRoutes = require('./routes/aiTemplateSuggestionsRoutes');
   app.use('/api/ai-suggestions', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, aiSuggestionsRoutes);
@@ -259,7 +297,7 @@ try {
 try {
   const revenueIntelligenceRoutes = require('./routes/revenue-intelligence');
   app.use('/api/revenue-intelligence', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, revenueIntelligenceRoutes);
@@ -272,7 +310,7 @@ try {
 try {
   const customerSegmentationRoutes = require('./routes/customer-segmentation');
   app.use('/api/customer-segmentation', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, customerSegmentationRoutes);
@@ -287,7 +325,7 @@ try {
 try {
   const deviceRoutes = require('./routes/devices');
   app.use('/api/devices', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, deviceRoutes);
@@ -300,7 +338,7 @@ try {
 try {
   const customerRoutes = require('./routes/customers');
   app.use('/api/customers', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, customerRoutes);
@@ -313,7 +351,7 @@ try {
 try {
   const inventoryRoutes = require('./routes/inventory-management');
   app.use('/api/inventory', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, inventoryRoutes);
@@ -326,7 +364,7 @@ try {
 try {
   const bookingRoutes = require('./routes/bookings');
   app.use('/api/bookings', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, bookingRoutes);
@@ -354,7 +392,7 @@ try {
 try {
   const pricingRoutes = require('./routes/pricing');
   app.use('/api/pricing', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, pricingRoutes);
@@ -363,15 +401,14 @@ try {
   logger.error('❌ Pricing routes not available:', error.message);
 }
 
-// Import and mount repair routes
+// Import and mount repair routes (Prisma-based)
 try {
   const repairRoutes = require('./routes/repairs');
   app.use('/api/repairs', (req, res, next) => {
-    req.pool = pool;
     req.logger = logger;
     next();
   }, repairRoutes);
-  logger.info('✅ Repair routes mounted successfully');
+  logger.info('✅ Repair routes (Prisma) mounted successfully');
 } catch (error) {
   logger.error('❌ Repair routes not available:', error.message);
 }
@@ -380,7 +417,7 @@ try {
 try {
   const adminRoutes = require('./routes/admin/index');
   app.use('/api/admin', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, adminRoutes);
@@ -394,7 +431,7 @@ if (process.env.NODE_ENV === 'development') {
   try {
     const adminAnalyticsRoutes = require('./routes/admin/analytics');
     app.use('/api/dev/admin/analytics', (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       console.log('🧪 DEV: Bypassing admin auth for analytics');
       next();
@@ -408,7 +445,7 @@ if (process.env.NODE_ENV === 'development') {
   try {
     const analyticsDevRoutes = require('./routes/analytics-dev');
     app.use('/api/dev/analytics', (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     }, analyticsDevRoutes);
@@ -420,7 +457,7 @@ if (process.env.NODE_ENV === 'development') {
   // Development bypass for admin repairs stats (temporary)
   app.get('/api/dev/admin/repairs/stats/overview', async (req, res) => {
     try {
-      req.pool = pool;
+    
       req.logger = logger;
       console.log('🧪 DEV: Bypassing admin auth for repair stats');
       
@@ -469,7 +506,7 @@ if (process.env.NODE_ENV === 'development') {
   // Development bypass for admin bookings stats (temporary)
   app.get('/api/dev/admin/bookings/stats/overview', async (req, res) => {
     try {
-      req.pool = pool;
+    
       req.logger = logger;
       console.log('🧪 DEV: Bypassing admin auth for booking stats');
       
@@ -537,7 +574,7 @@ if (process.env.NODE_ENV === 'development') {
 try {
   const usersRoutes = require('./routes/users');
   app.use('/api/users', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, usersRoutes);
@@ -552,7 +589,7 @@ try {
   
   app.use('/api/admin/email-config', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -570,7 +607,7 @@ try {
   
   app.use('/api/admin/email-accounts', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -588,7 +625,7 @@ try {
   
   app.use('/api/email', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -605,7 +642,7 @@ try {
   
   app.use('/api/admin/email', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -623,7 +660,7 @@ try {
   
   app.use('/api/templates', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -640,7 +677,7 @@ try {
   
   app.use('/api/email-templates', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -657,7 +694,7 @@ try {
   
   app.use('/api/template-scanner', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -674,7 +711,7 @@ try {
   
   app.use('/api/sms-templates', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -691,7 +728,7 @@ try {
   
   app.use('/api/pdf-templates', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -708,7 +745,7 @@ try {
   
   app.use('/api/documents', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -725,7 +762,7 @@ try {
   
   app.use('/api/pdf', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -742,7 +779,7 @@ try {
   
   app.use('/api/export', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -759,7 +796,7 @@ try {
   
   app.use('/api/notifications', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -776,7 +813,7 @@ try {
   
   app.use('/api/ai-notifications', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -793,7 +830,7 @@ try {
   
   app.use('/api/template-integration', 
     (req, res, next) => {
-      req.pool = pool;
+    
       req.logger = logger;
       next();
     },
@@ -809,7 +846,7 @@ try {
 try {
   const aiAdvancedRoutes = require('./routes/ai-advanced');
   app.use('/api/ai-advanced', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, aiAdvancedRoutes);
@@ -822,13 +859,37 @@ try {
 try {
   const automationRoutes = require('./routes/automation-integration');
   app.use('/api/automation', (req, res, next) => {
-    req.pool = pool;
+  
     req.logger = logger;
     next();
   }, automationRoutes);
   logger.info('✅ Automation Integration mounted successfully - Cross-service workflow automation activated');
 } catch (error) {
   logger.error('❌ Automation Integration not available:', error.message);
+}
+
+// Two-Factor Authentication Routes
+try {
+  const twoFactorRoutes = require('./routes/two-factor');
+  app.use('/api/two-factor', (req, res, next) => {
+    req.logger = logger;
+    next();
+  }, twoFactorRoutes);
+  logger.info('✅ Enhanced 2FA system mounted successfully - TOTP, backup codes, and comprehensive management activated');
+} catch (error) {
+  logger.error('❌ Two-Factor Authentication not available:', error.message);
+}
+
+// Advanced Role Management Routes
+try {
+  const rolesRoutes = require('./routes/roles');
+  app.use('/api/roles', (req, res, next) => {
+    req.logger = logger;
+    next();
+  }, rolesRoutes);
+  logger.info('✅ Advanced role management system mounted successfully - Dynamic permissions, role inheritance, and resource-based access control activated');
+} catch (error) {
+  logger.error('❌ Advanced role management not available:', error.message);
 }
 
 // Error handling middleware

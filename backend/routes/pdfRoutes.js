@@ -1,4 +1,5 @@
 const express = require('express');
+const { prisma } = require('../lib/prisma');
 const router = express.Router();
 const SimplePDFService = require('../services/SimplePDFService');
 
@@ -107,17 +108,16 @@ router.post('/from-template/:templateId', async (req, res) => {
     const { variables = {}, options = {} } = req.body;
     
     // Get template from database
-    const templateQuery = `SELECT * FROM email_templates WHERE id = $1`;
-    const templateResult = await req.pool.query(templateQuery, [templateId]);
+    const template = await prisma.email_templates.findUnique({
+      where: { id: templateId }
+    });
     
-    if (templateResult.rows.length === 0) {
+    if (!template) {
       return res.status(404).json({
         error: 'Template not found',
         message: `Template with ID '${templateId}' does not exist`
       });
     }
-    
-    const template = templateResult.rows[0];
     
     // Process template HTML with variables
     let htmlContent = template.html_content;

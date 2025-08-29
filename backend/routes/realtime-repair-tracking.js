@@ -6,10 +6,11 @@
  */
 
 const express = require('express');
+const { prisma } = require('../lib/prisma');
 const { body, param, validationResult } = require('express-validator');
 
 // Import Better Auth middleware
-const { authenticateBetterAuth, requireRole } = require('../middleware/better-auth-official');
+const { requireAuth: authenticateBetterAuth, requireRole } = require('../lib/auth-utils');
 
 const router = express.Router();
 
@@ -78,64 +79,65 @@ router.get('/repairs/:repairId/status',
 
       const { repairId } = req.params;
       
-      // Check if user has access to this repair
-      let accessQuery;
-      let accessParams;
+      // Check if user has access to this repair using Prisma
+      let repairWhere;
       
       if (req.user.role === 'customer') {
-        accessQuery = `
-          SELECT rb.*, c.email as customer_email 
-          FROM repair_bookings rb 
-          JOIN customers c ON rb.customer_id = c.id 
-          WHERE rb.id = $1 AND c.id = $2
-        `;
-        accessParams = [repairId, req.user.id];
+        repairWhere = {
+          id: repairId,
+          customerId: req.user.id
+        };
       } else {
         // Staff can access all repairs
-        accessQuery = `
-          SELECT rb.*, c.email as customer_email 
-          FROM repair_bookings rb 
-          JOIN customers c ON rb.customer_id = c.id 
-          WHERE rb.id = $1
-        `;
-        accessParams = [repairId];
+        repairWhere = {
+          id: repairId
+        };
       }
 
-      const repairResult = await req.pool.query(accessQuery, accessParams);
+      const repair = await prisma.repairBooking.findFirst({
+        where: repairWhere,
+        include: {
+          customer: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
+      });
       
-      if (repairResult.rows.length === 0) {
+      if (!repair) {
         return res.status(404).json({ error: 'Repair not found or access denied' });
       }
 
-      const repair = repairResult.rows[0];
+      // Get latest status updates using Prisma
+      const latestStatus = await prisma.repairStatusUpdate.findFirst({
+        where: {
+          repairId: repairId
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
 
-      // Get latest status updates
-      const statusQuery = `
-        SELECT * FROM repair_status_updates 
-        WHERE repair_id = $1 
-        ORDER BY created_at DESC 
-        LIMIT 1
-      `;
-      const statusResult = await req.pool.query(statusQuery, [repairId]);
-
-      // Get progress information
-      const progressQuery = `
-        SELECT * FROM repair_progress 
-        WHERE repair_id = $1 
-        ORDER BY updated_at DESC 
-        LIMIT 1
-      `;
-      const progressResult = await req.pool.query(progressQuery, [repairId]);
+      // Get progress information using Prisma
+      const progressInfo = await prisma.repairProgress.findUnique({
+        where: {
+          repairId: repairId
+        }
+      });
 
       const response = {
         repairId,
         basicInfo: {
           status: repair.status,
-          createdAt: repair.created_at,
-          deviceInfo: repair.device_info
+          createdAt: repair.createdAt,
+          deviceInfo: repair.deviceInfo
         },
-        currentStatus: statusResult.rows[0] || null,
-        progress: progressResult.rows[0] || null
+        currentStatus: latestStatus || null,
+        progress: progressInfo || null
       };
 
       res.json(response);
@@ -172,8 +174,6 @@ router.post('/repairs/:repairId/status',
     body('photos').optional().isArray()
   ],
   async (req, res) => {
-    const client = await req.pool.connect();
-    
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -183,48 +183,44 @@ router.post('/repairs/:repairId/status',
       const { repairId } = req.params;
       const { status, message, estimatedCompletion, photos } = req.body;
 
-      await client.query('BEGIN');
+      // Use Prisma transaction
+      const result = await prisma.$transaction(async (prisma) => {
+        // Verify repair exists
+        const repairCheck = await prisma.repairBooking.findUnique({
+          where: { id: repairId },
+          select: { id: true, customerId: true }
+        });
 
-      // Verify repair exists
-      const repairCheck = await client.query(
-        'SELECT id, customer_id FROM repair_bookings WHERE id = $1',
-        [repairId]
-      );
+        if (!repairCheck) {
+          throw new Error('Repair not found');
+        }
 
-      if (repairCheck.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Repair not found' });
-      }
+        // Update main repair status
+        await prisma.repairBooking.update({
+          where: { id: repairId },
+          data: { 
+            status: status,
+            updatedAt: new Date()
+          }
+        });
 
-      const customerId = repairCheck.rows[0].customer_id;
+        // Insert status update record
+        const statusUpdate = await prisma.repairStatusUpdate.create({
+          data: {
+            repairId: repairId,
+            status: status,
+            message: message,
+            estimatedCompletion: estimatedCompletion ? new Date(estimatedCompletion) : null,
+            photos: photos || [],
+            updatedBy: req.user.id
+          }
+        });
 
-      // Update main repair status
-      await client.query(
-        'UPDATE repair_bookings SET status = $1, updated_at = NOW() WHERE id = $2',
-        [status, repairId]
-      );
-
-      // Insert status update record
-      const statusUpdateQuery = `
-        INSERT INTO repair_status_updates (
-          repair_id, status, message, estimated_completion, 
-          photos, updated_by, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
-        RETURNING *
-      `;
-
-      const statusUpdateResult = await client.query(statusUpdateQuery, [
-        repairId,
-        status,
-        message,
-        estimatedCompletion || null,
-        JSON.stringify(photos || []),
-        req.user.id
-      ]);
-
-      const statusUpdate = statusUpdateResult.rows[0];
-
-      await client.query('COMMIT');
+        return {
+          statusUpdate,
+          customerId: repairCheck.customerId
+        };
+      });
 
       // Broadcast real-time update via WebSocket
       const realtimeTracker = req.app.locals.realtimeRepairTracker;
@@ -235,7 +231,7 @@ router.post('/repairs/:repairId/status',
           message,
           estimatedCompletion,
           photos: photos || [],
-          customerId,
+          customerId: result.customerId,
           updatedBy: {
             id: req.user.id,
             email: req.user.email,
@@ -248,16 +244,16 @@ router.post('/repairs/:repairId/status',
 
       res.json({
         success: true,
-        statusUpdate,
+        statusUpdate: result.statusUpdate,
         message: 'Repair status updated successfully'
       });
 
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (error.message === 'Repair not found') {
+        return res.status(404).json({ error: 'Repair not found' });
+      }
       req.logger?.error('Error updating repair status:', error);
       res.status(500).json({ error: 'Failed to update repair status' });
-    } finally {
-      client.release();
     }
   }
 );
@@ -280,8 +276,6 @@ router.post('/repairs/:repairId/progress',
     body('nextSteps').optional().isString().isLength({ max: 500 })
   ],
   async (req, res) => {
-    const client = await req.pool.connect();
-    
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -291,49 +285,43 @@ router.post('/repairs/:repairId/progress',
       const { repairId } = req.params;
       const { milestone, progress, notes, timeSpent, nextSteps } = req.body;
 
-      await client.query('BEGIN');
+      // Use Prisma transaction
+      const progressUpdate = await prisma.$transaction(async (prisma) => {
+        // Verify repair exists
+        const repairCheck = await prisma.repairBooking.findUnique({
+          where: { id: repairId },
+          select: { id: true }
+        });
 
-      // Verify repair exists
-      const repairCheck = await client.query(
-        'SELECT id FROM repair_bookings WHERE id = $1',
-        [repairId]
-      );
+        if (!repairCheck) {
+          throw new Error('Repair not found');
+        }
 
-      if (repairCheck.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Repair not found' });
-      }
+        // Insert or update progress record using upsert
+        const progressUpdate = await prisma.repairProgress.upsert({
+          where: { repairId: repairId },
+          create: {
+            repairId: repairId,
+            milestone: milestone,
+            progress: progress,
+            notes: notes || null,
+            timeSpent: timeSpent || null,
+            nextSteps: nextSteps || null,
+            updatedBy: req.user.id
+          },
+          update: {
+            milestone: milestone,
+            progress: progress,
+            notes: notes || null,
+            timeSpent: timeSpent || null,
+            nextSteps: nextSteps || null,
+            updatedBy: req.user.id,
+            updatedAt: new Date()
+          }
+        });
 
-      // Insert or update progress record
-      const progressQuery = `
-        INSERT INTO repair_progress (
-          repair_id, milestone, progress, notes, time_spent, 
-          next_steps, updated_by, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-        ON CONFLICT (repair_id) DO UPDATE SET
-          milestone = EXCLUDED.milestone,
-          progress = EXCLUDED.progress,
-          notes = EXCLUDED.notes,
-          time_spent = EXCLUDED.time_spent,
-          next_steps = EXCLUDED.next_steps,
-          updated_by = EXCLUDED.updated_by,
-          updated_at = NOW()
-        RETURNING *
-      `;
-
-      const progressResult = await client.query(progressQuery, [
-        repairId,
-        milestone,
-        progress,
-        notes || null,
-        timeSpent || null,
-        nextSteps || null,
-        req.user.id
-      ]);
-
-      const progressUpdate = progressResult.rows[0];
-
-      await client.query('COMMIT');
+        return progressUpdate;
+      });
 
       // Broadcast real-time progress update
       const realtimeTracker = req.app.locals.realtimeRepairTracker;
@@ -361,11 +349,11 @@ router.post('/repairs/:repairId/progress',
       });
 
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (error.message === 'Repair not found') {
+        return res.status(404).json({ error: 'Repair not found' });
+      }
       req.logger?.error('Error updating repair progress:', error);
       res.status(500).json({ error: 'Failed to update repair progress' });
-    } finally {
-      client.release();
     }
   }
 );
@@ -385,8 +373,6 @@ router.post('/repairs/:repairId/notes',
     body('isPrivate').optional().isBoolean()
   ],
   async (req, res) => {
-    const client = await req.pool.connect();
-    
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -401,51 +387,37 @@ router.post('/repairs/:repairId/notes',
         return res.status(403).json({ error: 'Customers cannot add private notes' });
       }
 
-      // Verify repair access
-      let accessQuery;
-      let accessParams;
+      // Verify repair access using Prisma
+      let repairWhere;
       
       if (req.user.role === 'customer') {
-        accessQuery = `
-          SELECT rb.id 
-          FROM repair_bookings rb 
-          JOIN customers c ON rb.customer_id = c.id 
-          WHERE rb.id = $1 AND c.id = $2
-        `;
-        accessParams = [repairId, req.user.id];
+        repairWhere = {
+          id: repairId,
+          customerId: req.user.id
+        };
       } else {
-        accessQuery = 'SELECT id FROM repair_bookings WHERE id = $1';
-        accessParams = [repairId];
+        repairWhere = { id: repairId };
       }
 
-      const repairCheck = await client.query(accessQuery, accessParams);
+      const repairExists = await prisma.repairBooking.findFirst({
+        where: repairWhere,
+        select: { id: true }
+      });
 
-      if (repairCheck.rows.length === 0) {
+      if (!repairExists) {
         return res.status(404).json({ error: 'Repair not found or access denied' });
       }
 
-      await client.query('BEGIN');
-
-      // Insert note
-      const noteQuery = `
-        INSERT INTO repair_notes (
-          repair_id, note, priority, is_private, 
-          added_by, created_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW())
-        RETURNING *
-      `;
-
-      const noteResult = await client.query(noteQuery, [
-        repairId,
-        note,
-        priority,
-        isPrivate,
-        req.user.id
-      ]);
-
-      const newNote = noteResult.rows[0];
-
-      await client.query('COMMIT');
+      // Insert note using Prisma
+      const newNote = await prisma.repairNote.create({
+        data: {
+          repairId: repairId,
+          note: note,
+          priority: priority,
+          isPrivate: isPrivate,
+          addedBy: req.user.id
+        }
+      });
 
       // Broadcast real-time note update
       const realtimeTracker = req.app.locals.realtimeRepairTracker;
@@ -471,11 +443,8 @@ router.post('/repairs/:repairId/notes',
       });
 
     } catch (error) {
-      await client.query('ROLLBACK');
       req.logger?.error('Error adding repair note:', error);
       res.status(500).json({ error: 'Failed to add note' });
-    } finally {
-      client.release();
     }
   }
 );
@@ -495,8 +464,6 @@ router.post('/repairs/:repairId/photos',
     body('category').optional().isIn(['before', 'progress', 'after', 'issue', 'solution'])
   ],
   async (req, res) => {
-    const client = await req.pool.connect();
-    
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -511,37 +478,25 @@ router.post('/repairs/:repairId/photos',
         return res.status(403).json({ error: 'Staff access required for photo uploads' });
       }
 
-      const repairCheck = await client.query(
-        'SELECT id FROM repair_bookings WHERE id = $1',
-        [repairId]
-      );
+      const repairCheck = await prisma.repairBooking.findUnique({
+        where: { id: repairId },
+        select: { id: true }
+      });
 
-      if (repairCheck.rows.length === 0) {
+      if (!repairCheck) {
         return res.status(404).json({ error: 'Repair not found' });
       }
 
-      await client.query('BEGIN');
-
-      // Insert photo record
-      const photoQuery = `
-        INSERT INTO repair_photos (
-          repair_id, photo_url, description, category, 
-          uploaded_by, created_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW())
-        RETURNING *
-      `;
-
-      const photoResult = await client.query(photoQuery, [
-        repairId,
-        photoUrl,
-        description || null,
-        category,
-        req.user.id
-      ]);
-
-      const newPhoto = photoResult.rows[0];
-
-      await client.query('COMMIT');
+      // Insert photo record using Prisma
+      const newPhoto = await prisma.repairPhoto.create({
+        data: {
+          repairId: repairId,
+          photoUrl: photoUrl,
+          description: description || null,
+          category: category,
+          uploadedBy: req.user.id
+        }
+      });
 
       // Broadcast real-time photo upload notification
       const realtimeTracker = req.app.locals.realtimeRepairTracker;
@@ -567,11 +522,8 @@ router.post('/repairs/:repairId/photos',
       });
 
     } catch (error) {
-      await client.query('ROLLBACK');
       req.logger?.error('Error uploading repair photo:', error);
       res.status(500).json({ error: 'Failed to upload photo' });
-    } finally {
-      client.release();
     }
   }
 );
@@ -593,8 +545,6 @@ router.post('/repairs/:repairId/quality-check',
     body('recommendations').optional().isArray()
   ],
   async (req, res) => {
-    const client = await req.pool.connect();
-    
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -604,38 +554,26 @@ router.post('/repairs/:repairId/quality-check',
       const { repairId } = req.params;
       const { passed, score, issues = [], recommendations = [] } = req.body;
 
-      const repairCheck = await client.query(
-        'SELECT id FROM repair_bookings WHERE id = $1',
-        [repairId]
-      );
+      const repairCheck = await prisma.repairBooking.findUnique({
+        where: { id: repairId },
+        select: { id: true }
+      });
 
-      if (repairCheck.rows.length === 0) {
+      if (!repairCheck) {
         return res.status(404).json({ error: 'Repair not found' });
       }
 
-      await client.query('BEGIN');
-
-      // Insert quality check record
-      const qualityQuery = `
-        INSERT INTO repair_quality_checks (
-          repair_id, passed, score, issues, recommendations, 
-          checked_by, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
-        RETURNING *
-      `;
-
-      const qualityResult = await client.query(qualityQuery, [
-        repairId,
-        passed,
-        score,
-        JSON.stringify(issues),
-        JSON.stringify(recommendations),
-        req.user.id
-      ]);
-
-      const qualityCheck = qualityResult.rows[0];
-
-      await client.query('COMMIT');
+      // Insert quality check record using Prisma
+      const qualityCheck = await prisma.repairQualityCheck.create({
+        data: {
+          repairId: repairId,
+          passed: passed,
+          score: score,
+          issues: issues,
+          recommendations: recommendations,
+          checkedBy: req.user.id
+        }
+      });
 
       // Broadcast real-time quality check update
       const realtimeTracker = req.app.locals.realtimeRepairTracker;
@@ -662,11 +600,8 @@ router.post('/repairs/:repairId/quality-check',
       });
 
     } catch (error) {
-      await client.query('ROLLBACK');
       req.logger?.error('Error submitting quality check:', error);
       res.status(500).json({ error: 'Failed to submit quality check' });
-    } finally {
-      client.release();
     }
   }
 );
@@ -689,29 +624,35 @@ router.get('/stats',
       const realtimeTracker = req.app.locals.realtimeRepairTracker;
       const serviceStats = realtimeTracker ? realtimeTracker.getServiceStats() : null;
 
-      // Get database stats
-      const statusStatsQuery = `
-        SELECT status, COUNT(*) as count 
-        FROM repair_bookings 
-        GROUP BY status
-      `;
-      const statusStats = await req.pool.query(statusStatsQuery);
+      // Get database stats using Prisma
+      const statusStats = await prisma.repairBooking.groupBy({
+        by: ['status'],
+        _count: {
+          status: true
+        }
+      });
 
-      const dailyStatsQuery = `
+      // Get daily stats for last 30 days using Prisma
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const dailyStatsRaw = await prisma.$queryRaw`
         SELECT DATE(created_at) as date, COUNT(*) as count 
         FROM repair_bookings 
-        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+        WHERE created_at >= ${thirtyDaysAgo}
         GROUP BY DATE(created_at)
         ORDER BY date DESC
       `;
-      const dailyStats = await req.pool.query(dailyStatsQuery);
 
       res.json({
         success: true,
         serviceStats,
         databaseStats: {
-          statusDistribution: statusStats.rows,
-          dailyVolume: dailyStats.rows
+          statusDistribution: statusStats.map(stat => ({
+            status: stat.status,
+            count: stat._count.status
+          })),
+          dailyVolume: dailyStatsRaw
         },
         timestamp: new Date().toISOString()
       });

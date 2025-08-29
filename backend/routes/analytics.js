@@ -3,7 +3,7 @@ const WebSocket = require('ws');
 const AnalyticsService = require('../services/AnalyticsService');
 
 // Import Better Auth middleware
-const { authenticateBetterAuth, requireAdmin } = require('../middleware/better-auth-official');
+const { requireAuth, requireAdmin } = require('../lib/auth-utils');
 
 const router = express.Router();
 
@@ -34,15 +34,7 @@ router.use(express.json({ limit: '10mb' }));
  */
 router.post('/events', async (req, res) => {
   try {
-    // Log event in development for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📊 Public Analytics Event:', {
-        userAgent: req.headers['user-agent']?.substring(0, 50),
-        bodyKeys: Object.keys(req.body || {}),
-        hasEvents: !!req.body.events,
-        eventCount: req.body.events?.length || 1
-      });
-    }
+    // Development debugging removed for production security
     
     // In development or when service unavailable, just return success
     if (process.env.NODE_ENV === 'development' || !analyticsService) {
@@ -76,7 +68,7 @@ router.post('/events', async (req, res) => {
 // ===========================================
 
 // Apply authentication only to admin routes below this point
-router.use(authenticateBetterAuth);
+router.use(requireAuth);
 router.use(requireAdmin);
 
 
@@ -262,13 +254,6 @@ const validateEventData = (req, res, next) => {
   const { user_fingerprint, session_id, event_type } = req.body;
   
   if (!user_fingerprint || !session_id || !event_type) {
-    console.log('🚨 Analytics validation failed:', {
-      headers: req.headers['user-agent']?.substring(0, 50),
-      bodyKeys: Object.keys(req.body || {}),
-      hasFingerprint: !!user_fingerprint,
-      hasSessionId: !!session_id,
-      hasEventType: !!event_type
-    });
     return res.status(400).json({
       error: 'Missing required fields: user_fingerprint, session_id, event_type'
     });

@@ -4,10 +4,11 @@ const BACKEND_BASE_URL = process.env.BACKEND_URL || 'http://revivatech_backend:3
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const templateId = params.id;
+    const resolvedParams = await params;
+    const templateId = resolvedParams.id;
     const body = await request.json();
     const backendUrl = `${BACKEND_BASE_URL}/api/email-templates/${templateId}/preview`;
     

@@ -1,25 +1,15 @@
-const { Pool } = require('pg');
+const { prisma } = require('../lib/prisma');
 const Redis = require('redis');
 const crypto = require('crypto');
 
 /**
- * AnalyticsService - Core service for processing analytics events, user behavior tracking, and ML features
+ * PRISMA MIGRATION: AnalyticsService
+ * Converted from raw SQL to Prisma ORM operations
+ * Core service for processing analytics events, user behavior tracking, and ML features
  * Implements real-time event processing, customer insights, and predictive analytics
  */
 class AnalyticsService {
   constructor() {
-    // Initialize PostgreSQL connection
-    this.db = new Pool({
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 5435,
-      database: process.env.DB_NAME || 'revivatech',
-      user: process.env.DB_USER || 'revivatech',
-      password: process.env.DB_PASSWORD || 'revivatech_password',
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    });
-
     // Initialize Redis connection for caching
     const redisConfig = {
       url: process.env.REDIS_URL || process.env.REDIS_INTERNAL_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
@@ -39,7 +29,7 @@ class AnalyticsService {
   }
 
   /**
-   * Process incoming analytics event
+   * Process incoming analytics event using Prisma
    * @param {Object} eventData - Event data including fingerprint, session, type, etc.
    * @returns {Promise<Object>} - Processed event result
    */
@@ -50,732 +40,613 @@ class AnalyticsService {
         throw new Error('Missing required event fields');
       }
 
-      // Add timestamp and event ID
-      const event = {
-        id: crypto.randomUUID(),
-        ...eventData,
-        created_at: new Date().toISOString(),
-        processed_at: null
+      // Generate unique event ID
+      const eventId = crypto.randomUUID();
+      
+      // Prepare event for database insertion
+      const processedEvent = {
+        id: eventId,
+        user_fingerprint: eventData.user_fingerprint,
+        session_id: eventData.session_id,
+        event_type: eventData.event_type,
+        event_data: eventData.event_data || {},
+        page_url: eventData.page_url || null,
+        page_title: eventData.page_title || null,
+        referrer: eventData.referrer || null,
+        user_agent: eventData.user_agent || null,
+        ip_address: eventData.ip_address || null,
+        timestamp: eventData.timestamp ? new Date(eventData.timestamp) : new Date(),
+        processed: false,
+        user_id: eventData.user_id || null,
+        customer_id: eventData.customer_id || null,
+        engagement_score: this.calculateEngagementScore(eventData),
+        conversion_value: eventData.conversion_value || null,
+        utm_source: eventData.utm_source || null,
+        utm_medium: eventData.utm_medium || null,
+        utm_campaign: eventData.utm_campaign || null,
+        device_type: this.detectDeviceType(eventData.user_agent),
+        browser_name: this.extractBrowser(eventData.user_agent),
+        os_name: this.extractOS(eventData.user_agent)
       };
 
-      // Add to queue for batch processing
-      this.eventQueue.push(event);
+      // Add event to processing queue for batch insertion
+      this.eventQueue.push(processedEvent);
 
-      // Process immediately if queue is full
-      if (this.eventQueue.length >= this.batchSize) {
-        await this.flushEventQueue();
+      // Real-time processing for critical events
+      if (this.isCriticalEvent(eventData.event_type)) {
+        await this.processCriticalEvent(processedEvent);
       }
 
-      // Update real-time metrics in Redis
-      await this.updateRealtimeMetrics(event);
+      // Update session data using Prisma
+      await this.updateSessionData(eventData.session_id, eventData);
 
-      // Update user behavior profile asynchronously
-      this.updateUserProfile(event.user_fingerprint, event, event.session_id).catch(console.error);
+      // Cache frequently accessed data
+      await this.cacheEventData(eventId, processedEvent);
 
-      return { success: true, eventId: event.id };
+      return {
+        success: true,
+        event_id: eventId,
+        processed_at: new Date().toISOString(),
+        queue_size: this.eventQueue.length
+      };
+
     } catch (error) {
-      console.error('Error processing event:', error);
-      throw error;
+      console.error('Event processing error:', error);
+      throw new Error(`Failed to process analytics event: ${error.message}`);
     }
   }
 
   /**
-   * Store event in database
-   * @param {string} fingerprint - User fingerprint
-   * @param {string} sessionId - Session ID
-   * @param {Object} event - Event data
-   */
-  async storeEvent(fingerprint, sessionId, event) {
-    const query = `
-      INSERT INTO analytics_events (
-        id, user_fingerprint, session_id, user_id, event_type, event_name,
-        event_data, page_url, referrer_url, utm_source, utm_medium, utm_campaign,
-        device_type, browser, os, screen_resolution, ip_address, geo_country, geo_city,
-        created_at, processed_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
-      )
-    `;
-
-    const values = [
-      event.id,
-      fingerprint,
-      sessionId,
-      event.user_id || null,
-      event.event_type,
-      event.event_name || event.event_type,
-      JSON.stringify(event.event_data || {}),
-      event.page_url,
-      event.referrer_url,
-      event.utm_source,
-      event.utm_medium,
-      event.utm_campaign,
-      event.device_type,
-      event.browser,
-      event.os,
-      event.screen_resolution,
-      event.ip_address,
-      event.geo_country,
-      event.geo_city,
-      event.created_at,
-      new Date().toISOString()
-    ];
-
-    await this.db.query(query, values);
-  }
-
-  /**
-   * Batch process events from queue
-   */
-  async flushEventQueue() {
-    if (this.eventQueue.length === 0) return;
-
-    const events = [...this.eventQueue];
-    this.eventQueue = [];
-
-    try {
-      // Begin transaction
-      const client = await this.db.connect();
-      try {
-        await client.query('BEGIN');
-
-        // Batch insert events
-        for (const event of events) {
-          await this.storeEvent(
-            event.user_fingerprint,
-            event.session_id,
-            event
-          );
-        }
-
-        await client.query('COMMIT');
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      } finally {
-        client.release();
-      }
-
-      console.log(`Successfully processed ${events.length} events`);
-    } catch (error) {
-      console.error('Error flushing event queue:', error);
-      // Re-add events to queue for retry
-      this.eventQueue.unshift(...events);
-    }
-  }
-
-  /**
-   * Start batch processing timer
+   * Start batch processing of queued events using Prisma
    */
   startBatchProcessing() {
-    setInterval(() => {
-      this.flushEventQueue().catch(console.error);
+    setInterval(async () => {
+      if (this.eventQueue.length === 0) return;
+
+      try {
+        // Get batch of events to process
+        const batch = this.eventQueue.splice(0, this.batchSize);
+        
+        // Insert batch of events using Prisma
+        const insertedEvents = await prisma.analyticsEvent.createMany({
+          data: batch,
+          skipDuplicates: true
+        });
+
+        // Analytics processing completed successfully
+
+        // Process aggregations for the batch
+        await this.processAggregations(batch);
+
+      } catch (error) {
+        console.error('Batch processing error:', error);
+        // Re-add failed events to queue for retry
+        this.eventQueue.unshift(...batch);
+      }
     }, this.flushInterval);
   }
 
   /**
-   * Update user behavior profile based on event
-   * @param {string} fingerprint - User fingerprint
-   * @param {Object} event - Event data
-   * @param {string} sessionId - Session ID
+   * Update session data using Prisma
    */
-  async updateUserProfile(fingerprint, event, sessionId) {
+  async updateSessionData(sessionId, eventData) {
     try {
-      // Check if profile exists
-      const profileResult = await this.db.query(
-        'SELECT * FROM user_behavior_profiles WHERE user_fingerprint = $1',
-        [fingerprint]
-      );
-
-      if (profileResult.rows.length === 0) {
-        // Create new profile
-        await this.createUserProfile(fingerprint, event.user_id);
-      }
-
-      // Update profile metrics based on event type
-      const updates = this.calculateProfileUpdates(event);
-      
-      if (Object.keys(updates).length > 0) {
-        const updateQuery = this.buildUpdateQuery(updates, fingerprint);
-        await this.db.query(updateQuery.query, updateQuery.values);
-      }
-
-      // Update ML scores
-      await this.updateMLScores(fingerprint);
-
-    } catch (error) {
-      console.error('Error updating user profile:', error);
-    }
-  }
-
-  /**
-   * Create new user behavior profile
-   */
-  async createUserProfile(fingerprint, userId = null) {
-    const query = `
-      INSERT INTO user_behavior_profiles (
-        user_fingerprint, user_id, first_seen_at, last_seen_at
-      ) VALUES ($1, $2, NOW(), NOW())
-      ON CONFLICT (user_fingerprint) DO NOTHING
-    `;
-    
-    await this.db.query(query, [fingerprint, userId]);
-  }
-
-  /**
-   * Calculate profile updates based on event
-   */
-  calculateProfileUpdates(event) {
-    const updates = {
-      total_events: 'total_events + 1',
-      last_seen_at: 'NOW()'
-    };
-
-    switch (event.event_type) {
-      case 'page_view':
-        updates.total_page_views = 'total_page_views + 1';
-        break;
-      case 'booking_started':
-        updates.booking_conversion_rate = `
-          CASE 
-            WHEN total_sessions > 0 
-            THEN (total_bookings + 1)::NUMERIC / total_sessions::NUMERIC 
-            ELSE 0 
-          END
-        `;
-        break;
-      case 'booking_completed':
-        updates.total_bookings = 'total_bookings + 1';
-        if (event.event_data?.booking_value) {
-          updates.total_booking_value = `total_booking_value + ${parseFloat(event.event_data.booking_value)}`;
-        }
-        break;
-      case 'price_check':
-        updates.price_check_frequency = 'price_check_frequency + 1';
-        break;
-      case 'service_comparison':
-        updates.service_comparison_count = 'service_comparison_count + 1';
-        break;
-    }
-
-    return updates;
-  }
-
-  /**
-   * Build update query for user profile
-   */
-  buildUpdateQuery(updates, fingerprint) {
-    const setClauses = [];
-    const values = [fingerprint];
-    let paramIndex = 2;
-
-    for (const [field, value] of Object.entries(updates)) {
-      if (value === 'NOW()' || value.includes('+') || value.includes('CASE')) {
-        setClauses.push(`${field} = ${value}`);
-      } else {
-        setClauses.push(`${field} = $${paramIndex}`);
-        values.push(value);
-        paramIndex++;
-      }
-    }
-
-    const query = `
-      UPDATE user_behavior_profiles 
-      SET ${setClauses.join(', ')}, last_updated_at = NOW()
-      WHERE user_fingerprint = $1
-    `;
-
-    return { query, values };
-  }
-
-  /**
-   * Get customer insights for a specific user
-   * @param {string} fingerprint - User fingerprint
-   * @returns {Promise<Object>} - Customer insights data
-   */
-  async getCustomerInsights(fingerprint) {
-    try {
-      // Get user profile from database
-      const profileResult = await this.db.query(
-        'SELECT * FROM user_behavior_profiles WHERE user_fingerprint = $1',
-        [fingerprint]
-      );
-
-      if (profileResult.rows.length === 0) {
-        return { error: 'User profile not found' };
-      }
-
-      const profile = profileResult.rows[0];
-
-      // Get recent events
-      const eventsResult = await this.db.query(`
-        SELECT event_type, COUNT(*) as count, MAX(created_at) as last_occurrence
-        FROM analytics_events 
-        WHERE user_fingerprint = $1 AND created_at > NOW() - INTERVAL '30 days'
-        GROUP BY event_type
-        ORDER BY count DESC
-        LIMIT 10
-      `, [fingerprint]);
-
-      // Get journey stages
-      const journeyResult = await this.db.query(`
-        SELECT journey_stage, COUNT(*) as visits, AVG(time_spent_seconds) as avg_time
-        FROM customer_journeys
-        WHERE user_fingerprint = $1
-        GROUP BY journey_stage
-        ORDER BY MAX(stage_entered_at) DESC
-      `, [fingerprint]);
-
-      // Get ML predictions
-      const predictionsResult = await this.db.query(`
-        SELECT model_type, prediction_value, confidence_score, created_at
-        FROM ml_predictions
-        WHERE user_fingerprint = $1 AND expires_at > NOW()
-        ORDER BY created_at DESC
-        LIMIT 5
-      `, [fingerprint]);
-
-      // Calculate additional insights
-      const insights = {
-        profile: {
-          fingerprint: profile.user_fingerprint,
-          customerId: profile.user_id,
-          firstSeen: profile.first_seen_at,
-          lastSeen: profile.last_seen_at,
-          totalSessions: profile.total_sessions,
-          totalBookings: profile.total_bookings,
-          totalValue: profile.total_booking_value,
-          segment: profile.customer_segment
-        },
-        scores: {
-          engagement: profile.engagement_score,
-          lead: profile.lead_score,
-          churnRisk: profile.churn_risk_score,
-          priceSensitivity: profile.price_sensitivity_score,
-          conversionProbability: profile.conversion_probability
-        },
-        behavior: {
-          avgSessionDuration: profile.avg_session_duration_seconds,
-          pagesPerSession: profile.pages_per_session,
-          bounceRate: profile.bounce_rate,
-          preferredDevice: profile.primary_device_type,
-          recentEvents: eventsResult.rows
-        },
-        journey: {
-          stages: journeyResult.rows,
-          currentStage: journeyResult.rows[0]?.journey_stage || 'unknown'
-        },
-        predictions: predictionsResult.rows
+      const sessionUpdate = {
+        last_activity: new Date(),
+        page_views: { increment: 1 },
+        updated_at: new Date()
       };
 
-      // Cache insights for quick retrieval
-      await this.redis.setEx(
-        `insights:${fingerprint}`,
-        300, // 5 minutes
-        JSON.stringify(insights)
-      );
-
-      return insights;
-    } catch (error) {
-      console.error('Error getting customer insights:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get real-time analytics metrics
-   * @returns {Promise<Object>} - Real-time metrics data
-   */
-  async getRealtimeMetrics() {
-    try {
-      // Try to get from cache first
-      const cached = await this.redis.get('realtime_metrics');
-      if (cached) {
-        return JSON.parse(cached);
-      }
-
-      // Query real-time metrics from database
-      const metricsResult = await this.db.query(`
-        SELECT 
-          COUNT(DISTINCT user_fingerprint) as active_users,
-          COUNT(DISTINCT session_id) as active_sessions,
-          COUNT(*) as total_events,
-          COUNT(CASE WHEN event_type = 'page_view' THEN 1 END) as page_views,
-          COUNT(CASE WHEN event_type = 'booking_completed' THEN 1 END) as conversions,
-          AVG(CASE WHEN event_type = 'booking_completed' AND event_data->>'booking_value' IS NOT NULL 
-              THEN (event_data->>'booking_value')::NUMERIC ELSE NULL END) as avg_booking_value
-        FROM analytics_events 
-        WHERE created_at >= NOW() - INTERVAL '1 hour'
-      `);
-
-      // Get conversion funnel data
-      const funnelResult = await this.db.query(`
-        SELECT 
-          funnel_name,
-          step_name,
-          COUNT(DISTINCT user_fingerprint) as users,
-          COUNT(CASE WHEN completed_step THEN 1 END) as completed
-        FROM conversion_funnels 
-        WHERE created_at >= NOW() - INTERVAL '1 hour'
-        GROUP BY funnel_name, step_name, step_number
-        ORDER BY funnel_name, step_number
-      `);
-
-      // Get top pages
-      const topPagesResult = await this.db.query(`
-        SELECT 
-          page_url,
-          COUNT(*) as views,
-          COUNT(DISTINCT user_fingerprint) as unique_visitors
-        FROM analytics_events 
-        WHERE event_type = 'page_view' AND created_at >= NOW() - INTERVAL '1 hour'
-        GROUP BY page_url
-        ORDER BY views DESC
-        LIMIT 10
-      `);
-
-      const metrics = {
-        timestamp: new Date().toISOString(),
-        overview: metricsResult.rows[0],
-        funnel: funnelResult.rows,
-        topPages: topPagesResult.rows,
-        performance: {
-          avgResponseTime: Math.random() * 200 + 100, // Placeholder - implement actual monitoring
-          errorRate: Math.random() * 0.02, // Placeholder
-          uptime: 99.9
-        }
-      };
-
-      // Cache for 30 seconds
-      await this.redis.setEx('realtime_metrics', 30, JSON.stringify(metrics));
-
-      return metrics;
-    } catch (error) {
-      console.error('Error getting realtime metrics:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update real-time metrics in Redis
-   */
-  async updateRealtimeMetrics(event) {
-    try {
-      const hour = new Date().toISOString().slice(0, 13);
-      const minute = new Date().toISOString().slice(0, 16);
-
-      // Increment counters
-      await this.redis.hincrby(`metrics:${hour}:events`, event.event_type, 1);
-      await this.redis.sadd(`metrics:${hour}:users`, event.user_fingerprint);
-      await this.redis.sadd(`metrics:${minute}:active_users`, event.user_fingerprint);
-
-      // Set expiration
-      await this.redis.expire(`metrics:${hour}:events`, 7200); // 2 hours
-      await this.redis.expire(`metrics:${hour}:users`, 7200);
-      await this.redis.expire(`metrics:${minute}:active_users`, 120); // 2 minutes
-    } catch (error) {
-      console.error('Error updating realtime metrics:', error);
-    }
-  }
-
-  /**
-   * Get conversion funnel data
-   * @param {string} funnelName - Name of the funnel (optional)
-   * @param {string} timeframe - Timeframe for analysis
-   * @returns {Promise<Object>} - Funnel analysis data
-   */
-  async getConversionFunnel(funnelName = null, timeframe = '7 days') {
-    try {
-      let query = `
-        SELECT 
-          funnel_name,
-          step_number,
-          step_name,
-          COUNT(DISTINCT user_fingerprint) as users_entered,
-          COUNT(CASE WHEN completed_step THEN 1 END) as users_completed,
-          COUNT(CASE WHEN dropped_off THEN 1 END) as users_dropped,
-          AVG(time_in_step_seconds) as avg_time_in_step,
-          ROUND(
-            (COUNT(CASE WHEN completed_step THEN 1 END)::NUMERIC / 
-             NULLIF(COUNT(DISTINCT user_fingerprint)::NUMERIC, 0)) * 100, 2
-          ) as completion_rate
-        FROM conversion_funnels 
-        WHERE created_at >= NOW() - INTERVAL '${timeframe}'
-      `;
-
-      const values = [];
-      if (funnelName) {
-        query += ' AND funnel_name = $1';
-        values.push(funnelName);
-      }
-
-      query += ' GROUP BY funnel_name, step_number, step_name ORDER BY funnel_name, step_number';
-
-      const result = await this.db.query(query, values);
-
-      // Calculate drop-off rates between steps
-      const funnels = {};
-      result.rows.forEach(row => {
-        if (!funnels[row.funnel_name]) {
-          funnels[row.funnel_name] = {
-            name: row.funnel_name,
-            steps: [],
-            totalUsers: 0,
-            completedUsers: 0,
-            overallConversionRate: 0
+      // Update additional session metrics based on event type
+      if (eventData.event_type === 'page_view') {
+        sessionUpdate.total_pages_viewed = { increment: 1 };
+      } else if (eventData.event_type === 'click') {
+        sessionUpdate.total_clicks = { increment: 1 };
+      } else if (eventData.event_type === 'conversion') {
+        sessionUpdate.conversions = { increment: 1 };
+        if (eventData.conversion_value) {
+          sessionUpdate.total_conversion_value = { 
+            increment: parseFloat(eventData.conversion_value) 
           };
         }
+      }
 
-        funnels[row.funnel_name].steps.push({
-          number: row.step_number,
-          name: row.step_name,
-          usersEntered: parseInt(row.users_entered),
-          usersCompleted: parseInt(row.users_completed),
-          usersDropped: parseInt(row.users_dropped),
-          avgTimeInStep: parseFloat(row.avg_time_in_step) || 0,
-          completionRate: parseFloat(row.completion_rate) || 0
-        });
-
-        if (row.step_number === 1) {
-          funnels[row.funnel_name].totalUsers = parseInt(row.users_entered);
+      // Check if session exists, create if not
+      await prisma.analyticsSession.upsert({
+        where: { id: sessionId },
+        update: sessionUpdate,
+        create: {
+          id: sessionId,
+          user_fingerprint: eventData.user_fingerprint,
+          started_at: new Date(),
+          last_activity: new Date(),
+          page_views: 1,
+          total_pages_viewed: 1,
+          total_clicks: 0,
+          conversions: 0,
+          total_conversion_value: 0,
+          user_agent: eventData.user_agent,
+          ip_address: eventData.ip_address,
+          referrer: eventData.referrer,
+          utm_source: eventData.utm_source,
+          utm_medium: eventData.utm_medium,
+          utm_campaign: eventData.utm_campaign,
+          device_type: this.detectDeviceType(eventData.user_agent),
+          browser_name: this.extractBrowser(eventData.user_agent),
+          os_name: this.extractOS(eventData.user_agent),
+          created_at: new Date(),
+          updated_at: new Date()
         }
       });
 
-      // Calculate overall conversion rates and step-to-step drop-offs
-      Object.values(funnels).forEach(funnel => {
-        if (funnel.steps.length > 0) {
-          const lastStep = funnel.steps[funnel.steps.length - 1];
-          funnel.completedUsers = lastStep.usersCompleted;
-          funnel.overallConversionRate = funnel.totalUsers > 0
-            ? ((funnel.completedUsers / funnel.totalUsers) * 100).toFixed(2)
-            : 0;
+    } catch (error) {
+      console.error('Session update error:', error);
+    }
+  }
 
-          // Calculate step-to-step drop-off
-          for (let i = 1; i < funnel.steps.length; i++) {
-            const prevStep = funnel.steps[i - 1];
-            const currStep = funnel.steps[i];
-            currStep.dropOffFromPrevious = prevStep.usersCompleted > 0
-              ? (((prevStep.usersCompleted - currStep.usersEntered) / prevStep.usersCompleted) * 100).toFixed(2)
-              : 0;
+  /**
+   * Process aggregations for analytics data using Prisma
+   */
+  async processAggregations(events) {
+    try {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      for (const event of events) {
+        // Daily aggregation
+        await prisma.analyticsAggregation.upsert({
+          where: {
+            date_event_type: {
+              date: today,
+              event_type: event.event_type
+            }
+          },
+          update: {
+            count: { increment: 1 },
+            total_engagement_score: { increment: event.engagement_score || 0 },
+            updated_at: now
+          },
+          create: {
+            date: today,
+            event_type: event.event_type,
+            count: 1,
+            total_engagement_score: event.engagement_score || 0,
+            unique_users: 1,
+            unique_sessions: 1,
+            created_at: now,
+            updated_at: now
           }
+        });
+
+        // Page-specific aggregation
+        if (event.page_url) {
+          await prisma.analyticsAggregation.upsert({
+            where: {
+              date_page_url: {
+                date: today,
+                page_url: event.page_url
+              }
+            },
+            update: {
+              count: { increment: 1 },
+              updated_at: now
+            },
+            create: {
+              date: today,
+              page_url: event.page_url,
+              count: 1,
+              unique_users: 1,
+              unique_sessions: 1,
+              created_at: now,
+              updated_at: now
+            }
+          });
         }
+      }
+
+    } catch (error) {
+      console.error('Aggregation processing error:', error);
+    }
+  }
+
+  /**
+   * Get user behavior profile using Prisma
+   */
+  async getUserBehaviorProfile(userFingerprint, days = 30) {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const [events, sessions, aggregations] = await Promise.all([
+        // Get user events
+        prisma.analyticsEvent.findMany({
+          where: {
+            user_fingerprint: userFingerprint,
+            timestamp: { gte: startDate }
+          },
+          orderBy: { timestamp: 'desc' }
+        }),
+
+        // Get user sessions
+        prisma.analyticsSession.findMany({
+          where: {
+            user_fingerprint: userFingerprint,
+            started_at: { gte: startDate }
+          },
+          orderBy: { started_at: 'desc' }
+        }),
+
+        // Get aggregated data
+        prisma.analyticsEvent.groupBy({
+          by: ['event_type'],
+          where: {
+            user_fingerprint: userFingerprint,
+            timestamp: { gte: startDate }
+          },
+          _count: { id: true },
+          _avg: { engagement_score: true }
+        })
+      ]);
+
+      // Calculate behavior metrics
+      const totalEvents = events.length;
+      const totalSessions = sessions.length;
+      const avgSessionDuration = sessions.reduce((sum, session) => {
+        if (session.last_activity && session.started_at) {
+          return sum + (new Date(session.last_activity) - new Date(session.started_at));
+        }
+        return sum;
+      }, 0) / sessions.length || 0;
+
+      const avgEngagementScore = events.reduce((sum, event) => 
+        sum + (event.engagement_score || 0), 0) / totalEvents || 0;
+
+      // Categorize user behavior
+      const behaviorCategory = this.categorizeBehavior({
+        totalEvents,
+        totalSessions,
+        avgSessionDuration,
+        avgEngagementScore
       });
 
       return {
-        timeframe,
-        funnels: Object.values(funnels),
-        summary: {
-          totalFunnels: Object.keys(funnels).length,
-          avgConversionRate: Object.values(funnels).reduce((sum, f) => sum + parseFloat(f.overallConversionRate), 0) / Object.keys(funnels).length || 0
-        }
+        user_fingerprint: userFingerprint,
+        period_days: days,
+        total_events: totalEvents,
+        total_sessions: totalSessions,
+        avg_session_duration_ms: avgSessionDuration,
+        avg_engagement_score: avgEngagementScore,
+        behavior_category: behaviorCategory,
+        event_types: aggregations.map(agg => ({
+          type: agg.event_type,
+          count: agg._count.id,
+          avg_engagement: agg._avg.engagement_score || 0
+        })),
+        most_recent_activity: events[0]?.timestamp,
+        favorite_pages: this.extractFavoritePages(events)
       };
+
     } catch (error) {
-      console.error('Error getting conversion funnel:', error);
+      console.error('User behavior profile error:', error);
       throw error;
     }
   }
 
   /**
-   * Machine Learning Features
+   * Get customer journey data using Prisma
    */
-
-  /**
-   * Calculate engagement score for a user
-   * @param {Object} profile - User behavior profile
-   * @returns {number} - Engagement score (0-100)
-   */
-  calculateEngagementScore(profile) {
-    const weights = {
-      sessionDuration: 0.2,
-      pageViews: 0.15,
-      eventFrequency: 0.15,
-      recency: 0.2,
-      bookingActivity: 0.3
-    };
-
-    let score = 0;
-
-    // Session duration score (normalized to 0-100)
-    const avgDuration = profile.avg_session_duration_seconds || 0;
-    const durationScore = Math.min(100, (avgDuration / 300) * 100); // 5 min = 100
-    score += durationScore * weights.sessionDuration;
-
-    // Page views score
-    const pagesPerSession = profile.pages_per_session || 0;
-    const pageScore = Math.min(100, (pagesPerSession / 10) * 100); // 10 pages = 100
-    score += pageScore * weights.pageViews;
-
-    // Event frequency score
-    const eventsPerSession = profile.total_events / Math.max(1, profile.total_sessions);
-    const eventScore = Math.min(100, (eventsPerSession / 20) * 100); // 20 events = 100
-    score += eventScore * weights.eventFrequency;
-
-    // Recency score
-    const daysSinceLastVisit = profile.days_since_last_visit || 999;
-    const recencyScore = Math.max(0, 100 - (daysSinceLastVisit * 10)); // -10 per day
-    score += recencyScore * weights.recency;
-
-    // Booking activity score
-    const bookingScore = profile.total_bookings > 0 ? 100 : 
-                        profile.booking_conversion_rate > 0 ? 50 : 0;
-    score += bookingScore * weights.bookingActivity;
-
-    return Math.round(Math.min(100, Math.max(0, score)));
-  }
-
-  /**
-   * Calculate lead score for a user
-   * @param {Object} profile - User behavior profile
-   * @param {Array} events - Recent user events
-   * @returns {number} - Lead score (0-100)
-   */
-  calculateLeadScore(profile, events = []) {
-    let score = 0;
-
-    // Base score from engagement
-    score += this.calculateEngagementScore(profile) * 0.3;
-
-    // High-value behaviors
-    const valueBehaviors = {
-      'pricing_viewed': 15,
-      'booking_started': 25,
-      'service_comparison': 10,
-      'contact_viewed': 20,
-      'price_calculator_used': 15
-    };
-
-    // Count valuable events
-    events.forEach(event => {
-      if (valueBehaviors[event.event_type]) {
-        score += valueBehaviors[event.event_type];
-      }
-    });
-
-    // Profile completeness bonus
-    if (profile.user_id) score += 10;
-
-    // Price sensitivity adjustment
-    const priceSensitivity = profile.price_sensitivity_score || 50;
-    if (priceSensitivity < 30) score += 10; // Less price sensitive = better lead
-
-    // Cap at 100
-    return Math.min(100, Math.round(score));
-  }
-
-  /**
-   * Calculate churn risk for a user
-   * @param {Object} profile - User behavior profile
-   * @returns {number} - Churn risk score (0-100, higher = more likely to churn)
-   */
-  calculateChurnRisk(profile) {
-    let riskScore = 0;
-
-    // Days since last visit (major factor)
-    const daysSinceLastVisit = profile.days_since_last_visit || 0;
-    if (daysSinceLastVisit > 30) riskScore += 40;
-    else if (daysSinceLastVisit > 14) riskScore += 25;
-    else if (daysSinceLastVisit > 7) riskScore += 10;
-
-    // Declining engagement
-    const engagementScore = profile.engagement_score || 0;
-    if (engagementScore < 20) riskScore += 30;
-    else if (engagementScore < 40) riskScore += 15;
-
-    // No bookings despite multiple sessions
-    if (profile.total_sessions > 5 && profile.total_bookings === 0) {
-      riskScore += 20;
-    }
-
-    // Low session duration
-    if (profile.avg_session_duration_seconds < 60) {
-      riskScore += 10;
-    }
-
-    return Math.min(100, Math.round(riskScore));
-  }
-
-  /**
-   * Update ML scores for a user
-   * @param {string} fingerprint - User fingerprint
-   */
-  async updateMLScores(fingerprint) {
+  async getCustomerJourney(customerId, days = 90) {
     try {
-      // Get user profile
-      const profileResult = await this.db.query(
-        'SELECT * FROM user_behavior_profiles WHERE user_fingerprint = $1',
-        [fingerprint]
-      );
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
 
-      if (profileResult.rows.length === 0) return;
+      const journeyData = await prisma.analyticsEvent.findMany({
+        where: {
+          customer_id: customerId,
+          timestamp: { gte: startDate }
+        },
+        orderBy: { timestamp: 'asc' },
+        select: {
+          id: true,
+          event_type: true,
+          page_url: true,
+          page_title: true,
+          timestamp: true,
+          event_data: true,
+          engagement_score: true,
+          conversion_value: true
+        }
+      });
 
-      const profile = profileResult.rows[0];
+      // Process journey stages
+      const journeyStages = this.identifyJourneyStages(journeyData);
+      const touchpoints = this.extractTouchpoints(journeyData);
+      const conversionEvents = journeyData.filter(event => 
+        event.conversion_value && event.conversion_value > 0);
 
-      // Get recent events for scoring
-      const eventsResult = await this.db.query(
-        'SELECT * FROM analytics_events WHERE user_fingerprint = $1 ORDER BY created_at DESC LIMIT 50',
-        [fingerprint]
-      );
-
-      const events = eventsResult.rows;
-
-      // Calculate scores
-      const engagementScore = this.calculateEngagementScore(profile);
-      const leadScore = this.calculateLeadScore(profile, events);
-      const churnRisk = this.calculateChurnRisk(profile);
-
-      // Update profile with new scores
-      await this.db.query(`
-        UPDATE user_behavior_profiles
-        SET 
-          engagement_score = $2,
-          lead_score = $3,
-          churn_risk_score = $4,
-          last_updated_at = NOW()
-        WHERE user_fingerprint = $1
-      `, [fingerprint, engagementScore, leadScore, churnRisk]);
-
-      // Store ML predictions for tracking
-      await this.storePrediction(fingerprint, 'engagement_scoring', engagementScore, 0.85);
-      await this.storePrediction(fingerprint, 'lead_scoring', leadScore, 0.78);
-      await this.storePrediction(fingerprint, 'churn_prediction', churnRisk, 0.72);
+      return {
+        customer_id: customerId,
+        period_days: days,
+        total_touchpoints: journeyData.length,
+        journey_stages: journeyStages,
+        key_touchpoints: touchpoints,
+        conversion_events: conversionEvents.length,
+        total_conversion_value: conversionEvents.reduce((sum, event) => 
+          sum + (parseFloat(event.conversion_value) || 0), 0),
+        journey_timeline: journeyData,
+        journey_insights: this.generateJourneyInsights(journeyData)
+      };
 
     } catch (error) {
-      console.error('Error updating ML scores:', error);
+      console.error('Customer journey error:', error);
+      throw error;
     }
   }
 
   /**
-   * Store ML prediction
+   * Get analytics dashboard data using Prisma
    */
-  async storePrediction(fingerprint, modelType, value, confidence) {
-    const query = `
-      INSERT INTO ml_predictions (
-        user_fingerprint, model_type, model_version, prediction_value,
-        confidence_score, features_used, expires_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `;
+  async getDashboardData(period = '7d') {
+    try {
+      const days = parseInt(period.replace('d', ''));
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
 
-    const values = [
-      fingerprint,
-      modelType,
-      'v1.0',
-      value,
-      confidence,
-      JSON.stringify({ source: 'analytics_service' }),
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Expires in 7 days
-    ];
+      const [
+        totalEvents,
+        uniqueUsers,
+        topPages,
+        eventTypes,
+        conversionMetrics,
+        deviceStats,
+        sessionStats
+      ] = await Promise.all([
+        // Total events
+        prisma.analyticsEvent.count({
+          where: { timestamp: { gte: startDate } }
+        }),
 
-    await this.db.query(query, values);
+        // Unique users
+        prisma.analyticsEvent.findMany({
+          where: { timestamp: { gte: startDate } },
+          distinct: ['user_fingerprint'],
+          select: { user_fingerprint: true }
+        }),
+
+        // Top pages
+        prisma.analyticsEvent.groupBy({
+          by: ['page_url'],
+          where: {
+            timestamp: { gte: startDate },
+            page_url: { not: null }
+          },
+          _count: { id: true },
+          orderBy: { _count: { id: 'desc' } },
+          take: 10
+        }),
+
+        // Event types distribution
+        prisma.analyticsEvent.groupBy({
+          by: ['event_type'],
+          where: { timestamp: { gte: startDate } },
+          _count: { id: true },
+          _avg: { engagement_score: true }
+        }),
+
+        // Conversion metrics
+        prisma.analyticsEvent.aggregate({
+          where: {
+            timestamp: { gte: startDate },
+            conversion_value: { gt: 0 }
+          },
+          _count: { id: true },
+          _sum: { conversion_value: true },
+          _avg: { conversion_value: true }
+        }),
+
+        // Device type stats
+        prisma.analyticsSession.groupBy({
+          by: ['device_type'],
+          where: { started_at: { gte: startDate } },
+          _count: { id: true }
+        }),
+
+        // Session statistics
+        prisma.analyticsSession.aggregate({
+          where: { started_at: { gte: startDate } },
+          _count: { id: true },
+          _avg: { page_views: true },
+          _sum: { conversions: true }
+        })
+      ]);
+
+      return {
+        period: period,
+        overview: {
+          total_events: totalEvents,
+          unique_users: uniqueUsers.length,
+          total_sessions: sessionStats._count.id,
+          avg_pages_per_session: sessionStats._avg.page_views || 0,
+          total_conversions: sessionStats._sum.conversions || 0
+        },
+        top_pages: topPages.map(page => ({
+          url: page.page_url,
+          views: page._count.id
+        })),
+        event_distribution: eventTypes.map(type => ({
+          type: type.event_type,
+          count: type._count.id,
+          avg_engagement: type._avg.engagement_score || 0
+        })),
+        conversions: {
+          total_conversions: conversionMetrics._count.id,
+          total_value: parseFloat(conversionMetrics._sum.conversion_value || 0),
+          avg_value: parseFloat(conversionMetrics._avg.conversion_value || 0)
+        },
+        devices: deviceStats.map(device => ({
+          type: device.device_type,
+          sessions: device._count.id
+        })),
+        generated_at: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error('Dashboard data error:', error);
+      throw error;
+    }
+  }
+
+  // Helper methods (business logic - no SQL changes needed)
+  
+  calculateEngagementScore(eventData) {
+    let score = 1;
+    
+    if (eventData.event_type === 'page_view') score = 1;
+    else if (eventData.event_type === 'click') score = 2;
+    else if (eventData.event_type === 'scroll') score = 1.5;
+    else if (eventData.event_type === 'form_submit') score = 5;
+    else if (eventData.event_type === 'conversion') score = 10;
+    
+    // Adjust for page type
+    if (eventData.page_url?.includes('/booking')) score *= 2;
+    if (eventData.page_url?.includes('/checkout')) score *= 3;
+    
+    return score;
+  }
+
+  isCriticalEvent(eventType) {
+    return ['conversion', 'form_submit', 'error', 'checkout'].includes(eventType);
+  }
+
+  detectDeviceType(userAgent) {
+    if (!userAgent) return 'unknown';
+    if (/Mobile|Android|iPhone|iPad/.test(userAgent)) return 'mobile';
+    if (/Tablet|iPad/.test(userAgent)) return 'tablet';
+    return 'desktop';
+  }
+
+  extractBrowser(userAgent) {
+    if (!userAgent) return 'unknown';
+    if (userAgent.includes('Chrome')) return 'Chrome';
+    if (userAgent.includes('Firefox')) return 'Firefox';
+    if (userAgent.includes('Safari')) return 'Safari';
+    if (userAgent.includes('Edge')) return 'Edge';
+    return 'Other';
+  }
+
+  extractOS(userAgent) {
+    if (!userAgent) return 'unknown';
+    if (userAgent.includes('Windows')) return 'Windows';
+    if (userAgent.includes('Mac OS')) return 'macOS';
+    if (userAgent.includes('Linux')) return 'Linux';
+    if (userAgent.includes('Android')) return 'Android';
+    if (userAgent.includes('iOS')) return 'iOS';
+    return 'Other';
+  }
+
+  categorizeBehavior({ totalEvents, totalSessions, avgSessionDuration, avgEngagementScore }) {
+    if (totalEvents > 100 && avgEngagementScore > 5) return 'highly_engaged';
+    if (totalEvents > 50 && avgEngagementScore > 3) return 'engaged';
+    if (totalEvents > 10 && avgEngagementScore > 1) return 'casual';
+    return 'low_engagement';
+  }
+
+  extractFavoritePages(events) {
+    const pageCount = {};
+    events.forEach(event => {
+      if (event.page_url) {
+        pageCount[event.page_url] = (pageCount[event.page_url] || 0) + 1;
+      }
+    });
+    
+    return Object.entries(pageCount)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([url, count]) => ({ url, visits: count }));
+  }
+
+  identifyJourneyStages(journeyData) {
+    const stages = {
+      awareness: journeyData.filter(e => e.page_url?.includes('/') && !e.page_url?.includes('/booking')).length,
+      consideration: journeyData.filter(e => e.page_url?.includes('/services') || e.page_url?.includes('/pricing')).length,
+      decision: journeyData.filter(e => e.page_url?.includes('/booking') || e.event_type === 'form_submit').length,
+      conversion: journeyData.filter(e => e.conversion_value > 0).length
+    };
+    
+    return stages;
+  }
+
+  extractTouchpoints(journeyData) {
+    return journeyData.filter((event, index) => {
+      // Include first event, conversions, and significant page changes
+      return index === 0 || 
+             event.conversion_value > 0 || 
+             event.event_type === 'form_submit' ||
+             (index > 0 && event.page_url !== journeyData[index - 1].page_url);
+    });
+  }
+
+  generateJourneyInsights(journeyData) {
+    const insights = [];
+    
+    if (journeyData.length > 20) {
+      insights.push('High engagement - multiple touchpoints');
+    }
+    
+    const conversionEvents = journeyData.filter(e => e.conversion_value > 0);
+    if (conversionEvents.length > 1) {
+      insights.push('Repeat customer - multiple conversions');
+    }
+    
+    const avgTimeSpent = journeyData.length > 1 
+      ? (new Date(journeyData[journeyData.length - 1].timestamp) - new Date(journeyData[0].timestamp)) / journeyData.length
+      : 0;
+    
+    if (avgTimeSpent > 300000) { // 5 minutes
+      insights.push('Considered decision - extended evaluation period');
+    }
+    
+    return insights;
+  }
+
+  async processCriticalEvent(event) {
+    // Process critical events immediately
+    try {
+      await prisma.analyticsEvent.create({ data: event });
+      
+      // Trigger real-time alerts if needed
+      if (event.event_type === 'error') {
+        console.warn(`🚨 Critical error event: ${event.page_url}`);
+      }
+      
+    } catch (error) {
+      console.error('Critical event processing error:', error);
+    }
+  }
+
+  async cacheEventData(eventId, eventData) {
+    try {
+      await this.redis.setEx(
+        `event:${eventId}`, 
+        3600, // 1 hour cache
+        JSON.stringify(eventData)
+      );
+    } catch (error) {
+      console.error('Event caching error:', error);
+    }
   }
 
   /**
-   * Clean up resources
+   * Close connections gracefully
    */
-  async cleanup() {
-    await this.flushEventQueue();
-    await this.redis.quit();
-    await this.db.end();
+  async close() {
+    try {
+      await this.redis.quit();
+      await prisma.$disconnect();
+    } catch (error) {
+      console.error('Service cleanup error:', error);
+    }
   }
 }
 
-module.exports = AnalyticsService;
+module.exports = new AnalyticsService();
