@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   
   
   // Custom server configuration for WebSocket handling
-  assetPrefix: process.env.NODE_ENV === 'development' ? undefined : '',
+  assetPrefix: process.env.NODE_ENV === 'development' ? undefined : undefined,
   
   // Compiler options for better HMR handling
   compiler: {
@@ -48,7 +48,7 @@ const nextConfig: NextConfig = {
       headers: [
         {
           key: 'Access-Control-Allow-Origin',
-          value: process.env.NODE_ENV === 'development' ? '*' : 'https://revivatech.co.uk',
+          value: '*',
         },
         {
           key: 'Access-Control-Allow-Methods',
@@ -112,7 +112,7 @@ const nextConfig: NextConfig = {
         },
         {
           key: 'Access-Control-Allow-Origin',
-          value: process.env.NODE_ENV === 'development' ? '*' : 'https://revivatech.co.uk',
+          value: '*',
         },
       ],
     },
@@ -214,7 +214,7 @@ const nextConfig: NextConfig = {
   // Webpack configuration for both development and production
   webpack: (config: any, { isServer, dev }: any) => {
     // Development optimizations for faster rebuilds and better Fast Refresh
-    if (dev && !isServer) {
+    if (dev && !isServer && process.env.NODE_ENV === 'development') {
       config.watchOptions = {
         poll: 1000,
         aggregateTimeout: 300,
@@ -222,7 +222,7 @@ const nextConfig: NextConfig = {
       };
       
       // Optimize source maps for development
-      config.devtool = 'cheap-module-source-map';
+      // config.devtool = 'cheap-module-source-map'; // Removed to prevent devtool warning
       
       // Reduce module resolution overhead
       config.resolve.cacheWithContext = false;
@@ -238,6 +238,27 @@ const nextConfig: NextConfig = {
         removeAvailableModules: false,
         removeEmptyChunks: false,
         splitChunks: false,
+      };
+    }
+    
+    // Ensure proper module loading for domain access
+    if (!isServer) {
+      config.output = {
+        ...config.output,
+        publicPath: '/_next/',
+        crossOriginLoading: 'anonymous',
+      };
+      
+      // Ensure webpack modules load correctly with HTTPS
+      config.module = {
+        ...config.module,
+        parser: {
+          ...config.module?.parser,
+          javascript: {
+            ...config.module?.parser?.javascript,
+            dynamicImportMode: 'eager',
+          },
+        },
       };
     }
     

@@ -234,8 +234,29 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             onClick={async () => {
               try {
                 setGeneralError('');
+                
+                // Dynamic callback URL based on current origin
+                const getCallbackURL = () => {
+                  if (typeof window !== 'undefined') {
+                    const { protocol, hostname } = window.location;
+                    
+                    // Production domains - always use HTTPS
+                    if (hostname === 'revivatech.co.uk' || hostname === 'www.revivatech.co.uk') {
+                      return 'https://revivatech.co.uk/dashboard';
+                    }
+                    if (hostname === 'revivatech.com.br' || hostname === 'www.revivatech.com.br') {
+                      return 'https://revivatech.com.br/dashboard';
+                    }
+                    
+                    // Development - use current protocol and port 3010 (frontend)
+                    return `${protocol}//${hostname}:3010/dashboard`;
+                  }
+                  return '/dashboard'; // fallback
+                };
+
                 await signInSocial({
                   provider: "google",
+                  callbackURL: getCallbackURL(),
                 });
                 // The redirect will be handled by Better Auth automatically
                 onSuccess?.();

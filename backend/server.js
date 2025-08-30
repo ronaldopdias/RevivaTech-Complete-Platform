@@ -135,7 +135,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cookie', 'Set-Cookie']
 };
 
 app.use(cors(corsOptions));
@@ -236,6 +236,22 @@ app.get('/health', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Root route handler to prevent "Route not found" errors during OAuth redirects
+app.get('/', (req, res) => {
+  logger.info('Root route accessed - likely OAuth redirect');
+  res.json({
+    message: 'RevivaTech API Backend',
+    version: '2.0.0',
+    timestamp: new Date().toISOString(),
+    note: 'OAuth redirects should use /api/auth endpoints',
+    endpoints: {
+      auth: '/api/auth/*',
+      health: '/health',
+      api: '/api/*'
+    }
+  });
 });
 
 // Comprehensive Health Monitoring System

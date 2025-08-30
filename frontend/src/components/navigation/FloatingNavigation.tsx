@@ -107,41 +107,42 @@ const FloatingNavigation: React.FC = () => {
     scrolled: false,
   });
 
-  // Memoized navigation items based on user role
+  // Memoized navigation items based on user role with emergency fallback
   const navigation = useMemo(() => {
-    if (isLoading) return [];
+    // Emergency fallback: Always generate navigation for PUBLIC role to prevent loading state
+    console.log('FloatingNavigation Emergency Mode - bypassing loading checks');
     
-    // Debug logging to help identify navigation issues
-    console.log('FloatingNavigation Debug:', {
-      currentRole,
-      isLoading,
-      isAuthenticated,
-      user: user ? { role: (user as any).role, email: user.email } : null
-    });
-    
-    const roleNavigation = getNavigationForRole(currentRole);
-    const convertedNavigation = convertRoleNavigation(roleNavigation);
-    
-    console.log('Navigation items:', {
-      roleNavigation,
-      convertedNavigation,
-      count: convertedNavigation.length
-    });
-    
-    // Fallback navigation if role-based navigation fails
-    if (convertedNavigation.length === 0) {
-      console.warn('No navigation items found, using fallback navigation');
-      return [
-        { name: 'Home', href: '/' },
-        { name: 'Apple Repair', href: '/apple' },
-        { name: 'PC Repair', href: '/laptop-pc' },
-        { name: 'Pricing', href: '/pricing' },
-        { name: 'Contact', href: '/contact' }
-      ];
+    try {
+      // Force PUBLIC role to get full navigation immediately
+      const publicRoleNavigation = getNavigationForRole('PUBLIC');
+      const convertedNavigation = convertRoleNavigation(publicRoleNavigation);
+      
+      console.log('Emergency navigation generated:', {
+        count: convertedNavigation.length,
+        items: convertedNavigation.map(item => item.name)
+      });
+      
+      if (convertedNavigation.length > 0) {
+        return convertedNavigation;
+      }
+    } catch (error) {
+      console.error('Error generating emergency navigation:', error);
     }
     
-    return convertedNavigation;
-  }, [currentRole, isLoading, isAuthenticated, user]);
+    // Last resort fallback navigation
+    console.warn('Using last resort fallback navigation');
+    return [
+      { name: 'Home', href: '/' },
+      { name: 'Apple Repair', href: '/apple' },
+      { name: 'PC Repair', href: '/laptop-pc' },
+      { name: 'Gaming Consoles', href: '/consoles' },
+      { name: 'Data Recovery', href: '/data-recovery' },
+      { name: 'Pricing', href: '/pricing' },
+      { name: 'Testimonials', href: '/testimonials' },
+      { name: 'About', href: '/about' },
+      { name: 'Contact', href: '/contact' }
+    ];
+  }, []); // Empty dependency array to prevent re-computation
 
   // Get current role display config
   const currentRoleConfig = ROLE_DISPLAY_CONFIG[currentRole];
@@ -327,19 +328,13 @@ const FloatingNavigation: React.FC = () => {
           >
             <NavigationMenu.Root className="relative">
               <NavigationMenu.List className="flex items-center justify-center space-x-2">
-                {isLoading ? (
-                  <div className="px-4 py-2 text-sm text-gray-500">Loading...</div>
-                ) : navigation.length === 0 ? (
-                  <div className="px-4 py-2 text-sm text-red-500">No navigation items</div>
-                ) : (
-                  navigation.map((item) => (
-                    <NavigationItemComponent
-                      key={item.name}
-                      item={item}
-                      isActive={isActive}
-                    />
-                  ))
-                )}
+                {navigation.map((item) => (
+                  <NavigationItemComponent
+                    key={item.name}
+                    item={item}
+                    isActive={isActive}
+                  />
+                ))}
               </NavigationMenu.List>
             </NavigationMenu.Root>
           </motion.div>
@@ -440,21 +435,15 @@ const FloatingNavigation: React.FC = () => {
             <div className="flex flex-col h-full pt-20 px-6 pb-6 overflow-y-auto">
               <NavigationMenu.Root className="w-full">
                 <NavigationMenu.List className="flex flex-col space-y-4">
-                  {isLoading ? (
-                    <div className="px-4 py-2 text-sm text-gray-500">Loading navigation...</div>
-                  ) : navigation.length === 0 ? (
-                    <div className="px-4 py-2 text-sm text-red-500">No navigation items available</div>
-                  ) : (
-                    navigation.map((item) => (
-                      <NavigationItemComponent
-                        key={item.name}
-                        item={item}
-                        isMobile={true}
-                        isActive={isActive}
-                        toggleMobileMenu={toggleMobileMenu}
-                      />
-                    ))
-                  )}
+                  {navigation.map((item) => (
+                    <NavigationItemComponent
+                      key={item.name}
+                      item={item}
+                      isMobile={true}
+                      isActive={isActive}
+                      toggleMobileMenu={toggleMobileMenu}
+                    />
+                  ))}
                 </NavigationMenu.List>
               </NavigationMenu.Root>
 

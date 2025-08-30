@@ -6,6 +6,7 @@
 
 'use client'
 
+import React from 'react'
 import { createAuthClient } from "better-auth/react"
 import { organization, twoFactor } from "better-auth/plugins"
 
@@ -15,11 +16,7 @@ function getAuthBaseURL(): string {
     // Client-side: Point to the backend API server
     const hostname = window.location.hostname;
     
-    // Dynamic hostname detection for backend API
-    if (hostname.match(/^100\.\d+\.\d+\.\d+$/)) {
-      return 'http://localhost:3011/api/auth';
-    }
-    
+    // Production domain handling
     if (hostname === 'revivatech.co.uk' || hostname === 'www.revivatech.co.uk') {
       return 'https://api.revivatech.co.uk/api/auth';
     }
@@ -28,11 +25,8 @@ function getAuthBaseURL(): string {
       return 'https://api.revivatech.com.br/api/auth';
     }
     
-    if (hostname.includes('.tail1168f5.ts.net')) {
-      return 'http://localhost:3011/api/auth';
-    }
-    
-    // Default: localhost backend
+    // For ALL local development (localhost, 192.x.x.x, 100.x.x.x, etc.)
+    // Always use localhost:3011 backend to avoid OAuth redirect issues
     return 'http://localhost:3011/api/auth';
   }
   
@@ -40,13 +34,21 @@ function getAuthBaseURL(): string {
   return 'http://localhost:3011/api/auth';
 }
 
-// Create Better Auth client - Fixed base URL alignment
+// Create Better Auth client with error handling and timeout
 export const authClient = createAuthClient({
   baseURL: getAuthBaseURL(),
   plugins: [
     organization(),
     twoFactor(),
   ],
+  fetchOptions: {
+    timeout: 3000, // 3 second timeout
+    credentials: "include", // Essential for cross-origin cookie handling
+    onError: (error) => {
+      console.warn('[Better Auth] Network error, falling back to offline mode:', error);
+      // Don't throw - allow graceful fallback
+    }
+  },
 })
 
 // Enhanced sign-in with explicit session synchronization
@@ -101,9 +103,8 @@ export const signIn = async (credentials: { email: string; password: string }) =
   }
 };
 
-// Export Better Auth hooks and utilities
-// Note: Better Auth React client only provides useSession, not useAuth
-export const useSession = authClient.useSession
+// Better Auth native session hook - this is the proper way
+export const useSession = authClient.useSession;
 // Organization hook may not be available without proper plugin setup  
 export const useActiveOrganization = authClient.useActiveOrganization || (() => null)
 // signIn is defined above as custom wrapper

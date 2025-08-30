@@ -8,6 +8,7 @@ const { betterAuth } = require("better-auth");
 const { prismaAdapter } = require("better-auth/adapters/prisma");
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcrypt");
+// Better Auth v1.3.7 uses socialProviders configuration object
 
 // Initialize Prisma Client
 const prisma = new PrismaClient({
@@ -104,13 +105,29 @@ const auth = betterAuth({
     'https://www.revivatech.com.br'
   ],
   
+  // Advanced configuration for cross-origin cookie handling
+  advanced: {
+    cookiePrefix: "revivatech",
+    useSecureCookies: process.env.NODE_ENV === "production",
+    cookie: {
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
+      domain: process.env.COOKIE_DOMAIN || undefined,
+      path: "/",
+      httpOnly: true
+    }
+  },
+  
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      prompt: "select_account",
-      accessType: "offline",
-      scope: ["openid", "email", "profile"],
+      accessType: "offline", 
+      prompt: "select_account consent",
+      // Redirect to frontend after successful OAuth
+      redirectURI: process.env.NODE_ENV === 'production' 
+        ? 'https://revivatech.co.uk/api/auth/callback/google'
+        : 'http://localhost:3011/api/auth/callback/google',
     }
   },
   
