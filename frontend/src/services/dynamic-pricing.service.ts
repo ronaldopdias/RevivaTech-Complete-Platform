@@ -211,7 +211,9 @@ class DynamicPricingService {
 
     // Fetch from API or use defaults
     try {
-      const response = await fetch('/api/pricing/factors');
+      const response = await fetch('/api/pricing/factors', {
+        credentials: 'include'
+      });
       if (response.ok) {
         this.currentFactors = await response.json();
       } else {

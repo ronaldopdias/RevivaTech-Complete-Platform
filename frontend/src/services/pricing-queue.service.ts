@@ -136,7 +136,9 @@ class PricingQueueService {
    */
   async getQueueStatus(): Promise<QueueStatus | null> {
     try {
-      const response = await fetch('/api/queue/status');
+      const response = await fetch('/api/queue/status', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch queue status: ${response.statusText}`);
       }
@@ -176,6 +178,7 @@ class PricingQueueService {
     try {
       const response = await fetch('/api/pricing/dynamic', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deviceId: device.id,
@@ -244,7 +247,9 @@ class PricingQueueService {
    */
   async getQueueMetrics(): Promise<QueueMetrics | null> {
     try {
-      const response = await fetch('/api/queue/metrics');
+      const response = await fetch('/api/queue/metrics', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch queue metrics: ${response.statusText}`);
       }

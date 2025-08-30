@@ -6,7 +6,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Checkbox from '@/components/ui/Checkbox';
-import { useAuth, signIn } from '@/lib/auth';
+import { useAuth, signIn, signInSocial } from '@/lib/auth';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -231,7 +231,19 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         <div className="grid grid-cols-2 gap-4">
           <Button
             variant="outline"
-            onClick={() => console.log('Google login')}
+            onClick={async () => {
+              try {
+                setGeneralError('');
+                await signInSocial({
+                  provider: "google",
+                });
+                // The redirect will be handled by Better Auth automatically
+                onSuccess?.();
+              } catch (error) {
+                console.error('Google sign-in failed:', error);
+                setGeneralError('Failed to sign in with Google. Please try again.');
+              }
+            }}
             disabled={isLoading}
             className="text-black border-gray-300 hover:bg-gray-50"
           >

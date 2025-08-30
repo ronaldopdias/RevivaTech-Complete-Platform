@@ -94,6 +94,7 @@ class AnalyticsApiService {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
+        credentials: 'include',
         headers: {
           ...this.getAuthHeaders(),
           ...options.headers,
@@ -329,7 +330,9 @@ class AnalyticsApiService {
    */
   async checkHealth(): Promise<AnalyticsApiResponse<{ status: string }>> {
     try {
-      const response = await fetch(`${this.baseUrl.replace('/api/analytics', '')}/health`);
+      const response = await fetch(`${this.baseUrl.replace('/api/analytics', '')}/health`, {
+        credentials: 'include'
+      });
       const data = await response.json();
       
       return {

@@ -53,6 +53,35 @@ const safeDivision = (numerator, denominator) => {
     return denominator === 0 ? 0 : (numerator / denominator);
 };
 
+// Helper function to safely count Prisma models that may not exist
+const safeModelCount = async (modelName) => {
+    try {
+        // Check if the model exists in Prisma client
+        if (!(modelName in prisma)) {
+            console.warn(`Model ${modelName} not found in Prisma client`);
+            return 0;
+        }
+        
+        const count = await prisma[modelName].count();
+        return count;
+    } catch (error) {
+        // Handle different types of Prisma errors
+        if (error.code === 'P2021') {
+            // Table does not exist in database
+            console.error(`Table for model ${modelName} does not exist in database`);
+            return 0;
+        } else if (error.code === 'P1001') {
+            // Database connection error
+            console.error(`Database connection error when counting ${modelName}:`, error.message);
+            return 0;
+        }
+        
+        // Other unexpected errors
+        console.error(`Unexpected error counting ${modelName}:`, error.message);
+        return 0;
+    }
+};
+
 // Health check endpoint (no authentication required)
 router.get('/health', (req, res) => {
     res.json({
@@ -62,6 +91,303 @@ router.get('/health', (req, res) => {
         version: '1.0.0'
     });
 });
+
+// DEV-ONLY Dashboard endpoint (no auth for development bypass)
+if (process.env.NODE_ENV === 'development') {
+  router.get('/dashboard-dev', async (req, res) => {
+    try {
+      const { period = '30d' } = req.query;
+      const { startDate } = getTimePeriod(period);
+
+      // Execute all analytics queries in parallel using Prisma
+      const [
+          totalCustomers,
+          totalBookings, 
+          totalRevenue,
+          completedRepairs,
+          pendingRepairs,
+          recentBookings,
+          customerGrowth,
+          revenueGrowth,
+          procedureStats,
+          mediaStats,
+          recentActivity
+      ] = await Promise.all([
+          // Total customers (users with CUSTOMER role)
+          prisma.user.count({
+              where: { role: 'CUSTOMER' }
+          }),
+
+          // Total bookings in period
+          prisma.booking.count({
+              where: { 
+                  createdAt: { gte: startDate } 
+              }
+          }),
+
+          // Total revenue from completed bookings
+          prisma.booking.aggregate({
+              where: {
+                  status: 'COMPLETED',
+                  createdAt: { gte: startDate }
+              },
+              _sum: { finalPrice: true }
+          }),
+
+          // Completed repairs count
+          prisma.booking.count({
+              where: {
+                  status: 'COMPLETED',
+                  createdAt: { gte: startDate }
+              }
+          }),
+
+          // Pending repairs count
+          prisma.booking.count({
+              where: {
+                  status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
+                  createdAt: { gte: startDate }
+              }
+          }),
+
+          // Recent bookings with customer info
+          prisma.booking.findMany({
+              take: 10,
+              orderBy: { createdAt: 'desc' },
+              include: {
+                  customer: {
+                      select: {
+                          firstName: true,
+                          lastName: true,
+                          email: true
+                      }
+                  },
+                  deviceModel: {
+                      include: {
+                          brand: {
+                              include: {
+                                  category: true
+                              }
+                          }
+                      }
+                  }
+              }
+          }),
+
+          // Customer growth (previous period comparison)
+          prisma.user.count({
+              where: {
+                  role: 'CUSTOMER',
+                  createdAt: { 
+                      gte: new Date(startDate.getTime() - (Date.now() - startDate.getTime()))
+                  }
+              }
+          }),
+
+          // Revenue growth (previous period comparison) 
+          prisma.booking.aggregate({
+              where: {
+                  status: 'COMPLETED',
+                  createdAt: { 
+                      gte: new Date(startDate.getTime() - (Date.now() - startDate.getTime())),
+                      lt: startDate
+                  }
+              },
+              _sum: { finalPrice: true }
+          }),
+
+          // Procedure statistics (if repair_procedures table exists)
+          safeModelCount('repairProcedure'),
+
+          // Media statistics (if media_files table exists)
+          safeModelCount('mediaFile'),
+
+          // Recent activity from various tables
+          Promise.all([
+              prisma.booking.findMany({
+                  take: 5,
+                  orderBy: { updatedAt: 'desc' },
+                  select: {
+                      id: true,
+                      status: true,
+                      updatedAt: true,
+                      customer: {
+                          select: { firstName: true, lastName: true }
+                      }
+                  }
+              }),
+              prisma.user.findMany({
+                  take: 3,
+                  where: { role: 'CUSTOMER' },
+                  orderBy: { createdAt: 'desc' },
+                  select: {
+                      firstName: true,
+                      lastName: true,
+                      createdAt: true
+                  }
+              })
+          ]).then(([bookings, customers]) => ({ bookings, customers }))
+      ]);
+
+      // Calculate metrics
+      const currentRevenue = parseFloat(totalRevenue._sum.finalPrice || 0);
+      const previousRevenue = parseFloat(revenueGrowth._sum.finalPrice || 0);
+      const revenueGrowthPercent = previousRevenue > 0 
+          ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
+          : 0;
+
+      const completionRate = totalBookings > 0 
+          ? (completedRepairs / totalBookings) * 100 
+          : 0;
+
+      // Try to fetch Phase 4 ML metrics
+      const mlMetrics = await fetchPhase4Metrics();
+
+      // Build response
+      const dashboardData = {
+          period,
+          overview: {
+              totalCustomers,
+              totalBookings,
+              totalRevenue: currentRevenue,
+              completedRepairs,
+              pendingRepairs,
+              completionRate: parseFloat(completionRate.toFixed(1)),
+              revenueGrowth: parseFloat(revenueGrowthPercent.toFixed(1))
+          },
+          metrics: {
+              customerGrowth: {
+                  current: totalCustomers,
+                  previous: customerGrowth,
+                  growth: totalCustomers - customerGrowth
+              },
+              revenue: {
+                  current: currentRevenue,
+                  previous: previousRevenue, 
+                  growth: revenueGrowthPercent
+              }
+          },
+          stats: {
+              procedures: procedureStats,
+              mediaFiles: mediaStats
+          },
+          recentActivity: {
+              bookings: recentActivity.bookings.map(booking => ({
+                  id: booking.id,
+                  status: booking.status,
+                  customerName: `${booking.customer.firstName} ${booking.customer.lastName}`,
+                  updatedAt: booking.updatedAt.toISOString(),
+                  type: 'booking_update'
+              })),
+              customers: recentActivity.customers.map(customer => ({
+                  name: `${customer.firstName} ${customer.lastName}`,
+                  createdAt: customer.createdAt.toISOString(),
+                  type: 'new_customer'
+              }))
+          },
+          recentBookings: recentBookings.map(booking => ({
+              id: booking.id,
+              customerName: `${booking.customer.firstName} ${booking.customer.lastName}`,
+              customerEmail: booking.customer.email,
+              deviceInfo: `${booking.deviceModel?.brand?.name || 'Unknown'} ${booking.deviceModel?.name || 'Device'}`,
+              repairType: booking.repairType,
+              status: booking.status,
+              finalPrice: parseFloat(booking.finalPrice || 0),
+              createdAt: booking.createdAt.toISOString()
+          })),
+          mlMetrics: mlMetrics || {
+              available: false,
+              message: 'ML metrics server not available'
+          },
+          generatedAt: new Date().toISOString()
+      };
+
+      res.json({
+          success: true,
+          data: dashboardData
+      });
+
+    } catch (error) {
+        req.logger?.error('Dashboard analytics error:', error);
+        res.status(500).json({
+            error: 'Failed to fetch dashboard analytics',
+            code: 'DASHBOARD_ANALYTICS_ERROR',
+            details: error.message
+        });
+    }
+  });
+
+  // DEV-ONLY Realtime endpoint (no auth for development bypass)
+  router.get('/realtime-dev', async (req, res) => {
+    try {
+        const now = new Date();
+        const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+        const [
+            liveBookings,
+            todayRevenue,
+            activeCustomers,
+            systemStatus
+        ] = await Promise.all([
+            // Live booking status
+            prisma.booking.count({
+                where: {
+                    status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] }
+                }
+            }),
+
+            // Today's revenue
+            prisma.booking.aggregate({
+                where: {
+                    status: 'COMPLETED',
+                    createdAt: { gte: last24Hours }
+                },
+                _sum: { finalPrice: true }
+            }),
+
+            // Active customers (customers with recent activity)
+            prisma.user.count({
+                where: {
+                    role: 'CUSTOMER',
+                    bookings: {
+                        some: {
+                            createdAt: { gte: last24Hours }
+                        }
+                    }
+                }
+            }),
+
+            // System status checks
+            Promise.all([
+                prisma.$queryRaw`SELECT 1 as db_healthy`.then(() => ({ database: 'healthy' })).catch(() => ({ database: 'error' })),
+                fetchPhase4Metrics().then(metrics => ({ mlServer: metrics ? 'healthy' : 'unavailable' }))
+            ]).then(([dbStatus, mlStatus]) => ({ ...dbStatus, ...mlStatus }))
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                timestamp: now.toISOString(),
+                metrics: {
+                    liveBookings,
+                    todayRevenue: parseFloat(todayRevenue._sum.finalPrice || 0),
+                    activeCustomers
+                },
+                systemStatus,
+                refreshRate: '30s'
+            }
+        });
+
+    } catch (error) {
+        req.logger?.error('Real-time analytics error:', error);
+        res.status(500).json({
+            error: 'Failed to fetch real-time analytics',
+            code: 'REALTIME_ANALYTICS_ERROR',
+            details: error.message
+        });
+    }
+  });
+}
 
 // Dashboard overview endpoint with Prisma aggregations
 router.get('/dashboard', authenticateToken, requireAdmin, async (req, res) => {
@@ -167,10 +493,10 @@ router.get('/dashboard', authenticateToken, requireAdmin, async (req, res) => {
             }),
 
             // Procedure statistics (if repair_procedures table exists)
-            prisma.repairProcedure.count().catch(() => 0),
+            safeModelCount('repairProcedure'),
 
             // Media statistics (if media_files table exists)
-            prisma.mediaFile.count().catch(() => 0),
+            safeModelCount('mediaFile'),
 
             // Recent activity from various tables
             Promise.all([

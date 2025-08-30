@@ -431,7 +431,15 @@ if (process.env.NODE_ENV === 'development') {
   try {
     const adminAnalyticsRoutes = require('./routes/admin/analytics');
     app.use('/api/dev/admin/analytics', (req, res, next) => {
-    
+      // Create fake auth objects to bypass authentication
+      req.user = {
+        id: 'dev-admin',
+        email: 'dev@revivatech.co.uk', 
+        role: 'SUPER_ADMIN',
+        firstName: 'Dev',
+        lastName: 'Admin'
+      };
+      req.session = { userId: 'dev-admin' };
       req.logger = logger;
       console.log('🧪 DEV: Bypassing admin auth for analytics');
       next();
@@ -464,17 +472,17 @@ if (process.env.NODE_ENV === 'development') {
       const statsQuery = `
         SELECT 
           COUNT(*) as total_repairs,
-          COUNT(CASE WHEN booking_status = 'pending' THEN 1 END) as pending_repairs,
-          COUNT(CASE WHEN booking_status = 'in_progress' THEN 1 END) as in_progress_repairs,
-          COUNT(CASE WHEN booking_status = 'ready_for_pickup' THEN 1 END) as ready_for_pickup,
-          COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) as completed_repairs,
+          COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_repairs,
+          COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as in_progress_repairs,
+          COUNT(CASE WHEN status = 'READY_FOR_PICKUP' THEN 1 END) as ready_for_pickup,
+          COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_repairs,
           AVG(CASE 
-            WHEN booking_status = 'completed' AND actual_completion IS NOT NULL 
-            THEN EXTRACT(EPOCH FROM (actual_completion - created_at)) / 3600 
+            WHEN status = 'COMPLETED' AND "completedAt" IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM ("completedAt" - "createdAt")) / 3600 
           END) as avg_completion_hours,
-          AVG(quote_total_price) as average_price
+          AVG("finalPrice") as average_price
         FROM bookings
-        WHERE created_at >= NOW() - INTERVAL '30 days'
+        WHERE "createdAt" >= NOW() - INTERVAL '30 days'
       `;
 
       const result = await pool.query(statsQuery);
@@ -503,6 +511,54 @@ if (process.env.NODE_ENV === 'development') {
     }
   });
 
+  // Development bypass for admin repairs stats summary (matching frontend expectation)
+  app.get('/api/dev/admin/repairs/stats/summary', async (req, res) => {
+    try {
+      req.logger = logger;
+      console.log('🧪 DEV: Bypassing admin auth for repair stats summary');
+      
+      const statsQuery = `
+        SELECT 
+          COUNT(*) as total_repairs,
+          COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_repairs,
+          COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as in_progress_repairs,
+          COUNT(CASE WHEN status = 'READY_FOR_PICKUP' THEN 1 END) as ready_for_pickup,
+          COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_repairs,
+          AVG(CASE 
+            WHEN status = 'COMPLETED' AND "completedAt" IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM ("completedAt" - "createdAt")) / 3600 
+          END) as avg_completion_hours,
+          AVG("finalPrice") as average_price
+        FROM bookings
+        WHERE "createdAt" >= NOW() - INTERVAL '30 days'
+      `;
+
+      const result = await pool.query(statsQuery);
+      const stats = result.rows[0];
+
+      // Convert strings to numbers
+      stats.total_repairs = parseInt(stats.total_repairs);
+      stats.pending_repairs = parseInt(stats.pending_repairs);
+      stats.in_progress_repairs = parseInt(stats.in_progress_repairs);
+      stats.ready_for_pickup = parseInt(stats.ready_for_pickup);
+      stats.completed_repairs = parseInt(stats.completed_repairs);
+      stats.avg_completion_hours = parseFloat(stats.avg_completion_hours) || 0;
+      stats.average_price = parseFloat(stats.average_price) || 0;
+
+      res.json({
+        success: true,
+        stats
+      });
+    } catch (error) {
+      console.error('🔥 DEV REPAIR STATS SUMMARY ERROR:', error);
+      res.status(500).json({
+        error: 'Failed to fetch repair statistics summary',
+        code: 'FETCH_REPAIR_STATS_SUMMARY_ERROR',
+        details: error.message
+      });
+    }
+  });
+
   // Development bypass for admin bookings stats (temporary)
   app.get('/api/dev/admin/bookings/stats/overview', async (req, res) => {
     try {
@@ -513,26 +569,26 @@ if (process.env.NODE_ENV === 'development') {
       const statsQuery = `
         SELECT 
           COUNT(*) as total_bookings,
-          COUNT(DISTINCT customer_id) as active_customers,
-          COUNT(CASE WHEN DATE(created_at) = CURRENT_DATE THEN 1 END) as new_customers_today,
-          COUNT(CASE WHEN booking_status = 'pending' THEN 1 END) as pending_bookings,
-          COUNT(CASE WHEN booking_status = 'in_progress' THEN 1 END) as in_progress_bookings,
-          COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) as completed_bookings,
-          COUNT(CASE WHEN booking_status = 'cancelled' THEN 1 END) as cancelled_bookings,
+          COUNT(DISTINCT "customerId") as active_customers,
+          COUNT(CASE WHEN DATE("createdAt") = CURRENT_DATE THEN 1 END) as new_customers_today,
+          COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_bookings,
+          COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as in_progress_bookings,
+          COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed_bookings,
+          COUNT(CASE WHEN status = 'CANCELLED' THEN 1 END) as cancelled_bookings,
           AVG(CASE 
-            WHEN booking_status = 'completed' AND actual_completion IS NOT NULL 
-            THEN EXTRACT(EPOCH FROM (actual_completion - created_at)) / 3600 
+            WHEN status = 'COMPLETED' AND "completedAt" IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM ("completedAt" - "createdAt")) / 3600 
           END) as avg_completion_time,
-          SUM(COALESCE(quote_total_price, 0)) as total_revenue,
-          AVG(COALESCE(quote_total_price, 0)) as avg_order_value,
+          SUM(COALESCE("finalPrice", 0)) as total_revenue,
+          AVG(COALESCE("finalPrice", 0)) as avg_order_value,
           CASE 
             WHEN COUNT(*) > 0 THEN 
-              COUNT(CASE WHEN booking_status = 'completed' THEN 1 END) * 100.0 / COUNT(*)
+              COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) * 100.0 / COUNT(*)
             ELSE 0 
           END as completion_rate,
           0 as low_stock_items
         FROM bookings
-        WHERE created_at >= NOW() - INTERVAL '30 days'
+        WHERE "createdAt" >= NOW() - INTERVAL '30 days'
       `;
 
       const result = await pool.query(statsQuery);

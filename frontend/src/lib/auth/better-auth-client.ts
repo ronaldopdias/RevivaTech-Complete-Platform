@@ -109,6 +109,8 @@ export const useActiveOrganization = authClient.useActiveOrganization || (() => 
 // signIn is defined above as custom wrapper
 export const signOut = authClient.signOut  
 export const signUp = authClient.signUp
+// Social sign-in for OAuth providers
+export const signInSocial = authClient.signIn.social
 
 // Enhanced session refresh utility for Better Auth sync
 export const refreshSession = async () => {

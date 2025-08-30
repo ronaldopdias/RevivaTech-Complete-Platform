@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
     // Note: buildActivity option is deprecated in Next.js 15.3+ and removed
   },
   
+  
   // Custom server configuration for WebSocket handling
   assetPrefix: process.env.NODE_ENV === 'development' ? undefined : '',
   
@@ -41,6 +42,24 @@ const nextConfig: NextConfig = {
   
   // PWA Configuration with aggressive cache busting for auth changes
   headers: async () => [
+    // Cross-origin headers for development domain access
+    {
+      source: '/:path*',
+      headers: [
+        {
+          key: 'Access-Control-Allow-Origin',
+          value: process.env.NODE_ENV === 'development' ? '*' : 'https://revivatech.co.uk',
+        },
+        {
+          key: 'Access-Control-Allow-Methods',
+          value: 'GET, POST, PUT, DELETE, OPTIONS',
+        },
+        {
+          key: 'Access-Control-Allow-Headers',
+          value: 'Content-Type, Authorization',
+        },
+      ],
+    },
     {
       source: '/sw.js',
       headers: [
@@ -81,15 +100,33 @@ const nextConfig: NextConfig = {
         },
       ],
     },
-    // Optimize JavaScript file caching for development
+    // Fix webpack chunk loading in development
     {
       source: '/_next/static/chunks/:path*',
       headers: [
         {
           key: 'Cache-Control',
           value: process.env.NODE_ENV === 'development' 
-            ? 'public, max-age=31536000, immutable' 
-            : 'public, max-age=0, must-revalidate',
+            ? 'no-cache, no-store, must-revalidate' 
+            : 'public, max-age=31536000, immutable',
+        },
+        {
+          key: 'Access-Control-Allow-Origin',
+          value: process.env.NODE_ENV === 'development' ? '*' : 'https://revivatech.co.uk',
+        },
+      ],
+    },
+    // Fix webpack HMR in development
+    {
+      source: '/_next/static/webpack/:path*',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'no-cache, no-store, must-revalidate',
+        },
+        {
+          key: 'Access-Control-Allow-Origin',
+          value: '*',
         },
       ],
     },
@@ -175,7 +212,35 @@ const nextConfig: NextConfig = {
   },
   
   // Webpack configuration for both development and production
-  webpack: (config: any, { isServer }: any) => {
+  webpack: (config: any, { isServer, dev }: any) => {
+    // Development optimizations for faster rebuilds and better Fast Refresh
+    if (dev && !isServer) {
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300,
+        ignored: ['**/node_modules', '**/.git', '**/.next', '**/coverage'],
+      };
+      
+      // Optimize source maps for development
+      config.devtool = 'cheap-module-source-map';
+      
+      // Reduce module resolution overhead
+      config.resolve.cacheWithContext = false;
+      config.cache = {
+        type: 'filesystem',
+        allowCollectingMemory: true,
+        memoryCacheUnaffected: true,
+      };
+      
+      // Optimize module replacement for Fast Refresh
+      config.optimization = {
+        ...config.optimization,
+        removeAvailableModules: false,
+        removeEmptyChunks: false,
+        splitChunks: false,
+      };
+    }
+    
     // Path aliases
     config.resolve.alias = {
       ...config.resolve.alias,
@@ -195,6 +260,7 @@ const nextConfig: NextConfig = {
         'pg-hstore': false,
         ioredis: false,
       };
+
     }
 
     // Bundle analyzer for production builds

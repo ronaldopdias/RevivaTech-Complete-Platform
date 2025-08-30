@@ -14,7 +14,7 @@ export { useSession, useActiveOrganization } from './better-auth-client'
 export { useUserRole } from './useUserRole'
 
 // Auth actions
-export { signIn, signOut, signUp } from './better-auth-client'
+export { signIn, signOut, signUp, signInSocial } from './better-auth-client'
 
 // Types and utilities (client-safe)
 export type { User, Session } from 'better-auth/types'

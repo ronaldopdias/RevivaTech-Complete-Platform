@@ -125,6 +125,10 @@ export interface SystemHealth {
 }
 
 class AdminService {
+  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+  private readonly DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly STALE_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for stale data
+
   /**
    * Get authentication headers for Better Auth (cookie-based)
    */
@@ -134,6 +138,116 @@ class AdminService {
     return {
       'Content-Type': 'application/json',
     };
+  }
+
+  /**
+   * Get cached data if available and not expired
+   */
+  private getCachedData(key: string, allowStale: boolean = false): any | null {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+
+    const now = Date.now();
+    const age = now - cached.timestamp;
+
+    if (age < cached.ttl) {
+      return { ...cached.data, _cached: false };
+    }
+
+    if (allowStale && age < this.STALE_CACHE_TTL) {
+      return { ...cached.data, _cached: true, _stale: true };
+    }
+
+    return null;
+  }
+
+  /**
+   * Cache data with TTL
+   */
+  private setCachedData(key: string, data: any, ttl: number = this.DEFAULT_CACHE_TTL): void {
+    this.cache.set(key, {
+      data: { ...data },
+      timestamp: Date.now(),
+      ttl
+    });
+  }
+
+  /**
+   * Get fallback data for dashboard metrics
+   */
+  private getFallbackDashboardMetrics(): DashboardMetrics {
+    return {
+      overview: {
+        procedures: {
+          total_procedures: 0,
+          published_count: 0,
+          draft_count: 0,
+          recent_procedures: 0,
+          avg_success_rate: 0,
+          total_views: 0,
+        },
+        media: {
+          total_files: 0,
+          image_count: 0,
+          video_count: 0,
+          total_size_mb: 0,
+          recent_uploads: 0,
+        },
+        performance: {
+          phase4_connected: false,
+          ml_accuracy: 0,
+          system_health: 'unavailable',
+        },
+      },
+      recent_activity: [],
+      ml_metrics: { available: false, message: 'Service temporarily unavailable' },
+      system_performance: [],
+      metadata: {
+        period: '24h',
+        generated_at: new Date().toISOString(),
+      },
+      _error: true,
+      _message: 'Unable to load live data. Showing defaults.',
+    } as DashboardMetrics & { _error: boolean; _message: string };
+  }
+
+  /**
+   * Get fallback data for repair stats
+   */
+  private getFallbackRepairStats(): RepairStats {
+    return {
+      total_repairs: 0,
+      pending_repairs: 0,
+      in_progress_repairs: 0,
+      ready_for_pickup: 0,
+      completed_repairs: 0,
+      avg_completion_hours: 0,
+      average_price: 0,
+      _error: true,
+      _message: 'Unable to load repair statistics',
+    } as RepairStats & { _error: boolean; _message: string };
+  }
+
+  /**
+   * Get fallback data for booking stats
+   */
+  private getFallbackBookingStats(): BookingStats {
+    return {
+      total_bookings: 0,
+      active_customers: 0,
+      new_customers_today: 0,
+      pending_bookings: 0,
+      in_progress_bookings: 0,
+      completed_bookings: 0,
+      cancelled_bookings: 0,
+      avg_completion_time: 0,
+      total_revenue: 0,
+      avg_order_value: 0,
+      completion_rate: 0,
+      low_stock_items: 0,
+      _error: true,
+      _message: 'Unable to load booking statistics',
+    } as BookingStats & { _error: boolean; _message: string };
   }
 
   /**
@@ -153,10 +267,19 @@ class AdminService {
   }
 
   /**
-   * Get dashboard metrics
+   * Get dashboard metrics with comprehensive error handling and caching
    */
   async getDashboardMetrics(period: string = '7d'): Promise<DashboardMetrics> {
+    const cacheKey = `dashboard-metrics-${period}`;
+    
     try {
+      // Check for cached data first
+      const cachedData = this.getCachedData(cacheKey);
+      if (cachedData) {
+        console.log('📋 Admin Service: Using cached dashboard metrics');
+        return cachedData;
+      }
+
       // Force development mode detection and use localhost backend
       const isDevelopment = process.env.NODE_ENV === 'development' || 
                            window.location.hostname === 'localhost' ||
@@ -165,29 +288,68 @@ class AdminService {
       // Always use direct localhost connection in development
       const baseUrl = isDevelopment ? 'http://localhost:3011' : getApiBaseUrl();
       const endpoint = isDevelopment 
-        ? `${baseUrl}/api/dev/admin/analytics/dashboard?period=${period}`
+        ? `${baseUrl}/api/dev/admin/analytics/dashboard-dev?period=${period}`
         : `${baseUrl}/api/admin/analytics/dashboard?period=${period}`;
         
       console.log(`🔍 Admin Service: Using endpoint ${endpoint} (dev=${isDevelopment})`);
-      const response = await fetch(endpoint, { method: 'GET' });
+      
+      const response = await this.makeAuthenticatedRequest(endpoint, { method: 'GET' });
 
       if (!response.ok) {
+        // Try to get stale cached data if available
+        const staleData = this.getCachedData(cacheKey, true);
+        if (staleData) {
+          console.warn(`⚠️ Admin Service: API error ${response.status}, using stale cache`);
+          return staleData;
+        }
+        
         throw new Error(`Failed to fetch dashboard metrics: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.data;
+      const metrics = data.data || data;
+      
+      // Cache successful response
+      this.setCachedData(cacheKey, metrics);
+      
+      console.log('✅ Admin Service: Dashboard metrics fetched and cached');
+      return metrics;
+      
     } catch (error) {
-      console.error('Error fetching dashboard metrics:', error);
-      throw error;
+      console.error('❌ Admin Service: Error fetching dashboard metrics:', error);
+      
+      // Try to return stale cached data as last resort
+      const staleData = this.getCachedData(cacheKey, true);
+      if (staleData) {
+        console.log('🔄 Admin Service: Using stale cached data due to error');
+        return staleData;
+      }
+      
+      // Return fallback data instead of throwing
+      console.log('🔄 Admin Service: Using fallback dashboard data');
+      const fallbackData = this.getFallbackDashboardMetrics();
+      
+      // Cache fallback data with shorter TTL
+      this.setCachedData(cacheKey, fallbackData, 60000); // 1 minute
+      
+      return fallbackData;
     }
   }
 
   /**
-   * Get repair statistics
+   * Get repair statistics with comprehensive error handling and caching
    */
   async getRepairStats(): Promise<RepairStats> {
+    const cacheKey = 'repair-stats';
+    
     try {
+      // Check for cached data first
+      const cachedData = this.getCachedData(cacheKey);
+      if (cachedData) {
+        console.log('📋 Admin Service: Using cached repair stats');
+        return cachedData;
+      }
+
       // Force development mode detection and use localhost backend
       const isDevelopment = process.env.NODE_ENV === 'development' || 
                            window.location.hostname === 'localhost' ||
@@ -196,29 +358,67 @@ class AdminService {
       // Always use direct localhost connection in development
       const baseUrl = isDevelopment ? 'http://localhost:3011' : getApiBaseUrl();
       const endpoint = isDevelopment 
-        ? `${baseUrl}/api/dev/admin/repairs/stats/overview`
-        : `${baseUrl}/api/admin/repairs/stats/overview`;
+        ? `${baseUrl}/api/dev/admin/repairs/stats/summary`
+        : `${baseUrl}/api/admin/repairs/stats/summary`;
         
       console.log(`🔍 Admin Service: Fetching repair stats from ${endpoint} (dev=${isDevelopment})`);
-      const response = await fetch(endpoint, { method: 'GET' });
+      const response = await this.makeAuthenticatedRequest(endpoint, { method: 'GET' });
 
       if (!response.ok) {
+        // Try to get stale cached data if available
+        const staleData = this.getCachedData(cacheKey, true);
+        if (staleData) {
+          console.warn(`⚠️ Admin Service: Repair stats API error ${response.status}, using stale cache`);
+          return staleData;
+        }
+        
         throw new Error(`Failed to fetch repair stats: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.stats;
+      const stats = data.stats || data;
+      
+      // Cache successful response
+      this.setCachedData(cacheKey, stats);
+      
+      console.log('✅ Admin Service: Repair stats fetched and cached');
+      return stats;
+      
     } catch (error) {
-      console.error('Error fetching repair stats:', error);
-      throw error;
+      console.error('❌ Admin Service: Error fetching repair stats:', error);
+      
+      // Try to return stale cached data as last resort
+      const staleData = this.getCachedData(cacheKey, true);
+      if (staleData) {
+        console.log('🔄 Admin Service: Using stale cached repair stats due to error');
+        return staleData;
+      }
+      
+      // Return fallback data instead of throwing
+      console.log('🔄 Admin Service: Using fallback repair stats');
+      const fallbackData = this.getFallbackRepairStats();
+      
+      // Cache fallback data with shorter TTL
+      this.setCachedData(cacheKey, fallbackData, 60000); // 1 minute
+      
+      return fallbackData;
     }
   }
 
   /**
-   * Get booking statistics
+   * Get booking statistics with comprehensive error handling and caching
    */
   async getBookingStats(): Promise<BookingStats> {
+    const cacheKey = 'booking-stats';
+    
     try {
+      // Check for cached data first
+      const cachedData = this.getCachedData(cacheKey);
+      if (cachedData) {
+        console.log('📋 Admin Service: Using cached booking stats');
+        return cachedData;
+      }
+
       // Force development mode detection and use localhost backend
       const isDevelopment = process.env.NODE_ENV === 'development' || 
                            window.location.hostname === 'localhost' ||
@@ -231,17 +431,46 @@ class AdminService {
         : `${baseUrl}/api/admin/bookings/stats/overview`;
         
       console.log(`🔍 Admin Service: Fetching booking stats from ${endpoint} (dev=${isDevelopment})`);
-      const response = await fetch(endpoint, { method: 'GET' });
+      const response = await this.makeAuthenticatedRequest(endpoint, { method: 'GET' });
 
       if (!response.ok) {
+        // Try to get stale cached data if available
+        const staleData = this.getCachedData(cacheKey, true);
+        if (staleData) {
+          console.warn(`⚠️ Admin Service: Booking stats API error ${response.status}, using stale cache`);
+          return staleData;
+        }
+        
         throw new Error(`Failed to fetch booking stats: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.stats;
+      const stats = data.stats || data;
+      
+      // Cache successful response
+      this.setCachedData(cacheKey, stats);
+      
+      console.log('✅ Admin Service: Booking stats fetched and cached');
+      return stats;
+      
     } catch (error) {
-      console.error('Error fetching booking stats:', error);
-      throw error;
+      console.error('❌ Admin Service: Error fetching booking stats:', error);
+      
+      // Try to return stale cached data as last resort
+      const staleData = this.getCachedData(cacheKey, true);
+      if (staleData) {
+        console.log('🔄 Admin Service: Using stale cached booking stats due to error');
+        return staleData;
+      }
+      
+      // Return fallback data instead of throwing
+      console.log('🔄 Admin Service: Using fallback booking stats');
+      const fallbackData = this.getFallbackBookingStats();
+      
+      // Cache fallback data with shorter TTL
+      this.setCachedData(cacheKey, fallbackData, 60000); // 1 minute
+      
+      return fallbackData;
     }
   }
 

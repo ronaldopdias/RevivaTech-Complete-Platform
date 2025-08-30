@@ -88,6 +88,9 @@ const auth = betterAuth({
   // Set base path for API endpoints
   basePath: "/api/auth",
   
+  // Set base URL for OAuth redirects (hardcoded since env var not loading)
+  baseURL: "http://localhost:3011/api/auth",
+  
   // CORS and origin configuration for cross-origin development
   trustHost: true,
   trustedOrigins: [
@@ -100,6 +103,16 @@ const auth = betterAuth({
     'https://revivatech.com.br',
     'https://www.revivatech.com.br'
   ],
+  
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      prompt: "select_account",
+      accessType: "offline",
+      scope: ["openid", "email", "profile"],
+    }
+  },
   
   user: {
     additionalFields: {

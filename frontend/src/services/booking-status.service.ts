@@ -247,7 +247,9 @@ class BookingStatusService {
    */
   async getBookingProgress(bookingId: string): Promise<BookingProgress | null> {
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/progress`);
+      const response = await fetch(`/api/bookings/${bookingId}/progress`, {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch booking progress');
       }
@@ -263,7 +265,9 @@ class BookingStatusService {
    */
   async getStatusHistory(bookingId: string): Promise<BookingStatusUpdate[]> {
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/status-history`);
+      const response = await fetch(`/api/bookings/${bookingId}/status-history`, {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch status history');
       }
@@ -279,7 +283,9 @@ class BookingStatusService {
    */
   async getCustomerMessages(bookingId: string): Promise<CustomerMessage[]> {
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/messages`);
+      const response = await fetch(`/api/bookings/${bookingId}/messages`, {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch customer messages');
       }
@@ -297,6 +303,7 @@ class BookingStatusService {
     try {
       await fetch(`/api/messages/${messageId}/read`, {
         method: 'POST',
+        credentials: 'include',
       });
     } catch (error) {
       this.log('Error marking message as read', error);
@@ -314,6 +321,7 @@ class BookingStatusService {
     try {
       await fetch(`/api/messages/${messageId}/actions/${actionId}`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
