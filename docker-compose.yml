@@ -88,6 +88,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-revivatech}
       - POSTGRES_USER=${POSTGRES_USER:-revivatech}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST_AUTH_METHOD=${POSTGRES_HOST_AUTH_METHOD:-trust}
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - revivatech_db_data:/var/lib/postgresql/data/pgdata

@@ -15,8 +15,8 @@ model User {
   name                                              String                   // REQUIRED by Better Auth
   image                                             String?                  // REQUIRED by Better Auth  
   username                                          String?                  @unique
-  firstName                                         String?
-  lastName                                          String?
+  firstName                                         String
+  lastName                                          String
   phone                                             String?
   role                                              UserRole                 @default(CUSTOMER)
   isActive                                          Boolean                  @default(true)
@@ -26,6 +26,13 @@ model User {
   createdAt                                         DateTime                 @default(now())
   updatedAt                                         DateTime                 @updatedAt
   password                                          String?               @map("password_hash")
+  // Better Auth additional fields  
+  googleId                                          String?
+  profilePicture                                    String?
+  locale                                            String?
+  domain                                            String?
+  registrationStatus                                String?                  @default("PENDING_PROFILE_COMPLETION")
+  profileCompletedAt                                String?
   login_attempts                                    Int?                     @default(0)
   locked_until                                      DateTime?                @db.Timestamp(6)
   analytics_events                                  analytics_events[]
@@ -1200,7 +1207,7 @@ enum InvoiceStatus {
 
 model Account {
   id                       String    @id @default(cuid())
-  providerAccountId        String
+  accountId                String    // Better Auth standard field name
   provider                 String
   userId                   String
   user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1217,7 +1224,8 @@ model Account {
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
-  @@map("accounts")
+  @@unique([provider, accountId])  // Updated to match Better Auth
+  @@map("accounts")  // Keep existing table name
 }
 
 model Session {

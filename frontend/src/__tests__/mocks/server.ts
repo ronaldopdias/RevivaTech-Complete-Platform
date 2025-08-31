@@ -8,6 +8,110 @@ import { rest } from 'msw';
 
 // Mock API handlers for testing
 export const handlers = [
+  // Better Auth API mocks
+  rest.post('/api/auth/sign-in/email', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        user: {
+          id: 'test-user-id',
+          email: 'test@revivatech.co.uk',
+          name: 'Test User',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'CUSTOMER',
+          isVerified: true,
+          emailVerified: true,
+        },
+        session: {
+          id: 'test-session-id',
+          userId: 'test-user-id',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        },
+      })
+    );
+  }),
+
+  rest.get('/api/auth/session', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        user: {
+          id: 'test-user-id',
+          email: 'test@revivatech.co.uk',
+          name: 'Test User',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'CUSTOMER',
+          isVerified: true,
+          emailVerified: true,
+        },
+        session: {
+          id: 'test-session-id',
+          userId: 'test-user-id',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        },
+      })
+    );
+  }),
+
+  rest.post('/api/auth/sign-out', (req, res, ctx) => {
+    return res(ctx.json({ success: true }));
+  }),
+
+  rest.post('/api/auth/sign-up/email', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        user: {
+          id: 'new-user-id',
+          email: 'new@revivatech.co.uk',
+          name: 'New User',
+          firstName: 'New',
+          lastName: 'User',
+          role: 'CUSTOMER',
+          isVerified: false,
+          emailVerified: false,
+        },
+        session: {
+          id: 'new-session-id',
+          userId: 'new-user-id',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        },
+      })
+    );
+  }),
+
+  rest.get('/api/auth/callback/google', (req, res, ctx) => {
+    return res(ctx.status(302), ctx.set('Location', '/auth/complete-profile'));
+  }),
+
+  rest.get('/api/profile-completion/status', (req, res, ctx) => {
+    const userId = req.url.searchParams.get('userId');
+    return res(
+      ctx.json({
+        success: true,
+        needsCompletion: !userId || userId === 'incomplete-user-id',
+        missingFields: userId === 'incomplete-user-id' ? ['firstName', 'lastName'] : [],
+      })
+    );
+  }),
+
+  rest.post('/api/profile-completion/complete', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        success: true,
+        user: {
+          id: 'completed-user-id',
+          email: 'completed@revivatech.co.uk',
+          name: 'Completed User',
+          firstName: 'Completed',
+          lastName: 'User',
+          role: 'CUSTOMER',
+          isVerified: true,
+          emailVerified: true,
+        },
+      })
+    );
+  }),
+
   // Admin Dashboard API mocks
   rest.get('/api/admin/stats', (req, res, ctx) => {
     return res(

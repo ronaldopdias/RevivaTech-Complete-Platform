@@ -97,14 +97,15 @@ const corsOptions = {
     const envOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(o => o.trim()) : [];
     const allowedOrigins = [...baseOrigins, ...envOrigins];
     
+    // No origin (server-to-server, health checks) - always allow in all environments
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
     // In development mode, be more permissive
     const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
     if (isDevelopment) {
-      // No origin (server-to-server) - always allow
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
       
       // Allow any localhost or 127.0.0.1 variations
       if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
@@ -129,8 +130,8 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      logger.warn(`CORS blocked origin: ${origin}`);
-      callback(new Error(`Not allowed by CORS: ${origin}`));
+      logger.warn(`CORS blocked origin: ${origin || 'undefined'}`);
+      callback(new Error(`Not allowed by CORS: ${origin || 'undefined'}`));
     }
   },
   credentials: true,

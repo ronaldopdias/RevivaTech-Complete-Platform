@@ -1,129 +1,64 @@
 /**
- * Better Auth Express Handler
- * 
- * Custom Express adapter for Better Auth using official APIs only.
- * This handler creates proper Web API Request objects that Better Auth expects,
- * eliminating compatibility issues with toNodeHandler.
+ * Official Better Auth Express Handler
+ * Creates the missing handler that server.js requires
+ * Uses Better Auth's official handler method
  */
 
-const auth = require('./better-auth-fixed');
+const auth = require('./better-auth-clean.js');
 
 /**
- * Custom Express handler for Better Auth
- * Uses Better Auth's official handler method with proper Web API Request objects
+ * Better Auth Express Handler
+ * Converts Express requests to Web API format for Better Auth
+ * This is the official way to integrate Better Auth with Express
  */
-async function betterAuthHandler(req, res) {
+const betterAuthHandler = async (req, res) => {
   try {
-    console.log('📨 Better Auth Express handler:', req.method, req.originalUrl);
+    // Construct the full URL for Better Auth
+    const protocol = req.secure ? 'https' : 'http';
+    const host = req.get('Host');
+    const url = `${protocol}://${host}${req.originalUrl}`;
     
-    // Create a proper URL from the Express request
-    const protocol = req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-    const host = req.headers.host || 'localhost:3011';
-    const url = new URL(req.originalUrl || req.url, `${protocol}://${host}`);
-    
-    console.log('🔗 Constructed URL:', url.toString());
-    
-    // Create a Web API Headers object
+    // Convert Express headers to Web API Headers
     const headers = new Headers();
     Object.entries(req.headers).forEach(([key, value]) => {
-      if (value) {
-        headers.set(key, Array.isArray(value) ? value.join(', ') : value);
+      if (typeof value === 'string') {
+        headers.set(key, value);
+      } else if (Array.isArray(value)) {
+        headers.set(key, value.join(', '));
       }
     });
     
-    // Handle body for POST/PUT/PATCH requests
-    let body = undefined;
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      if (req.body) {
-        body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-        console.log('📝 Request body prepared for', req.method, '- Body:', body);
-      } else if (req.rawBody) {
-        // Handle raw body if available
-        body = req.rawBody;
-        console.log('📝 Raw body used for', req.method);
-      }
-    }
-    
-    // Create a standard Web API Request object
+    // Create Web API Request for Better Auth
     const request = new Request(url, {
       method: req.method,
       headers: headers,
-      body: body,
+      body: req.method !== 'GET' && req.method !== 'HEAD' && req.body
+        ? (typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
+        : undefined
     });
     
-    console.log('🔄 Calling Better Auth handler...');
-    
-    // Call Better Auth's official handler method
+    // Process with Better Auth's official handler
     const response = await auth.handler(request);
     
-    console.log('✅ Better Auth response:', response.status);
-    
-    // Set status code
+    // Set response status
     res.status(response.status);
     
-    // Set response headers
+    // Copy all headers from Better Auth response
     response.headers.forEach((value, key) => {
       res.setHeader(key, value);
     });
     
-    // Handle response body
-    if (response.body) {
-      // For streaming response bodies
-      const reader = response.body.getReader();
-      
-      const pump = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(value);
-          }
-          res.end();
-        } catch (streamError) {
-          console.error('❌ Response stream error:', streamError);
-          res.end();
-        }
-      };
-      
-      await pump();
-    } else {
-      // No body to stream
-      res.end();
-    }
+    // Send the response body
+    const body = await response.text();
+    res.send(body);
     
   } catch (error) {
-    console.error('❌ Better Auth Express handler error:', error.message);
-    console.error('Error stack:', error.stack);
-    
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        error: 'Authentication service error',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
-    }
-  }
-}
-
-/**
- * Express middleware wrapper for Better Auth
- * Handles the Express-specific routing and error handling
- */
-function createBetterAuthMiddleware() {
-  return (req, res, next) => {
-    // Only handle requests that start with the auth path
-    if (!req.path.startsWith('/api/auth')) {
-      return next();
-    }
-    
-    // Handle the auth request
-    betterAuthHandler(req, res).catch(error => {
-      console.error('❌ Better Auth middleware error:', error);
-      next(error);
+    console.error('❌ Better Auth handler error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Something went wrong'
     });
-  };
-}
-
-module.exports = {
-  betterAuthHandler,
-  createBetterAuthMiddleware
+  }
 };
+
+module.exports = { betterAuthHandler };
