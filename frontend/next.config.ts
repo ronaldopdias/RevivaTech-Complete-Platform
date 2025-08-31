@@ -35,9 +35,7 @@ const nextConfig: NextConfig = {
     'revivatech.co.uk',
     'revivatech.com.br', 
     'localhost:3010',
-    'localhost:3000',
-    '192.168.1.199:3010',
-    '100.122.130.67:3010'
+    'localhost:3000'
   ],
   
   // PWA Configuration with aggressive cache busting for auth changes

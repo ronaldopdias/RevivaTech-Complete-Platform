@@ -1,0 +1,136 @@
+# RevivaTech Production Environment
+# 🚀 PRODUCTION MODE - Optimized for performance and security
+# Use: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # Production Frontend Override
+  revivatech_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: revivatech_frontend_prod
+    restart: always
+    user: "nextjs:nodejs"
+    ports:
+      - "3010:3010"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      # Production API URLs
+      - NEXT_PUBLIC_API_URL=https://api.revivatech.co.uk
+      - NEXT_PUBLIC_APP_URL=https://revivatech.co.uk
+      - NEXT_PUBLIC_WEBSOCKET_URL=wss://api.revivatech.co.uk
+      - NEXT_PUBLIC_DOMAIN=revivatech.co.uk
+      # Production Better Auth
+      - BETTER_AUTH_URL=https://revivatech.co.uk/api/auth
+      - BETTER_AUTH_SECURE_COOKIES=true
+      - BETTER_AUTH_DEBUG=false
+      # Remove development overrides
+      - CHOKIDAR_USEPOLLING=
+      - WATCHPACK_POLLING=
+      - FAST_REFRESH=
+      - WDS_SOCKET_HOST=
+      - WDS_SOCKET_PORT=
+    volumes: []  # No volume mounts for production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Production Backend Override
+  revivatech_backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: revivatech_backend_prod
+    restart: always
+    ports:
+      - "3011:3011"
+    environment:
+      - NODE_ENV=production
+      - PORT=3011
+      # Production Database
+      - DATABASE_URL=postgresql://revivatech_user:${POSTGRES_PASSWORD}@revivatech_database_prod:5432/revivatech_prod
+      - DB_HOST=revivatech_database_prod
+      - DB_PORT=5432
+      - DB_USER=revivatech_user
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=revivatech_prod
+      # Production Redis
+      - REDIS_URL=redis://revivatech_redis_prod:6379
+      - REDIS_HOST=revivatech_redis_prod
+      - REDIS_PORT=6379
+      # Production Security
+      - JWT_SECRET=${JWT_SECRET}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=https://revivatech.co.uk/api/auth
+      - CORS_ORIGIN=https://revivatech.co.uk,https://www.revivatech.co.uk
+      # Production URLs
+      - FRONTEND_URL=https://revivatech.co.uk
+      # Remove development flags
+      - DEBUG_SQL=false
+      - DEBUG_EMAILS=false
+      - DEBUG_SMS=false
+      - ENABLE_SANDBOX=false
+    volumes:
+      - revivatech_uploads_prod:/app/uploads  # Production uploads only
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Production Database Override
+  revivatech_database:
+    image: postgres:15
+    container_name: revivatech_database_prod
+    restart: always
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_DB=revivatech_prod
+      - POSTGRES_USER=revivatech_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - revivatech_db_data_prod:/var/lib/postgresql/data/pgdata
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql
+      - ./backend/database/002_seed_data.sql:/docker-entrypoint-initdb.d/002-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revivatech_user -d revivatech_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Production Redis Override
+  revivatech_redis:
+    image: redis:7-alpine
+    container_name: revivatech_redis_prod
+    restart: always
+    ports:
+      - "6383:6379"
+    volumes:
+      - revivatech_redis_data_prod:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  revivatech_db_data_prod:
+    name: revivatech_db_data_prod
+  revivatech_redis_data_prod:
+    name: revivatech_redis_data_prod
+  revivatech_uploads_prod:
+    name: revivatech_uploads_prod
+
+# Production uses same network but with production containers
+networks:
+  revivatech_network:
+    driver: bridge

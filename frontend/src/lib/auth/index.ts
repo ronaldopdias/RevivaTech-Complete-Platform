@@ -48,5 +48,10 @@ export { ClientAuthGuard } from './client-guards'
 // Provider component
 export { AuthProvider } from './AuthProvider'
 
+// Progressive registration hooks and types
+export { useProfileCompletion } from './useProfileCompletion'
+export type { UseProfileCompletionReturn, ProfileCompletionStatus } from './useProfileCompletion'
+export type { RegisterData, ProfileCompletionData } from './types'
+
 // Note: Server-side auth should be imported directly:
 // import { auth } from '@/lib/auth/better-auth-server' (API routes only)

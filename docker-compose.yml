@@ -1,37 +1,28 @@
-# RevivaTech Development Environment with Hot Reload
-# ⚠️  DEVELOPMENT MODE - DO NOT USE IN PRODUCTION
-# Use docker-compose.production.yml for production deployment
+# RevivaTech Base Docker Compose Configuration
+# 🏗️ Base services - extended by docker-compose.override.yml (dev) or docker-compose.prod.yml (production)
+# 
+# Usage:
+#   Development: docker-compose up -d (uses override.yml automatically)
+#   Production:  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: '3.8'
 
 services:
-  # RevivaTech Frontend (Development with Hot Reload)
+  # RevivaTech Frontend
   revivatech_frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
     container_name: revivatech_frontend
     restart: unless-stopped
-    user: "0:0"
     ports:
       - "3010:3010"
     environment:
-      - NODE_ENV=development
-      # Internal container communication
-      - BACKEND_INTERNAL_URL=http://revivatech_backend:3011
-      # External client access (development)
-      - NEXT_PUBLIC_API_URL=http://localhost:3011
-      - NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:3011
-      - NEXT_PUBLIC_DOMAIN=localhost
-      # Development configuration
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-      # HMR WebSocket configuration for cross-origin support
-      - WDS_SOCKET_HOST=0.0.0.0
-      - WDS_SOCKET_PORT=3010
-      - FAST_REFRESH=true
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      - NODE_ENV=${NODE_ENV:-development}
+      # Base API configuration - overridden by env files
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3011}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3010}
+      - NEXT_PUBLIC_DOMAIN=${NEXT_PUBLIC_DOMAIN:-localhost}
     networks:
       - revivatech_network
     depends_on:
@@ -43,7 +34,7 @@ services:
       retries: 3
       start_period: 40s
 
-  # RevivaTech Backend API (Development)
+  # RevivaTech Backend API
   revivatech_backend:
     build:
       context: ./backend
@@ -53,25 +44,28 @@ services:
     ports:
       - "3011:3011"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=${NODE_ENV:-development}
       - PORT=3011
-      # Internal service communication
-      - DATABASE_INTERNAL_HOST=revivatech_database
-      - DATABASE_INTERNAL_PORT=5432
-      - REDIS_INTERNAL_URL=redis://revivatech_redis:6379
-      # Legacy compatibility (maintain existing variables)
-      - DB_HOST=revivatech_database
+      # Database configuration
+      - DATABASE_URL=${DATABASE_URL}
+      - DB_HOST=${POSTGRES_HOST:-revivatech_database}
       - DB_PORT=5432
-      - DB_USER=revivatech
-      - DB_PASSWORD=revivatech_password
-      - DB_NAME=revivatech
+      - DB_USER=${POSTGRES_USER:-revivatech}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB:-revivatech}
+      # Redis configuration
       - REDIS_URL=redis://revivatech_redis:6379
-      # Application configuration
-      - JWT_SECRET=your-super-secret-jwt-key-for-development
-      - CORS_ORIGIN=http://localhost:3010,https://revivatech.co.uk
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - REDIS_HOST=revivatech_redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      # Authentication
+      - JWT_SECRET=${JWT_SECRET}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3011/api/auth}
+      - BETTER_AUTH_BASE_URL=${BETTER_AUTH_BASE_URL:-http://localhost:3011/api/auth}
+      # Google OAuth
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     networks:
       - revivatech_network
     depends_on:
@@ -91,9 +85,9 @@ services:
     ports:
       - "5435:5432"
     environment:
-      - POSTGRES_DB=revivatech
-      - POSTGRES_USER=revivatech
-      - POSTGRES_PASSWORD=revivatech_password
+      - POSTGRES_DB=${POSTGRES_DB:-revivatech}
+      - POSTGRES_USER=${POSTGRES_USER:-revivatech}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - revivatech_db_data:/var/lib/postgresql/data/pgdata
@@ -102,7 +96,7 @@ services:
     networks:
       - revivatech_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U revivatech -d revivatech"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-revivatech} -d ${POSTGRES_DB:-revivatech}"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -116,6 +110,7 @@ services:
       - "6383:6379"
     volumes:
       - revivatech_redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     networks:
       - revivatech_network
     healthcheck:
@@ -126,8 +121,11 @@ services:
 
 volumes:
   revivatech_db_data:
+    name: revivatech_db_data
   revivatech_redis_data:
+    name: revivatech_redis_data
 
 networks:
   revivatech_network:
     driver: bridge
+    name: revivatech_network

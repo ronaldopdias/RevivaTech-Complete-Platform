@@ -86,7 +86,7 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:3010',  // Development frontend
       'http://192.168.1.199:3010',  // Local network IP
-      'http://100.122.130.67:3010',  // Tailscale IP
+      // Removed hardcoded Tailscale IP for security
       'https://revivatech.co.uk',
       'https://www.revivatech.co.uk',
       'https://revivatech.com.br',
@@ -135,7 +135,20 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cookie', 'Set-Cookie']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin', 
+    'Cookie', 
+    'Set-Cookie',
+    'cache-control',    // Better Auth required header
+    'x-requested-with', // Better Auth required header  
+    'accept',          // Better Auth required header
+    'origin',          // Better Auth required header
+    'x-csrftoken'      // Better Auth required header
+  ]
 };
 
 app.use(cors(corsOptions));
@@ -655,6 +668,18 @@ try {
   logger.error('❌ Users routes not available:', error.message);
 }
 
+// Import and mount profile completion routes (Progressive Registration)
+try {
+  const profileCompletionRoutes = require('./routes/profile-completion');
+  app.use('/api/profile-completion', (req, res, next) => {
+    req.logger = logger;
+    next();
+  }, profileCompletionRoutes);
+  logger.info('✅ Profile completion routes mounted successfully - Progressive registration activated');
+} catch (error) {
+  logger.error('❌ Profile completion routes not available:', error.message);
+}
+
 // Import and mount email configuration routes (CRITICAL - email management system)
 try {
   const emailConfigRoutes = require('./routes/email-config');
@@ -991,7 +1016,7 @@ const io = new Server(server, {
         'http://localhost:3010',
         'http://localhost:3000',
         'http://192.168.1.199:3010',
-        'http://100.122.130.67:3010',
+        // Removed hardcoded Tailscale IP for security
         'https://revivatech.co.uk',
         'https://www.revivatech.co.uk'
       ];

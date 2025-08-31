@@ -30,9 +30,7 @@ export async function GET() {
 
     // Test backend connectivity (optional - don't fail health check if backend is down)
     try {
-      const backendUrl = process.env.NODE_ENV === 'production' 
-        ? 'http://revivatech_new_backend:3011' 
-        : 'http://localhost:3011';
+      const backendUrl = process.env.BACKEND_INTERNAL_URL || 'http://localhost:3011';
       
       const backendResponse = await fetch(`${backendUrl}/health`, {
         timeout: 2000,

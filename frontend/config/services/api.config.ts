@@ -2,9 +2,9 @@ import { ServiceConfig } from '@/lib/services/types';
 
 // Dynamic API base URL detection based on current hostname
 const getApiBaseUrl = (): string => {
-  // Server-side rendering: always use local backend
+  // Server-side rendering: use container networking in Docker, localhost otherwise
   if (typeof window === 'undefined') {
-    return 'http://localhost:3011';
+    return process.env.BACKEND_INTERNAL_URL || 'http://localhost:3011';
   }
   
   // Client-side: detect hostname and use appropriate backend URL

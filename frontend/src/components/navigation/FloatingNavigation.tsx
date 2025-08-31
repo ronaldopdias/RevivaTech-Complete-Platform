@@ -107,17 +107,36 @@ const FloatingNavigation: React.FC = () => {
     scrolled: false,
   });
 
-  // Memoized navigation items based on user role with emergency fallback
+  // Memoized navigation items based on user role with proper authentication detection
   const navigation = useMemo(() => {
-    // Emergency fallback: Always generate navigation for PUBLIC role to prevent loading state
-    console.log('FloatingNavigation Emergency Mode - bypassing loading checks');
+    console.log('FloatingNavigation: Generating navigation for current role:', {
+      isAuthenticated,
+      currentRole,
+      authLoading,
+      isLoading: isLoading
+    });
+    
+    // Show minimal navigation while loading authentication state
+    if (authLoading || isLoading) {
+      console.log('FloatingNavigation: Showing loading navigation');
+      return [
+        { name: 'Home', href: '/' },
+        { name: 'Services', href: '/services' },
+        { name: 'About', href: '/about' },
+        { name: 'Contact', href: '/contact' }
+      ];
+    }
     
     try {
-      // Force PUBLIC role to get full navigation immediately
-      const publicRoleNavigation = getNavigationForRole('PUBLIC');
-      const convertedNavigation = convertRoleNavigation(publicRoleNavigation);
+      // Use actual user role - PUBLIC for unauthenticated, user role when authenticated
+      const userRole = isAuthenticated ? currentRole : 'PUBLIC';
+      console.log('FloatingNavigation: Using role for navigation:', userRole);
       
-      console.log('Emergency navigation generated:', {
+      const roleNavigation = getNavigationForRole(userRole);
+      const convertedNavigation = convertRoleNavigation(roleNavigation);
+      
+      console.log('FloatingNavigation: Generated navigation:', {
+        role: userRole,
         count: convertedNavigation.length,
         items: convertedNavigation.map(item => item.name)
       });
@@ -126,11 +145,11 @@ const FloatingNavigation: React.FC = () => {
         return convertedNavigation;
       }
     } catch (error) {
-      console.error('Error generating emergency navigation:', error);
+      console.error('FloatingNavigation: Error generating role-based navigation:', error);
     }
     
-    // Last resort fallback navigation
-    console.warn('Using last resort fallback navigation');
+    // Fallback navigation only if role-based generation fails
+    console.warn('FloatingNavigation: Using fallback navigation due to error');
     return [
       { name: 'Home', href: '/' },
       { name: 'Apple Repair', href: '/apple' },
@@ -138,11 +157,10 @@ const FloatingNavigation: React.FC = () => {
       { name: 'Gaming Consoles', href: '/consoles' },
       { name: 'Data Recovery', href: '/data-recovery' },
       { name: 'Pricing', href: '/pricing' },
-      { name: 'Testimonials', href: '/testimonials' },
       { name: 'About', href: '/about' },
       { name: 'Contact', href: '/contact' }
     ];
-  }, []); // Empty dependency array to prevent re-computation
+  }, [isAuthenticated, currentRole, authLoading, isLoading]); // Proper dependencies
 
   // Get current role display config
   const currentRoleConfig = ROLE_DISPLAY_CONFIG[currentRole];

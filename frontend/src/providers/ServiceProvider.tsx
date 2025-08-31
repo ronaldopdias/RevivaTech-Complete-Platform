@@ -42,7 +42,7 @@ export function ServiceProvider({
     const defaultConfig: ServiceFactoryConfig = {
       environment: (process.env.NODE_ENV as any) || 'development',
       useMockServices: false,  // Use REAL API services - backend routes are now mounted!
-      apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3011',
+      apiBaseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011',
       ...config,
     };
 
